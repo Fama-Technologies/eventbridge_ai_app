@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "366724706110",
+    "project_id": "eventbridge-ai",
+    "storage_bucket": "eventbridge-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:366724706110:android:84a106b3f1eac70060066f",
+        "android_client_info": {
+          "package_name": "com.eventbridge.ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIjpzMpLRf_Vd5tp_cYxLOz3No23A5OLk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:366724706110:android:f28f1a1c55beb8b560066f",
+        "android_client_info": {
+          "package_name": "com.eventbridge.eventbridge_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIjpzMpLRf_Vd5tp_cYxLOz3No23A5OLk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
