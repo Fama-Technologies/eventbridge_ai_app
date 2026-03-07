@@ -1,0 +1,24 @@
+{
+  "changelists": [
+    {
+      "name": "Default",
+      "files": [
+        "lib/core/config/app_config.dart",
+        ".vscode/changelists.json",
+        "android/app/google-services.json",
+        "ios/Runner/GoogleService-Info.plist",
+        "pubspec.yaml",
+        "android/app/build.gradle.kts",
+        "android/settings.gradle.kts",
+        "pubspec.lock",
+        "firebase.json",
+        "lib/firebase_options.dart",
+        "macos/Flutter/GeneratedPluginRegistrant.swift",
+        "windows/flutter/generated_plugin_registrant.cc",
+        "windows/flutter/generated_plugins.cmake",
+        "lib/main.dart"
+      ]
+    }
+  ],
+  "active": "Default"
+}
