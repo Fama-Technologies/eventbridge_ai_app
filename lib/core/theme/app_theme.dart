@@ -17,6 +17,18 @@ class AppColors {
   static const Color neutrals07 = Color(0xFF717171);
   static const Color neutrals08 = Color(0xFF5E5E5E);
 
+  // Aliases for compatibility
+  static const Color neutral03 = neutrals03;
+  static const Color neutral06 = neutrals06;
+
+  // Dark Mode Neutrals
+  static const Color darkNeutral04 = Color(0xFF888888);
+  static const Color darkNeutral06 = Color(0xFFA0A0A0);
+
+  // Text Colors
+  static const Color shadesWhite = Color(0xFFFFFFFF);
+  static const Color foregroundDark = Color(0xFFF5F5F5);
+
   // Errors
   static const Color errorsBg = Color(0xFFFEF8F6);
   static const Color errorsMain = Color(0xFFC13515);
@@ -65,4 +77,6 @@ class AppTheme {
       ),
     );
   }
+
+  static const double borderRadius = 12.0;
 }

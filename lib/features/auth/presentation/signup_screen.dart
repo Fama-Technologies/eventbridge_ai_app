@@ -3,7 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_theme.dart';
+import 'package:eventbridge_ai/core/theme/app_theme.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -37,29 +37,43 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 Text(
                   'Create Account',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.neutrals08,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.neutrals08,
+                  ),
                   textAlign: TextAlign.center,
                 ).animate().fadeIn(),
                 const Gap(8),
                 Text(
                   'Join EventBridge AI to start matching',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.neutrals07,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: AppColors.neutrals07),
                   textAlign: TextAlign.center,
                 ).animate().fadeIn(delay: 200.ms),
                 const Gap(32),
 
                 // Role Selection
-                Text('I am a...', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.neutrals08)),
+                Text(
+                  'I am a...',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutrals08,
+                  ),
+                ),
                 const Gap(12),
                 Row(
                   children: [
-                    _buildRoleCard('Customer', PhosphorIcons.user(), !_isVendor),
+                    _buildRoleCard(
+                      'Customer',
+                      PhosphorIcons.user(),
+                      !_isVendor,
+                    ),
                     const Gap(16),
-                    _buildRoleCard('Vendor', PhosphorIcons.storefront(), _isVendor),
+                    _buildRoleCard(
+                      'Vendor',
+                      PhosphorIcons.storefront(),
+                      _isVendor,
+                    ),
                   ],
                 ).animate().fadeIn(delay: 400.ms),
                 const Gap(32),
@@ -68,7 +82,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   label: 'Full Name',
                   hint: 'enter your name',
                   icon: PhosphorIcons.user(),
-                  validator: (value) => value == null || value.isEmpty ? 'Name is required' : null,
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Name is required'
+                      : null,
                 ),
                 if (_isVendor) ...[
                   const Gap(20),
@@ -76,7 +92,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     label: 'Business Name',
                     hint: 'enter your business name',
                     icon: PhosphorIcons.briefcase(),
-                    validator: (value) => value == null || value.isEmpty ? 'Business name is required' : null,
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'Business name is required'
+                        : null,
                   ),
                 ],
                 const Gap(20),
@@ -84,7 +102,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   label: 'Email Address',
                   hint: 'enter your email',
                   icon: PhosphorIcons.at(),
-                  validator: (value) => value == null || !value.contains('@') ? 'Enter a valid email' : null,
+                  validator: (value) => value == null || !value.contains('@')
+                      ? 'Enter a valid email'
+                      : null,
                 ),
                 const Gap(20),
                 _buildTextField(
@@ -92,9 +112,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   hint: 'create a password',
                   icon: PhosphorIcons.lock(),
                   isPassword: true,
-                  validator: (value) => value == null || value.length < 6 ? 'Password too short' : null,
+                  validator: (value) => value == null || value.length < 6
+                      ? 'Password too short'
+                      : null,
                 ),
-                
+
                 const Gap(40),
                 ElevatedButton(
                   onPressed: () {
@@ -106,19 +128,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     backgroundColor: AppColors.primary01,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Create Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ).animate().scale(delay: 600.ms, curve: Curves.backOut),
-                
+                  child: const Text(
+                    'Create Account',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ).animate().scale(delay: 600.ms, curve: Curves.elasticOut),
+
                 const Gap(32),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Already have an account? ", style: TextStyle(color: AppColors.neutrals07)),
+                    Text(
+                      "Already have an account? ",
+                      style: TextStyle(color: AppColors.neutrals07),
+                    ),
                     GestureDetector(
                       onTap: () => context.pop(),
-                      child: const Text('Sign In', style: TextStyle(color: AppColors.primary01, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Sign In',
+                        style: TextStyle(
+                          color: AppColors.primary01,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -139,7 +175,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary012.withOpacity(0.1) : Colors.white,
+            color: isSelected
+                ? AppColors.primary012.withOpacity(0.1)
+                : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected ? AppColors.primary01 : AppColors.neutrals02,
@@ -148,12 +186,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
           child: Column(
             children: [
-              Icon(icon, color: isSelected ? AppColors.primary01 : AppColors.neutrals04, size: 32),
+              Icon(
+                icon,
+                color: isSelected ? AppColors.primary01 : AppColors.neutrals04,
+                size: 32,
+              ),
               const Gap(8),
               Text(
                 title,
                 style: TextStyle(
-                  color: isSelected ? AppColors.primary01 : AppColors.neutrals07,
+                  color: isSelected
+                      ? AppColors.primary01
+                      : AppColors.neutrals07,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -174,7 +218,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.neutrals08)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppColors.neutrals08,
+          ),
+        ),
         const Gap(8),
         TextFormField(
           obscureText: isPassword && !_isPasswordVisible,
@@ -185,8 +236,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
             prefixIcon: Icon(icon, color: AppColors.neutrals04),
             suffixIcon: isPassword
                 ? IconButton(
-                    icon: Icon(_isPasswordVisible ? PhosphorIcons.eye() : PhosphorIcons.eyeSlash()),
-                    onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    icon: Icon(
+                      _isPasswordVisible
+                          ? PhosphorIcons.eye()
+                          : PhosphorIcons.eyeSlash(),
+                    ),
+                    onPressed: () => setState(
+                      () => _isPasswordVisible = !_isPasswordVisible,
+                    ),
                   )
                 : null,
             filled: true,
@@ -201,7 +258,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary01, width: 2),
+              borderSide: const BorderSide(
+                color: AppColors.primary01,
+                width: 2,
+              ),
             ),
           ),
         ),

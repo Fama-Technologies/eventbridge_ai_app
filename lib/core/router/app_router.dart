@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../features/auth/presentation/splash_screen.dart';
-import '../features/auth/presentation/onboarding_screen.dart';
-import '../features/auth/presentation/login_screen.dart';
-import '../features/auth/presentation/signup_screen.dart';
+import 'package:eventbridge_ai/features/auth/presentation/splash_screen.dart';
+import 'package:eventbridge_ai/features/auth/presentation/onboarding_screen.dart';
+import 'package:eventbridge_ai/features/auth/presentation/login_screen.dart';
+import 'package:eventbridge_ai/features/auth/presentation/signup_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',

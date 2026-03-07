@@ -3,7 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_theme.dart';
+import 'package:eventbridge_ai/core/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,21 +32,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Welcome Back',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.neutrals08,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.neutrals08,
+                  ),
                   textAlign: TextAlign.center,
                 ).animate().fadeIn().slideY(begin: 0.1),
                 const Gap(8),
                 Text(
                   'Sign in to continue planning your events',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.neutrals07,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: AppColors.neutrals07),
                   textAlign: TextAlign.center,
                 ).animate().fadeIn(delay: 200.ms),
                 const Gap(40),
-                
+
                 // Role Switcher
                 Container(
                   padding: const EdgeInsets.all(4),
@@ -67,7 +67,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   label: 'Email Address',
                   hint: 'enter your email',
                   icon: PhosphorIcons.at(),
-                  validator: (value) => value == null || !value.contains('@') ? 'Enter a valid email' : null,
+                  validator: (value) => value == null || !value.contains('@')
+                      ? 'Enter a valid email'
+                      : null,
                 ),
                 const Gap(20),
                 _buildTextField(
@@ -75,15 +77,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   hint: 'enter your password',
                   icon: PhosphorIcons.lock(),
                   isPassword: true,
-                  validator: (value) => value == null || value.length < 6 ? 'Password too short' : null,
+                  validator: (value) => value == null || value.length < 6
+                      ? 'Password too short'
+                      : null,
                 ),
-                
+
                 const Gap(12),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {},
-                    child: const Text('Forgot Password?', style: TextStyle(color: AppColors.primary01)),
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(color: AppColors.primary01),
+                    ),
                   ),
                 ),
                 const Gap(32),
@@ -98,18 +105,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     backgroundColor: AppColors.primary01,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ).animate().scale(delay: 600.ms, curve: Curves.backOut),
-                
+                  child: const Text(
+                    'Sign In',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ).animate().scale(delay: 600.ms, curve: Curves.elasticOut),
+
                 const Gap(40),
                 Row(
                   children: [
                     const Expanded(child: Divider()),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR', style: TextStyle(color: AppColors.neutrals05)),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(color: AppColors.neutrals05),
+                      ),
                     ),
                     const Expanded(child: Divider()),
                   ],
@@ -118,23 +133,40 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 OutlinedButton.icon(
                   onPressed: () {},
-                  icon: Icon(PhosphorIcons.googleLogo(), color: AppColors.neutrals08),
-                  label: const Text('Continue with Google', style: TextStyle(color: AppColors.neutrals08)),
+                  icon: Icon(
+                    PhosphorIcons.googleLogo(),
+                    color: AppColors.neutrals08,
+                  ),
+                  label: const Text(
+                    'Continue with Google',
+                    style: TextStyle(color: AppColors.neutrals08),
+                  ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: const BorderSide(color: AppColors.neutrals03),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
-                
+
                 const Gap(40),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Don't have an account? ", style: TextStyle(color: AppColors.neutrals07)),
+                    Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: AppColors.neutrals07),
+                    ),
                     GestureDetector(
-                      onTap: () => context.push('/signup'),
-                      child: const Text('Sign Up', style: TextStyle(color: AppColors.primary01, fontWeight: FontWeight.bold)),
+                      onTap: () => GoRouter.of(context).push('/signup'),
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(
+                          color: AppColors.primary01,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -156,7 +188,15 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : [],
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
           ),
           child: Center(
             child: Text(
@@ -182,7 +222,14 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.neutrals08)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppColors.neutrals08,
+          ),
+        ),
         const Gap(8),
         TextFormField(
           obscureText: isPassword && !_isPasswordVisible,
@@ -193,8 +240,14 @@ class _LoginScreenState extends State<LoginScreen> {
             prefixIcon: Icon(icon, color: AppColors.neutrals04),
             suffixIcon: isPassword
                 ? IconButton(
-                    icon: Icon(_isPasswordVisible ? PhosphorIcons.eye() : PhosphorIcons.eyeSlash()),
-                    onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    icon: Icon(
+                      _isPasswordVisible
+                          ? PhosphorIcons.eye()
+                          : PhosphorIcons.eyeSlash(),
+                    ),
+                    onPressed: () => setState(
+                      () => _isPasswordVisible = !_isPasswordVisible,
+                    ),
                   )
                 : null,
             filled: true,
@@ -209,7 +262,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary01, width: 2),
+              borderSide: const BorderSide(
+                color: AppColors.primary01,
+                width: 2,
+              ),
             ),
           ),
         ),
