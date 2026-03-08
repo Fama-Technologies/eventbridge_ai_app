@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:eventbridge_ai/core/theme/app_theme.dart';
-import '../../auth/presentation/login_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -65,9 +66,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _navigateToLogin() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    context.go('/login');
   }
 
   @override
@@ -92,16 +91,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 description:
                     'Join an elite network and get matched with high-value event leads automatically.',
                 imageType: _ImageType.fullImageCover,
-                imageUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDBurts-QTRvO3gNgFbN8O1W9TZ6cwxPRV4NAQLAdW4UYGhyztGJWnAFM4YT98tYGrNIi0eoUFa7bWNgDDtGwbPMczAPquz2nuLPTiX3CwLj9F_XEjeWEfwmizRRsDL7XNT5BMtwlUf_11V57EI1R0kB-Cbt3EWbRV-Ofxw1nPJykLly2bGOWjFyOyFpD3oiufW0ZP-Iu86ojQknVpFQkbb2ccJ8XwZHyNJQhNVA1V7kyQYFa_T2yDGyXFYzeFjEJ4ulEPZdJhAg5OR',
+                imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=1000',
               ),
               _OnboardingPage(
                 title: 'AI-Powered Matching',
                 description:
                     'Stop hunting for leads. Our AI analyzes your expertise and budget to find the perfect clients for you.',
                 imageType: _ImageType.roundedCard,
-                imageUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDBurts-QTRvO3gNgFbN8O1W9TZ6cwxPRV4NAQLAdW4UYGhyztGJWnAFM4YT98tYGrNIi0eoUFa7bWNgDDtGwbPMczAPquz2nuLPTiX3CwLj9F_XEjeWEfwmizRRsDL7XNT5BMtwlUf_11V57EI1R0kB-Cbt3EWbRV-Ofxw1nPJykLly2bGOWjFyOyFpD3oiufW0ZP-Iu86ojQknVpFQkbb2ccJ8XwZHyNJQhNVA1V7kyQYFa_T2yDGyXFYzeFjEJ4ulEPZdJhAg5OR', // Reusing the valid image for now to prevent 404 crashes
+                imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=600',
               ),
               _OnboardingPage(
                 title: 'Secure & Fast Payments',
@@ -231,8 +228,9 @@ class _OnboardingPage extends StatelessWidget {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  style: GoogleFonts.playfairDisplay(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
                     color: textColor,
                     letterSpacing: -0.5,
                   ),
@@ -241,7 +239,7 @@ class _OnboardingPage extends StatelessWidget {
                 Text(
                   description,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
+                  style: GoogleFonts.inter(
                     color: descColor,
                     height: 1.5,
                     fontSize: 15,
