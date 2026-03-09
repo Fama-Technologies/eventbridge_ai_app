@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:eventbridge_ai/core/theme/app_theme.dart';
-import '../../auth/presentation/login_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -65,9 +65,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _navigateToLogin() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    // use GoRouter to change route so that the navigator stack is cleared
+    context.go('/login');
   }
 
   @override
@@ -92,16 +91,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 description:
                     'Join an elite network and get matched with high-value event leads automatically.',
                 imageType: _ImageType.fullImageCover,
-                imageUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDBurts-QTRvO3gNgFbN8O1W9TZ6cwxPRV4NAQLAdW4UYGhyztGJWnAFM4YT98tYGrNIi0eoUFa7bWNgDDtGwbPMczAPquz2nuLPTiX3CwLj9F_XEjeWEfwmizRRsDL7XNT5BMtwlUf_11V57EI1R0kB-Cbt3EWbRV-Ofxw1nPJykLly2bGOWjFyOyFpD3oiufW0ZP-Iu86ojQknVpFQkbb2ccJ8XwZHyNJQhNVA1V7kyQYFa_T2yDGyXFYzeFjEJ4ulEPZdJhAg5OR',
+                imageUrl: 'assets/images/image111.png',
               ),
               _OnboardingPage(
                 title: 'AI-Powered Matching',
                 description:
                     'Stop hunting for leads. Our AI analyzes your expertise and budget to find the perfect clients for you.',
                 imageType: _ImageType.roundedCard,
-                imageUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDBurts-QTRvO3gNgFbN8O1W9TZ6cwxPRV4NAQLAdW4UYGhyztGJWnAFM4YT98tYGrNIi0eoUFa7bWNgDDtGwbPMczAPquz2nuLPTiX3CwLj9F_XEjeWEfwmizRRsDL7XNT5BMtwlUf_11V57EI1R0kB-Cbt3EWbRV-Ofxw1nPJykLly2bGOWjFyOyFpD3oiufW0ZP-Iu86ojQknVpFQkbb2ccJ8XwZHyNJQhNVA1V7kyQYFa_T2yDGyXFYzeFjEJ4ulEPZdJhAg5OR', // Reusing the valid image for now to prevent 404 crashes
+                imageUrl: 'assets/images/image22.png',
               ),
               _OnboardingPage(
                 title: 'Secure & Fast Payments',
@@ -127,7 +124,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   count: 3,
                   effect: ExpandingDotsEffect(
                     activeDotColor: AppColors.primary01,
-                    dotColor: isDark ? AppColors.darkNeutral04 : AppColors.neutral03,
+                    dotColor: isDark
+                        ? AppColors.darkNeutral04
+                        : AppColors.neutral03,
                     dotHeight: 8,
                     dotWidth: 8,
                     expansionFactor: 3,
@@ -145,6 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       backgroundColor: AppColors.primary01,
                       foregroundColor: AppColors.shadesWhite,
                       shape: RoundedRectangleBorder(
+                        // padding: const EdgeInsets.symmetric(horizontal: 24),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       elevation: 0,
@@ -177,7 +177,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   )
                 else
-                  const SizedBox(height: 48), // Padding equivalent to Skip button height
+                  const SizedBox(
+                    height: 48,
+                  ), // Padding equivalent to Skip button height
               ],
             ),
           ),
@@ -208,23 +210,28 @@ class _OnboardingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
-    final textColor = isDark ? AppColors.foregroundDark : const Color(0xFF0F172A); // Extra dark navy for title
-    final descColor = isDark ? AppColors.darkNeutral06 : const Color(0xFF64748B); // Slate grey
+
+    final textColor = isDark
+        ? AppColors.foregroundDark
+        : const Color(0xFF0F172A); // Extra dark navy for title
+    final descColor = isDark
+        ? AppColors.darkNeutral06
+        : const Color(0xFF64748B); // Slate grey
 
     return Column(
       children: [
         // ── Top Graphic (Dynamic based on type) ──
-        Expanded(
-          flex: 55,
-          child: _buildGraphicBox(context, isDark),
-        ),
+        Expanded(flex: 55, child: _buildGraphicBox(context, isDark)),
 
         // ── Text Content ──
         Expanded(
           flex: 45,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.only(left: 32.0, right: 32.0, bottom: 180.0),
+            padding: const EdgeInsets.only(
+              left: 32.0,
+              right: 32.0,
+              bottom: 180.0,
+            ),
             child: Column(
               children: [
                 const SizedBox(height: 24),
@@ -256,7 +263,9 @@ class _OnboardingPage extends StatelessWidget {
   }
 
   Widget _buildGraphicBox(BuildContext context, bool isDark) {
-    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
 
     if (imageType == _ImageType.fullImageCover) {
       // Screen 1: Image covering top half with gradient fade to background
@@ -296,16 +305,13 @@ class _OnboardingPage extends StatelessWidget {
           height: 280,
           margin: const EdgeInsets.only(top: 40),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF2A2420) : const Color(0xFFFBF4EB), 
+            color: isDark ? const Color(0xFF2A2420) : const Color(0xFFFBF4EB),
             borderRadius: BorderRadius.circular(24),
           ),
           padding: const EdgeInsets.all(24),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              imageUrl!,
-              fit: BoxFit.cover,
-            ),
+            child: Image.network(imageUrl!, fit: BoxFit.cover),
           ),
         ),
       );
