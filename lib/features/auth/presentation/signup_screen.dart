@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+// import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/core/theme/app_theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
 
-class SignUpScreen extends StatefulWidget {
+class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isPasswordVisible = false;
   bool _isVendor = false;
@@ -65,15 +68,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   children: [
                     _buildRoleCard(
                       'Customer',
-                      PhosphorIcons.user(),
+                      Icons.person_rounded,
                       !_isVendor,
                     ),
                     const Gap(16),
-                    _buildRoleCard(
-                      'Vendor',
-                      PhosphorIcons.storefront(),
-                      _isVendor,
-                    ),
+                    _buildRoleCard('Vendor', Icons.store_rounded, _isVendor),
                   ],
                 ).animate().fadeIn(delay: 400.ms),
                 const Gap(32),
@@ -81,7 +80,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _buildTextField(
                   label: 'Full Name',
                   hint: 'enter your name',
-                  icon: PhosphorIcons.user(),
+                  icon: Icons.person_outline_rounded,
                   validator: (value) => value == null || value.isEmpty
                       ? 'Name is required'
                       : null,
@@ -91,7 +90,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   _buildTextField(
                     label: 'Business Name',
                     hint: 'enter your business name',
-                    icon: PhosphorIcons.briefcase(),
+                    icon: Icons.business_center_rounded,
                     validator: (value) => value == null || value.isEmpty
                         ? 'Business name is required'
                         : null,
@@ -101,7 +100,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _buildTextField(
                   label: 'Email Address',
                   hint: 'enter your email',
-                  icon: PhosphorIcons.at(),
+                  icon: Icons.alternate_email_rounded,
                   validator: (value) => value == null || !value.contains('@')
                       ? 'Enter a valid email'
                       : null,
@@ -110,7 +109,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _buildTextField(
                   label: 'Password',
                   hint: 'create a password',
-                  icon: PhosphorIcons.lock(),
+                  icon: Icons.lock_outline_rounded,
                   isPassword: true,
                   validator: (value) => value == null || value.length < 6
                       ? 'Password too short'
@@ -140,6 +139,79 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                 const Gap(32),
                 Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                          color: AppColors.neutrals05,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                  ],
+                ),
+                const Gap(24),
+
+                Consumer(
+                  builder: (context, ref, child) {
+                    final authState = ref.watch(authControllerProvider);
+                    return SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: authState.isLoading ? () {} : () async {
+                          await ref.read(authControllerProvider.notifier).continueWithGoogle(role: _isVendor ? 'VENDOR' : 'CUSTOMER');
+                          if (!context.mounted) return;
+                          
+                          if (ref.read(authControllerProvider).hasError) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ref.read(authControllerProvider).error.toString().replaceAll('Exception: ', '')),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          } else {
+                            if (_isVendor) {
+                               context.go('/vendor-onboarding');
+                            } else {
+                               context.go('/home'); // Or wherever customer goes
+                            }
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          side: BorderSide(color: AppColors.neutrals03),
+                          backgroundColor: Colors.white,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset('assets/icons/google.png', height: 24),
+                            const Gap(12),
+                            Text(
+                              authState.isLoading ? 'Connecting...' : 'Continue with Google',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.neutrals08,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                ).animate().scale(delay: 700.ms, curve: Curves.elasticOut),
+
+                const Gap(32),
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
@@ -148,7 +220,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     GestureDetector(
                       onTap: () => context.pop(),
-                      child: const Text(
+                      child: Text(
                         'Sign In',
                         style: TextStyle(
                           color: AppColors.primary01,
@@ -176,7 +248,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.primary012.withOpacity(0.1)
+                ? AppColors.primary01.withValues(alpha: 0.1)
                 : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
@@ -232,14 +304,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.neutrals05),
+            hintStyle: TextStyle(color: AppColors.neutrals05),
             prefixIcon: Icon(icon, color: AppColors.neutrals04),
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
                       _isPasswordVisible
-                          ? PhosphorIcons.eye()
-                          : PhosphorIcons.eyeSlash(),
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
                     ),
                     onPressed: () => setState(
                       () => _isPasswordVisible = !_isPasswordVisible,
@@ -250,18 +322,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
             fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.neutrals02),
+              borderSide: BorderSide(color: AppColors.neutrals02),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.neutrals02),
+              borderSide: BorderSide(color: AppColors.neutrals02),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppColors.primary01,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: AppColors.primary01, width: 2),
             ),
           ),
         ),

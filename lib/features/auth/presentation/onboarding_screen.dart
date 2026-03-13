@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:eventbridge_ai/core/theme/app_theme.dart';
+import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -50,6 +52,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  void _onBackTap() {
+    _pageController.previousPage(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
   void _onNextTap() {
     if (isLastPage) {
       _navigateToLogin();
@@ -75,6 +84,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
       body: Stack(
         children: [
           // ── Scrollable Pages ──
@@ -87,95 +97,81 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             },
             children: const [
               _OnboardingPage(
-                title: 'Grow Your Business',
+
+                title: 'Seamless Event Planning',
+                // ----- so we going  to use the images  in the /assets/onboarding/
                 description:
-                    'Join an elite network and get matched with high-value event leads automatically.',
-                imageType: _ImageType.fullImageCover,
-                imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=1000',
+                    'Connect with elite vendors and plan your dream event with AI-powered precision and effortless coordination.',
+                imageUrl: 'assets/onboarding/onboarding1.',
               ),
               _OnboardingPage(
                 title: 'AI-Powered Matching',
                 description:
-                    'Stop hunting for leads. Our AI analyzes your expertise and budget to find the perfect clients for you.',
-                imageType: _ImageType.roundedCard,
-                imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=600',
+                    'Our advanced algorithms pair you with perfectly suited vendors for your specific needs, budget, and aesthetic.',
+                imageUrl: 'https://images.unsplash.com/photo-1551818255-e6e10975bc17?auto=format&fit=crop&q=80&w=800',
               ),
               _OnboardingPage(
-                title: 'Secure & Fast Payments',
+                title: 'Track Every Detail',
                 description:
-                    'Get paid securely through our integrated payment system as soon as your match is confirmed.',
-                imageType: _ImageType.circularIcon,
-                iconData: PhosphorIconsRegular.money,
+                    'Monitor your event progress in real-time, manage bookings, and stay ahead of every deadline with one intelligent platform.',
+                imageUrl: 'https://images.unsplash.com/photo-1475721027187-402473394b8e?auto=format&fit=crop&q=80&w=800',
               ),
             ],
           ),
 
           // ── Bottom Controls ──
           Positioned(
-            bottom: 40,
+            bottom: 50,
             left: 24,
             right: 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Back Button
+                _CircularNavigationButton(
+                  icon: Icons.chevron_left_rounded,
+                  onTap: _onBackTap,
+                  enabled: _pageController.hasClients && _pageController.page != 0,
+                ),
+
                 // Page Indicator
                 SmoothPageIndicator(
                   controller: _pageController,
                   count: 3,
                   effect: ExpandingDotsEffect(
-                    activeDotColor: AppColors.primary01,
-                    dotColor: isDark ? AppColors.darkNeutral04 : AppColors.neutral03,
+                    activeDotColor: AppColors.shadesWhite,
+                    dotColor: AppColors.darkNeutral04.withValues(alpha: 0.5),
                     dotHeight: 8,
                     dotWidth: 8,
                     expansionFactor: 3,
+                    spacing: 8,
                   ),
                 ),
-                const SizedBox(height: 32),
 
-                // Next / Get Started Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _onNextTap,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary01,
-                      foregroundColor: AppColors.shadesWhite,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      isLastPage ? 'Get Started' : 'Next',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                // Next Button
+                _CircularNavigationButton(
+                  icon: isLastPage ? Icons.check_rounded : Icons.chevron_right_rounded,
+                  onTap: _onNextTap,
+                  isPrimary: true,
                 ),
-                const SizedBox(height: 16),
-
-                // Skip Button
-                if (!isLastPage)
-                  TextButton(
-                    onPressed: _onSkipTap,
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.neutral06,
-                      splashFactory: NoSplash.splashFactory,
-                    ),
-                    child: const Text(
-                      'Skip',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  )
-                else
-                  const SizedBox(height: 48), // Padding equivalent to Skip button height
               ],
+            ),
+          ),
+          
+          // Skip Button top right
+          Positioned(
+            top: 60,
+            right: 20,
+            child: TextButton(
+              onPressed: _onSkipTap,
+              child: Text(
+                'Skip',
+                style: TextStyle(
+                  color: AppColors.darkNeutral06,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
         ],
@@ -184,65 +180,158 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-enum _ImageType { fullImageCover, roundedCard, circularIcon }
+class _CircularNavigationButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool enabled;
+  final bool isPrimary;
+
+  const _CircularNavigationButton({
+    required this.icon,
+    required this.onTap,
+    this.enabled = true,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled && !isPrimary) return const SizedBox(width: 56, height: 56);
+
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: isPrimary ? AppColors.primary01 : AppColors.darkNeutral02.withValues(alpha: 0.5),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          color: AppColors.shadesWhite,
+          size: 28,
+        ),
+      ),
+    );
+  }
+}
 
 class _OnboardingPage extends StatelessWidget {
   final String title;
   final String description;
-  final _ImageType imageType;
-  final String? imageUrl;
-  final IconData? iconData;
+  final String imageUrl;
 
   const _OnboardingPage({
     required this.title,
     required this.description,
-    required this.imageType,
-    this.imageUrl,
-    this.iconData,
+    required this.imageUrl,
   });
+
+  Widget _buildPlaceholderImage(String imageUrl) {
+    IconData icon;
+    Color color;
+    if (imageUrl.contains('photo-1540575861501')) {
+      icon = Icons.event_available_rounded;
+      color = AppColors.primary01;
+    } else if (imageUrl.contains('photo-1551818255')) {
+      icon = Icons.psychology_rounded;
+      color = const Color(0xFF6366F1);
+    } else {
+      icon = Icons.track_changes_rounded;
+      color = const Color(0xFF10B981);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color,
+            color.withValues(alpha: 0.7),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/Icon.svg',
+              height: 120,
+              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            ),
+            const SizedBox(height: 20),
+            Icon(
+              icon,
+              size: 48,
+              color: Colors.white,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
-    final textColor = isDark ? AppColors.foregroundDark : const Color(0xFF0F172A); // Extra dark navy for title
-    final descColor = isDark ? AppColors.darkNeutral06 : const Color(0xFF64748B); // Slate grey
-
     return Column(
       children: [
-        // ── Top Graphic (Dynamic based on type) ──
+        // ── Top Curved Graphic Placeholder ──
         Expanded(
-          flex: 55,
-          child: _buildGraphicBox(context, isDark),
+          flex: 6,
+          child: Stack(
+            children: [
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFFD9D9D9) : const Color(0xFFE5E5E5),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.elliptical(500, 250),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.elliptical(500, 250),
+                  ),
+                  child: _buildPlaceholderImage(imageUrl),
+                ),
+              ),
+              // Optional: Add a subtle overlay for the curve effect if needed
+            ],
+          ),
         ),
 
         // ── Text Content ──
         Expanded(
-          flex: 45,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(left: 32.0, right: 32.0, bottom: 180.0),
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 24),
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.playfairDisplay(
-                    fontSize: 32,
+                  style: TextStyle(
+                    fontSize: 36,
                     fontWeight: FontWeight.w800,
-                    color: textColor,
-                    letterSpacing: -0.5,
+                    color: AppColors.shadesWhite,
+                    height: 1.1,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 Text(
                   description,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    color: descColor,
-                    height: 1.5,
-                    fontSize: 15,
+                  style: TextStyle(
+                    color: AppColors.darkNeutral06,
+                    height: 1.4,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
@@ -251,82 +340,5 @@ class _OnboardingPage extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Widget _buildGraphicBox(BuildContext context, bool isDark) {
-    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
-
-    if (imageType == _ImageType.fullImageCover) {
-      // Screen 1: Image covering top half with gradient fade to background
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            imageUrl!,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-          ),
-          // Gradient fade to blend into the background
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    bgColor.withValues(alpha: 0),
-                    bgColor.withValues(alpha: 0.1),
-                    bgColor.withValues(alpha: 0.8),
-                    bgColor,
-                  ],
-                  stops: const [0.5, 0.7, 0.9, 1.0],
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    } else if (imageType == _ImageType.roundedCard) {
-      // Screen 2: Floating rounded card with image inside
-      return Center(
-        child: Container(
-          width: 280,
-          height: 280,
-          margin: const EdgeInsets.only(top: 40),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF2A2420) : const Color(0xFFFBF4EB), 
-            borderRadius: BorderRadius.circular(24),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              imageUrl!,
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-      );
-    } else {
-      // Screen 3: Circular placeholder icon on a peach background
-      return Center(
-        child: Container(
-          width: 200,
-          height: 200,
-          margin: const EdgeInsets.only(top: 40),
-          decoration: const BoxDecoration(
-            color: Color(0xFFFFF3ED), // Very light peach
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Icon(
-              iconData ?? PhosphorIconsRegular.money,
-              size: 80,
-              color: AppColors.primary01,
-            ),
-          ),
-        ),
-      );
-    }
   }
 }

@@ -1,0 +1,116 @@
+import 'package:dio/dio.dart';
+import 'network_service.dart';
+
+class ApiService {
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+
+  late final Dio _dio;
+
+  ApiService._internal() {
+    _dio = NetworkService().dio;
+    // Override the base URL to our new AWS Lambda endpoint
+    _dio.options.baseUrl = 'https://3nqhgc5y2l.execute-api.us-east-1.amazonaws.com/dev';
+  }
+
+  static ApiService get instance => _instance;
+
+  // ── Auth ─────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      final response = await _dio.post(
+        '/api/auth/login',
+        data: {'email': email, 'password': password},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> signup({
+    required String fullName,
+    required String email,
+    required String password,
+    String role = 'CUSTOMER',
+  }) async {
+    try {
+      final names = fullName.split(' ');
+      final firstName = names[0];
+      final lastName = names.length > 1 ? names.sublist(1).join(' ') : ' ';
+      
+      final response = await _dio.post(
+        '/api/auth/signup',
+        data: {
+          'firstName': firstName,
+          'lastName': lastName,
+          'email': email,
+          'password': password,
+          'accountType': role.toUpperCase(),
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> googleAuth({
+    required String idToken,
+    required String accountType,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/auth/google',
+        data: {
+          'idToken': idToken,
+          'accountType': accountType.toUpperCase(),
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> submitVendorOnboarding({
+    required String userId,
+    required String businessName,
+    String? country,
+    String? location,
+    String? description,
+    String? experience,
+    String? price,
+    required List<String> serviceCategories,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/onboarding',
+        data: {
+          'userId': userId,
+          'businessName': businessName,
+          'country': country,
+          'location': location,
+          'description': description,
+          'experience': experience,
+          'price': price,
+          'serviceCategories': serviceCategories,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ── Error Handling ───────────────────────────────────────────────────────
+
+  Exception _handleError(DioException e) {
+    if (e.response != null && e.response?.data != null) {
+      final message = e.response?.data['message'] ?? 'Unknown network error';
+      return Exception(message);
+    }
+    return Exception(e.message ?? 'Failed to connect to backend');
+  }
+}

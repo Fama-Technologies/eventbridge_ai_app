@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/theme/app_theme.dart';
+import 'package:eventbridge_ai/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
@@ -21,14 +21,14 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.neutrals08),
+          icon: Icon(Icons.arrow_back, color: AppColors.neutrals08),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
             }
           },
         ),
-        title: const CircleAvatar(
+        title: CircleAvatar(
           backgroundColor: AppColors.primary01,
           radius: 16,
           child: Icon(Icons.link, color: Colors.white, size: 18),
@@ -43,7 +43,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             Text(
               'How will you use\nEventBridge?',
               textAlign: TextAlign.center,
-              style: GoogleFonts.playfairDisplay(
+              style: GoogleFonts.roboto(
                 fontSize: 32,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF1A1A24),
@@ -53,7 +53,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             Text(
               'Select your role to get started with automated\nvendor matching.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.roboto(
                 fontSize: 14,
                 color: const Color(0xFF6B7280),
               ),
@@ -70,7 +70,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             const SizedBox(height: 16),
             _buildRoleCard(
               title: 'I am a Vendor',
-              subtitle: 'I provide services for events and want\nto find clients.',
+              subtitle:
+                  'I provide services for events and want\nto find clients.',
               icon: Icons.storefront,
               iconColor: const Color(0xFF4B5563),
               iconBackground: const Color(0xFFF3F4F6),
@@ -85,7 +86,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary01,
-                disabledBackgroundColor: AppColors.primary01.withOpacity(0.5),
+                disabledBackgroundColor: AppColors.primary01.withValues(
+                  alpha: 0.5,
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
@@ -93,7 +96,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               ),
               child: Text(
                 'Continue',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.roboto(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -135,7 +138,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           boxShadow: [
             if (isSelected)
               BoxShadow(
-                color: AppColors.primary01.withOpacity(0.1),
+                color: AppColors.primary01.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -156,7 +159,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 const SizedBox(height: 16),
                 Text(
                   title,
-                  style: GoogleFonts.playfairDisplay(
+                  style: GoogleFonts.roboto(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF1A1A24),
@@ -166,7 +169,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 Text(
                   subtitle,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.roboto(
                     fontSize: 14,
                     color: const Color(0xFF6B7280),
                   ),
@@ -177,7 +180,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               top: 0,
               right: 0,
               child: isSelected
-                  ? const Icon(Icons.check_circle, color: AppColors.primary01)
+                  ? Icon(Icons.check_circle, color: AppColors.primary01)
                   : const Icon(Icons.circle_outlined, color: Color(0xFFE5E7EB)),
             ),
           ],

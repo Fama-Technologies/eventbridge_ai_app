@@ -1,0 +1,820 @@
+{
+  "_meta": {
+    "title": "EventBridge AI — REST API Contract & Mock Data",
+    "base_url": "https://api.eventbridge-ai.com/v1",
+    "version": "1.0.0",
+    "note": "This file is the single source of truth for all REST API shapes. MockApiService reads from mock_data. When the real backend is ready, swap useMock = false in AppConfig."
+  },
+
+  "mock_data": {
+
+    "auth": {
+      "current_user_customer": {
+        "id": "usr_001",
+        "role": "customer",
+        "full_name": "Alex Rivera",
+        "email": "alex@example.com",
+        "phone": "+1 310 555 0192",
+        "avatar_url": "https://ui-avatars.com/api/?name=Alex+Rivera&background=FF3C00&color=fff",
+        "created_at": "2025-11-01T09:00:00Z",
+        "is_verified": true
+      },
+      "current_user_vendor": {
+        "id": "usr_002",
+        "role": "vendor",
+        "full_name": "Elite Catering & Events",
+        "email": "elite@example.com",
+        "phone": "+1 415 555 0284",
+        "avatar_url": "https://ui-avatars.com/api/?name=Elite+Catering&background=0D8ABC&color=fff",
+        "created_at": "2025-10-15T08:00:00Z",
+        "is_verified": true
+      },
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock_token_payload.signature"
+    },
+
+    "vendors": [
+      {
+        "id": "vnd_001",
+        "business_name": "Elite Catering & Events",
+        "category": "Catering",
+        "rating": 4.9,
+        "reviews_count": 128,
+        "location": "Los Angeles, CA",
+        "bio": "Award-winning full-service catering for weddings, galas, and corporate events.",
+        "avatar_url": "https://ui-avatars.com/api/?name=Elite+Catering&background=0D8ABC&color=fff",
+        "cover_url": "https://images.unsplash.com/photo-1555244162-803834f70033?w=800",
+        "is_verified": true,
+        "is_premium": true,
+        "response_time": "~15 min",
+        "completed_events": 312,
+        "price_range": "$$$$",
+        "tags": ["Weddings", "Corporate", "Galas", "Buffets"],
+        "packages": ["pkg_001", "pkg_002", "pkg_003"]
+      },
+      {
+        "id": "vnd_002",
+        "business_name": "Bloom & Blossom Florals",
+        "category": "Florals",
+        "rating": 4.7,
+        "reviews_count": 84,
+        "location": "New York, NY",
+        "bio": "Bespoke floral designs for luxury events. Modern, sustainable, stunning.",
+        "avatar_url": "https://ui-avatars.com/api/?name=Bloom+Florals&background=f0e4d7&color=1a1a24",
+        "cover_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800",
+        "is_verified": true,
+        "is_premium": false,
+        "response_time": "~30 min",
+        "completed_events": 196,
+        "price_range": "$$$",
+        "tags": ["Bridal", "Centerpieces", "Installations"],
+        "packages": ["pkg_004", "pkg_005"]
+      },
+      {
+        "id": "vnd_003",
+        "business_name": "SoundWave Productions",
+        "category": "DJ & Music",
+        "rating": 4.8,
+        "reviews_count": 210,
+        "location": "Miami, FL",
+        "bio": "Top-tier DJ and live sound production for events of any size.",
+        "avatar_url": "https://ui-avatars.com/api/?name=SoundWave&background=1e1e2e&color=fff",
+        "cover_url": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800",
+        "is_verified": true,
+        "is_premium": true,
+        "response_time": "~20 min",
+        "completed_events": 450,
+        "price_range": "$$$",
+        "tags": ["Weddings", "Clubs", "Corporate", "Live Sound"],
+        "packages": ["pkg_006"]
+      }
+    ],
+
+    "packages": [
+      {
+        "id": "pkg_001",
+        "vendor_id": "vnd_001",
+        "title": "Starter Package",
+        "description": "4-hour service, buffet style, up to 80 guests. Includes setup & teardown.",
+        "price": 800.00,
+        "currency": "USD",
+        "is_active": true,
+        "inclusions": ["Staff × 4", "Buffet setup", "Linens", "Cleanup"]
+      },
+      {
+        "id": "pkg_002",
+        "vendor_id": "vnd_001",
+        "title": "Premium Banquet",
+        "description": "Full-day plated service for up to 200 guests. Champagne toast included.",
+        "price": 2400.00,
+        "currency": "USD",
+        "is_active": true,
+        "inclusions": ["Staff × 10", "Plated 3-course", "Champagne toast", "Custom menu", "Linens", "Cleanup"]
+      },
+      {
+        "id": "pkg_003",
+        "vendor_id": "vnd_001",
+        "title": "Cocktail Hour",
+        "description": "2-hour cocktail reception, passed appetizers, up to 60 guests.",
+        "price": 450.00,
+        "currency": "USD",
+        "is_active": false,
+        "inclusions": ["Staff × 2", "Passed apps × 5 types", "Bar setup"]
+      },
+      {
+        "id": "pkg_004",
+        "vendor_id": "vnd_002",
+        "title": "Garden Romance",
+        "description": "Arch, 6 centerpieces, bridal bouquet, boutonniere. All seasonal flowers.",
+        "price": 1200.00,
+        "currency": "USD",
+        "is_active": true,
+        "inclusions": ["Bridal bouquet", "Boutonniere", "Arch design", "6 centerpieces"]
+      },
+      {
+        "id": "pkg_005",
+        "vendor_id": "vnd_002",
+        "title": "Corporate Decor",
+        "description": "Sleek modern floral installations for up to 10 tables.",
+        "price": 900.00,
+        "currency": "USD",
+        "is_active": true,
+        "inclusions": ["10 tablescape arrangements", "Welcome arrangement", "Delivery & setup"]
+      },
+      {
+        "id": "pkg_006",
+        "vendor_id": "vnd_003",
+        "title": "Full Night Experience",
+        "description": "8-hour DJ set, lighting rig, fog machine, MC services included.",
+        "price": 1800.00,
+        "currency": "USD",
+        "is_active": true,
+        "inclusions": ["8hr DJ", "Custom playlist", "LED lighting", "Fog machine", "MC"]
+      }
+    ],
+
+    "leads": [
+      {
+        "id": "lead_001",
+        "vendor_id": "vnd_001",
+        "title": "Wedding Reception",
+        "status": "new",
+        "match_score": 98,
+        "is_high_value": true,
+        "budget": 5000.00,
+        "currency": "USD",
+        "guests": 150,
+        "event_date": "2025-10-24",
+        "event_time": "17:00",
+        "event_duration_hours": 5,
+        "location": "Los Angeles, CA",
+        "venue_name": "The Glass House",
+        "venue_address": "280 Elizabeth St, Los Angeles, CA",
+        "client": {
+          "id": "usr_003",
+          "name": "Sarah Johnson",
+          "avatar_url": "https://ui-avatars.com/api/?name=Sarah+Johnson&background=f0e4d7&color=1a1a24",
+          "message": "Looking for a modern floral arrangement for our corporate gala. Needs to be sleek and professional but with a pop of seasonal color.",
+          "last_active": "2h ago"
+        },
+        "response_time_avg": "15m",
+        "created_at": "2025-10-01T14:30:00Z"
+      },
+      {
+        "id": "lead_002",
+        "vendor_id": "vnd_001",
+        "title": "Corporate Gala",
+        "status": "new",
+        "match_score": 85,
+        "is_high_value": true,
+        "budget": 12000.00,
+        "currency": "USD",
+        "guests": 300,
+        "event_date": "2025-11-12",
+        "event_time": "18:00",
+        "event_duration_hours": 5,
+        "location": "San Francisco, CA",
+        "venue_name": "Palace Hotel",
+        "venue_address": "2 New Montgomery St, San Francisco, CA",
+        "client": {
+          "id": "usr_004",
+          "name": "Michael Chen",
+          "avatar_url": "https://ui-avatars.com/api/?name=Michael+Chen&background=dcfce7&color=166534",
+          "message": "Annual corporate celebration. Need premium catering and audio-visual support.",
+          "last_active": "1h ago"
+        },
+        "response_time_avg": "30m",
+        "created_at": "2025-10-02T09:00:00Z"
+      },
+      {
+        "id": "lead_003",
+        "vendor_id": "vnd_001",
+        "title": "Birthday Celebration",
+        "status": "accepted",
+        "match_score": 76,
+        "is_high_value": false,
+        "budget": 2500.00,
+        "currency": "USD",
+        "guests": 60,
+        "event_date": "2025-12-05",
+        "event_time": "15:00",
+        "event_duration_hours": 4,
+        "location": "Beverly Hills, CA",
+        "venue_name": "Private Residence",
+        "venue_address": "Beverly Hills, CA",
+        "client": {
+          "id": "usr_005",
+          "name": "Jessica Liu",
+          "avatar_url": "https://ui-avatars.com/api/?name=Jessica+Liu&background=ede9fe&color=6d28d9",
+          "message": "50th birthday party. Looking for an elegant catering setup with dessert bar.",
+          "last_active": "3h ago"
+        },
+        "response_time_avg": "10m",
+        "created_at": "2025-10-05T11:00:00Z"
+      }
+    ],
+
+    "events": [
+      {
+        "id": "evt_001",
+        "customer_id": "usr_001",
+        "title": "Johnson Wedding",
+        "type": "Wedding",
+        "status": "planning",
+        "date": "2025-10-24",
+        "time": "17:00",
+        "location": "The Glass House, Los Angeles, CA",
+        "guest_count": 150,
+        "budget": 25000.00,
+        "currency": "USD",
+        "cover_url": "https://images.unsplash.com/photo-1519741497674-611481863552?w=800",
+        "booked_vendors": ["vnd_001", "vnd_002"],
+        "created_at": "2025-09-15T10:00:00Z"
+      },
+      {
+        "id": "evt_002",
+        "customer_id": "usr_001",
+        "title": "Rivera Corporate Summit",
+        "type": "Corporate",
+        "status": "confirmed",
+        "date": "2025-11-20",
+        "time": "09:00",
+        "location": "Convention Center, New York, NY",
+        "guest_count": 500,
+        "budget": 80000.00,
+        "currency": "USD",
+        "cover_url": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800",
+        "booked_vendors": ["vnd_001", "vnd_003"],
+        "created_at": "2025-09-20T12:00:00Z"
+      }
+    ],
+
+    "conversations": [
+      {
+        "id": "conv_001",
+        "participants": ["usr_001", "vnd_001"],
+        "lead_id": "lead_001",
+        "event_title": "Wedding Reception",
+        "last_message": "Sounds great! We'll confirm the menu by Friday.",
+        "last_message_at": "2025-10-10T16:45:00Z",
+        "unread_count": 2,
+        "vendor": {
+          "id": "vnd_001",
+          "name": "Elite Catering & Events",
+          "avatar_url": "https://ui-avatars.com/api/?name=Elite+Catering&background=0D8ABC&color=fff"
+        }
+      },
+      {
+        "id": "conv_002",
+        "participants": ["usr_001", "vnd_002"],
+        "lead_id": null,
+        "event_title": "Johnson Wedding",
+        "last_message": "Here are the floral samples I mentioned.",
+        "last_message_at": "2025-10-09T11:20:00Z",
+        "unread_count": 0,
+        "vendor": {
+          "id": "vnd_002",
+          "name": "Bloom & Blossom Florals",
+          "avatar_url": "https://ui-avatars.com/api/?name=Bloom+Florals&background=f0e4d7&color=1a1a24"
+        }
+      }
+    ],
+
+    "messages": {
+      "conv_001": [
+        {
+          "id": "msg_001",
+          "conversation_id": "conv_001",
+          "sender_id": "usr_001",
+          "sender_role": "customer",
+          "body": "Hi! I'd like to discuss catering for my wedding on Oct 24.",
+          "sent_at": "2025-10-10T14:00:00Z",
+          "is_read": true
+        },
+        {
+          "id": "msg_002",
+          "conversation_id": "conv_001",
+          "sender_id": "vnd_001",
+          "sender_role": "vendor",
+          "body": "Hello Sarah! We'd love to help. How many guests are you expecting?",
+          "sent_at": "2025-10-10T14:12:00Z",
+          "is_read": true
+        },
+        {
+          "id": "msg_003",
+          "conversation_id": "conv_001",
+          "sender_id": "usr_001",
+          "sender_role": "customer",
+          "body": "Around 150 guests, with a plated dinner and cocktail hour beforehand.",
+          "sent_at": "2025-10-10T14:30:00Z",
+          "is_read": true
+        },
+        {
+          "id": "msg_004",
+          "conversation_id": "conv_001",
+          "sender_id": "vnd_001",
+          "sender_role": "vendor",
+          "body": "Sounds great! We'll confirm the menu by Friday.",
+          "sent_at": "2025-10-10T16:45:00Z",
+          "is_read": false
+        }
+      ]
+    },
+
+    "notifications": [
+      {
+        "id": "notif_001",
+        "user_id": "usr_002",
+        "type": "new_lead",
+        "title": "New Lead Matched!",
+        "body": "Sarah Johnson is looking for catering for a Wedding Reception — 98% match.",
+        "data": { "lead_id": "lead_001" },
+        "is_read": false,
+        "created_at": "2025-10-10T14:00:00Z"
+      },
+      {
+        "id": "notif_002",
+        "user_id": "usr_002",
+        "type": "message",
+        "title": "New Message",
+        "body": "Michael Chen sent you a message about Corporate Gala.",
+        "data": { "conversation_id": "conv_001" },
+        "is_read": true,
+        "created_at": "2025-10-09T09:00:00Z"
+      }
+    ],
+
+    "vendor_analytics": {
+      "vendor_id": "vnd_001",
+      "period": "last_30_days",
+      "total_leads": 14,
+      "accepted_leads": 8,
+      "acceptance_rate": 0.57,
+      "total_revenue": 18400.00,
+      "currency": "USD",
+      "profile_views": 342,
+      "response_rate": 0.93,
+      "avg_rating": 4.9,
+      "reviews_this_period": 6
+    }
+  },
+
+  "endpoints": [
+    {
+      "group": "Auth",
+      "method": "POST",
+      "path": "/auth/login",
+      "description": "Log in with email and password.",
+      "request_body": {
+        "email": "alex@example.com",
+        "password": "secret123"
+      },
+      "responses": {
+        "200": {
+          "token": "<<auth.token>>",
+          "user": "<<auth.current_user_customer>>"
+        },
+        "401": { "error": "Invalid credentials." }
+      }
+    },
+    {
+      "group": "Auth",
+      "method": "POST",
+      "path": "/auth/signup",
+      "description": "Register a new customer account.",
+      "request_body": {
+        "full_name": "Alex Rivera",
+        "email": "alex@example.com",
+        "password": "secret123",
+        "role": "customer"
+      },
+      "responses": {
+        "201": {
+          "token": "<<auth.token>>",
+          "user": "<<auth.current_user_customer>>"
+        },
+        "409": { "error": "Email already registered." }
+      }
+    },
+    {
+      "group": "Auth",
+      "method": "POST",
+      "path": "/auth/signup/vendor",
+      "description": "Register a new vendor account.",
+      "request_body": {
+        "full_name": "Elite Catering",
+        "email": "elite@example.com",
+        "password": "secret123",
+        "business_name": "Elite Catering & Events",
+        "category": "Catering",
+        "location": "Los Angeles, CA"
+      },
+      "responses": {
+        "201": {
+          "token": "<<auth.token>>",
+          "user": "<<auth.current_user_vendor>>"
+        },
+        "409": { "error": "Email already registered." }
+      }
+    },
+    {
+      "group": "Auth",
+      "method": "GET",
+      "path": "/auth/me",
+      "description": "Get the currently authenticated user.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": "<<auth.current_user_customer>>",
+        "401": { "error": "Unauthorized." }
+      }
+    },
+    {
+      "group": "Auth",
+      "method": "POST",
+      "path": "/auth/logout",
+      "description": "Invalidate the current session token.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": { "message": "Logged out successfully." }
+      }
+    },
+    {
+      "group": "Auth",
+      "method": "POST",
+      "path": "/auth/forgot-password",
+      "description": "Send a password reset OTP to the user's email.",
+      "request_body": { "email": "alex@example.com" },
+      "responses": {
+        "200": { "message": "OTP sent to alex@example.com." },
+        "404": { "error": "Email not found." }
+      }
+    },
+    {
+      "group": "Auth",
+      "method": "POST",
+      "path": "/auth/verify-otp",
+      "description": "Verify the OTP code sent via email or SMS.",
+      "request_body": { "email": "alex@example.com", "otp": "482910" },
+      "responses": {
+        "200": { "verified": true, "reset_token": "<<temp_reset_token>>" },
+        "400": { "error": "Invalid or expired OTP." }
+      }
+    },
+    {
+      "group": "Auth",
+      "method": "POST",
+      "path": "/auth/reset-password",
+      "description": "Set a new password after OTP verification.",
+      "request_body": { "reset_token": "<<temp_reset_token>>", "new_password": "newSecret123" },
+      "responses": {
+        "200": { "message": "Password updated successfully." },
+        "400": { "error": "Invalid reset token." }
+      }
+    },
+
+    {
+      "group": "Vendors",
+      "method": "GET",
+      "path": "/vendors",
+      "description": "List all vendors. Supports query params: category, location, page, limit.",
+      "query_params": { "category": "Catering", "location": "Los Angeles, CA", "page": 1, "limit": 20 },
+      "responses": {
+        "200": {
+          "data": "<<vendors>>",
+          "total": 3,
+          "page": 1,
+          "limit": 20
+        }
+      }
+    },
+    {
+      "group": "Vendors",
+      "method": "GET",
+      "path": "/vendors/:id",
+      "description": "Get a single vendor profile by ID.",
+      "responses": {
+        "200": "<<vendors[0]>>",
+        "404": { "error": "Vendor not found." }
+      }
+    },
+    {
+      "group": "Vendors",
+      "method": "PUT",
+      "path": "/vendors/profile",
+      "description": "Update the authenticated vendor's profile.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "request_body": {
+        "business_name": "Elite Catering & Events",
+        "bio": "Updated bio text.",
+        "location": "Los Angeles, CA",
+        "tags": ["Weddings", "Corporate"]
+      },
+      "responses": {
+        "200": "<<vendors[0]>>",
+        "401": { "error": "Unauthorized." }
+      }
+    },
+
+    {
+      "group": "Packages",
+      "method": "GET",
+      "path": "/vendors/:id/packages",
+      "description": "List all packages for a given vendor.",
+      "responses": {
+        "200": {
+          "data": "<<packages (filtered by vendor_id)>>",
+          "total": 3
+        }
+      }
+    },
+    {
+      "group": "Packages",
+      "method": "POST",
+      "path": "/vendors/:id/packages",
+      "description": "Create a new package for the authenticated vendor.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "request_body": {
+        "title": "New Package",
+        "description": "Package details here.",
+        "price": 999.00,
+        "currency": "USD",
+        "inclusions": ["Item 1", "Item 2"],
+        "is_active": true
+      },
+      "responses": {
+        "201": "<<packages[0]>>",
+        "401": { "error": "Unauthorized." }
+      }
+    },
+    {
+      "group": "Packages",
+      "method": "PUT",
+      "path": "/packages/:id",
+      "description": "Update an existing package.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "request_body": { "price": 1100.00, "is_active": true },
+      "responses": {
+        "200": "<<packages[0]>>",
+        "403": { "error": "Forbidden — not your package." }
+      }
+    },
+    {
+      "group": "Packages",
+      "method": "DELETE",
+      "path": "/packages/:id",
+      "description": "Delete a package.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "204": null,
+        "403": { "error": "Forbidden." }
+      }
+    },
+
+    {
+      "group": "Leads",
+      "method": "GET",
+      "path": "/leads",
+      "description": "Get all leads for the authenticated vendor. Supports: status, page, limit.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "query_params": { "status": "new", "page": 1, "limit": 20 },
+      "responses": {
+        "200": {
+          "data": "<<leads>>",
+          "total": 3,
+          "page": 1,
+          "limit": 20
+        }
+      }
+    },
+    {
+      "group": "Leads",
+      "method": "GET",
+      "path": "/leads/:id",
+      "description": "Get details of a single lead.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": "<<leads[0]>>",
+        "404": { "error": "Lead not found." }
+      }
+    },
+    {
+      "group": "Leads",
+      "method": "POST",
+      "path": "/leads/:id/accept",
+      "description": "Accept a lead (vendor action).",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": { "message": "Lead accepted.", "conversation_id": "conv_001" }
+      }
+    },
+    {
+      "group": "Leads",
+      "method": "POST",
+      "path": "/leads/:id/decline",
+      "description": "Decline a lead (vendor action).",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": { "message": "Lead declined." }
+      }
+    },
+
+    {
+      "group": "Events",
+      "method": "GET",
+      "path": "/events",
+      "description": "List events for the authenticated customer.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "query_params": { "status": "planning", "page": 1, "limit": 20 },
+      "responses": {
+        "200": {
+          "data": "<<events>>",
+          "total": 2,
+          "page": 1,
+          "limit": 20
+        }
+      }
+    },
+    {
+      "group": "Events",
+      "method": "POST",
+      "path": "/events",
+      "description": "Create a new event.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "request_body": {
+        "title": "New Event",
+        "type": "Wedding",
+        "date": "2026-06-15",
+        "time": "18:00",
+        "location": "Chicago, IL",
+        "guest_count": 200,
+        "budget": 30000.00,
+        "currency": "USD"
+      },
+      "responses": {
+        "201": "<<events[0]>>",
+        "400": { "error": "Validation failed." }
+      }
+    },
+    {
+      "group": "Events",
+      "method": "GET",
+      "path": "/events/:id",
+      "description": "Get a single event by ID.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": "<<events[0]>>",
+        "404": { "error": "Event not found." }
+      }
+    },
+    {
+      "group": "Events",
+      "method": "PUT",
+      "path": "/events/:id",
+      "description": "Update an event.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "request_body": { "guest_count": 180, "budget": 28000.00 },
+      "responses": {
+        "200": "<<events[0]>>",
+        "403": { "error": "Forbidden." }
+      }
+    },
+    {
+      "group": "Events",
+      "method": "DELETE",
+      "path": "/events/:id",
+      "description": "Delete an event.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "204": null,
+        "403": { "error": "Forbidden." }
+      }
+    },
+
+    {
+      "group": "Messages",
+      "method": "GET",
+      "path": "/conversations",
+      "description": "List all conversations for the authenticated user.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": {
+          "data": "<<conversations>>",
+          "total": 2
+        }
+      }
+    },
+    {
+      "group": "Messages",
+      "method": "GET",
+      "path": "/conversations/:id/messages",
+      "description": "Get messages for a conversation. Supports: page, limit.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "query_params": { "page": 1, "limit": 50 },
+      "responses": {
+        "200": {
+          "data": "<<messages.conv_001>>",
+          "total": 4,
+          "page": 1,
+          "limit": 50
+        }
+      }
+    },
+    {
+      "group": "Messages",
+      "method": "POST",
+      "path": "/conversations/:id/messages",
+      "description": "Send a new message in a conversation.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "request_body": { "body": "Hello, I have a question about the package." },
+      "responses": {
+        "201": {
+          "id": "msg_005",
+          "conversation_id": "conv_001",
+          "sender_id": "usr_001",
+          "sender_role": "customer",
+          "body": "Hello, I have a question about the package.",
+          "sent_at": "2025-10-11T10:00:00Z",
+          "is_read": false
+        }
+      }
+    },
+    {
+      "group": "Messages",
+      "method": "POST",
+      "path": "/conversations",
+      "description": "Start a new conversation with a vendor (customer action).",
+      "headers": { "Authorization": "Bearer <token>" },
+      "request_body": { "vendor_id": "vnd_001", "event_id": "evt_001", "initial_message": "Hi, I'd like to enquire about your services." },
+      "responses": {
+        "201": "<<conversations[0]>>"
+      }
+    },
+
+    {
+      "group": "Notifications",
+      "method": "GET",
+      "path": "/notifications",
+      "description": "Get notifications for the authenticated user.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "query_params": { "is_read": false, "page": 1, "limit": 20 },
+      "responses": {
+        "200": {
+          "data": "<<notifications>>",
+          "total": 2,
+          "unread_count": 1
+        }
+      }
+    },
+    {
+      "group": "Notifications",
+      "method": "PUT",
+      "path": "/notifications/:id/read",
+      "description": "Mark a single notification as read.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": { "message": "Notification marked as read." }
+      }
+    },
+    {
+      "group": "Notifications",
+      "method": "PUT",
+      "path": "/notifications/read-all",
+      "description": "Mark all notifications as read.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "responses": {
+        "200": { "message": "All notifications marked as read." }
+      }
+    },
+
+    {
+      "group": "Analytics",
+      "method": "GET",
+      "path": "/vendors/analytics",
+      "description": "Get analytics summary for the authenticated vendor.",
+      "headers": { "Authorization": "Bearer <token>" },
+      "query_params": { "period": "last_30_days" },
+      "responses": {
+        "200": "<<vendor_analytics>>"
+      }
+    }
+  ]
+}

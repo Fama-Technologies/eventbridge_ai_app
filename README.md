@@ -1,5 +1,9 @@
 # eventbridge_ai
 
+## Product Documentation
+
+- EventBridge user flow and product rules: `docs/eventbridge_user_flow.md`
+
 A new Flutter project.
 
 ## Getting Started

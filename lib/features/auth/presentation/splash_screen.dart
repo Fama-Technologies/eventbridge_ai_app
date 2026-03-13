@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:eventbridge_ai/core/theme/app_theme.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:eventbridge_ai/core/theme/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,7 +17,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) context.go('/onboarding');
+      if (mounted) context.go('/login');
     });
   }
 
@@ -27,28 +29,28 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Placeholder for Logo
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Icon(Icons.event_note, size: 60, color: AppColors.primary01),
-            )
-                .animate()
-                .scale(duration: 800.ms, curve: Curves.elasticOut)
-                .rotate(begin: -0.5, end: 0, duration: 800.ms),
-            const SizedBox(height: 24),
-            Text(
-              'EventBridge AI',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'EventBridge',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
                   ),
-            ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.5),
+                ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
+                const SizedBox(width: 8),
+                SvgPicture.asset(
+                  'assets/icons/Icon.svg',
+                  height: 56,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ).animate().fadeIn(duration: 400.ms, delay: 200.ms).scale(curve: Curves.easeOutBack),
+              ],
+            ),
           ],
         ),
       ),
