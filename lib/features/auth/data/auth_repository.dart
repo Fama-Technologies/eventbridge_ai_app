@@ -6,7 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 class AuthRepository {
   final _storage = StorageService();
   final _firebaseAuth = firebase_auth.FirebaseAuth.instance;
-  final _googleSignIn = GoogleSignIn();
+  final _googleSignIn = GoogleSignIn.instance;
 
   // Stream of auth state changes
   Stream<firebase_auth.User?> get authStateChanges =>
@@ -61,12 +61,12 @@ class AuthRepository {
 
   Future<void> continueWithGoogle({String role = 'CUSTOMER'}) async {
     try {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        throw Exception('Google Sign-In was cancelled.');
-      }
-
-      final googleAuth = await googleUser.authentication;
+      // It is recommended to call initialize before using the instance.
+      // We can call it here with nulls if no special config is needed.
+      await _googleSignIn.initialize();
+      final googleUser = await _googleSignIn.authenticate();
+      
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
