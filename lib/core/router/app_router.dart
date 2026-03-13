@@ -1,3 +1,4 @@
+// import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge_ai/features/auth/presentation/splash_screen.dart';
 import 'package:eventbridge_ai/features/auth/presentation/login_screen.dart';
@@ -26,7 +27,7 @@ import 'package:eventbridge_ai/features/vendors_screen/subscription_screen.dart'
 import 'package:eventbridge_ai/features/matching/presentation/submit_review_screen.dart';
 
 final appRouter = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/onboarding',
   routes: [
     GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
