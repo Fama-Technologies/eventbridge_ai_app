@@ -63,7 +63,9 @@ class AuthRepository {
     try {
       // It is recommended to call initialize before using the instance.
       // We can call it here with nulls if no special config is needed.
-      await _googleSignIn.initialize();
+      await _googleSignIn.initialize(
+        clientId: '185107161336-540qvqk8m94p5384rr6f47c4nmb18gd0.apps.googleusercontent.com',
+      );
       final googleUser = await _googleSignIn.authenticate();
       
       final googleAuth = googleUser.authentication;
