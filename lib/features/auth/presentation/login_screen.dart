@@ -186,7 +186,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           // Role-based redirect
                                           final role = repo.getUserRole();
                                           if (role == 'VENDOR') {
-                                            context.go('/vendor-home');
+                                            if (repo.isOnboardingCompleted()) {
+                                              context.go('/vendor-home');
+                                            } else {
+                                              context.go('/vendor-onboarding');
+                                            }
                                           } else {
                                             context.go('/customer-home');
                                           }

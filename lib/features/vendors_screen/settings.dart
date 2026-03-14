@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
-// import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge_ai/features/vendors_screen/vendor_profile_settings.dart';
+import 'package:eventbridge_ai/features/vendors_screen/vendor_personal_information_screen.dart';
+import 'package:eventbridge_ai/core/storage/storage_service.dart';
+import 'package:eventbridge_ai/core/widgets/app_toast.dart';
+import 'package:eventbridge_ai/features/auth/data/auth_repository.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:eventbridge_ai/core/services/upload_service.dart';
+import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:io';
 
 class VendorSettingsScreen extends StatefulWidget {
   const VendorSettingsScreen({super.key});
@@ -14,29 +22,132 @@ class VendorSettingsScreen extends StatefulWidget {
 }
 
 class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
-  final TextEditingController _currentPasswordController =
-      TextEditingController();
-  final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  String _userName = 'Vendor';
+  String? _userImage;
+  bool _isUpdatingAvatar = false;
+  bool _isLoadingData = true;
+  String? _planName;
+  String? _joinedDate;
 
   @override
-  void dispose() {
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _loadVendorPlan();
+  }
+
+  Future<void> _loadUserData() async {
+    final storage = StorageService();
+    final name = storage.getString('user_name');
+    final image = storage.getString('user_image');
+    if (mounted) {
+      setState(() {
+        if (name != null && name.isNotEmpty) _userName = name;
+        _userImage = (image != null && image.isNotEmpty) ? image : null;
+      });
+    }
+  }
+
+  Future<void> _loadVendorPlan() async {
+    try {
+      final storage = StorageService();
+      final userId = storage.getString('user_id');
+      if (userId == null) return;
+
+      final result = await ApiService.instance.getVendorProfile(userId);
+      if (result['success'] == true && result['profile'] != null) {
+        final profile = result['profile'];
+        if (mounted) {
+          setState(() {
+            _planName = profile['subscriptionPlan'] ?? 'Basic';
+            storage.setString('vendor_plan', _planName!); // Persist for other screens
+            final createdAt = profile['createdAt'];
+            if (createdAt != null) {
+              final date = DateTime.parse(createdAt);
+              _joinedDate = DateFormat('MMMM yyyy').format(date);
+            }
+            _isLoadingData = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingData = false);
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() => _isUpdatingAvatar = true);
+
+      final storage = StorageService();
+      final userId = storage.getString('user_id');
+      if (userId == null) throw Exception('User not found');
+
+      final file = File(pickedFile.path);
+      final bytes = await file.readAsBytes();
+      
+      final uploadService = UploadService.instance;
+      final avatarUrl = await uploadService.uploadFile(
+        bytes: bytes,
+        fileName: 'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: 'image/jpeg',
+        folder: 'avatars/$userId',
+      );
+
+      // Update account with new avatar via onboarding endpoint (used for updates too)
+      await ApiService.instance.submitVendorOnboarding(
+        userId: userId,
+        businessName: storage.getString('business_name') ?? _userName,
+        avatarUrl: avatarUrl,
+      );
+
+      // Persist locally
+      await storage.setString('user_image', avatarUrl);
+      
+      if (mounted) {
+        setState(() => _userImage = avatarUrl);
+        AppToast.show(context, message: 'Profile picture updated!', type: ToastType.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, message: 'Failed to update avatar', type: ToastType.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingAvatar = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.darkNeutral01 : const Color(0xFFF7F7F8);
+    final cardColor = isDark ? AppColors.darkNeutral02 : Colors.white;
+    final textPrimary = isDark ? AppColors.shadesWhite : const Color(0xFF1E293B);
+    final textSecondary = isDark ? AppColors.darkNeutral04 : const Color(0xFF64748B);
+    final borderColor = isDark ? AppColors.darkNeutral03 : const Color(0xFFF1F5F9);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F8),
+      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A24)),
+          icon: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 28),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -46,708 +157,404 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
           },
         ),
         title: Text(
-          'Settings',
+          'My Account',
           style: GoogleFonts.roboto(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF1A1A24),
+            color: Colors.white,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            onPressed: () async {
+              await AuthRepository().logout();
+              if (mounted) {
+                context.go('/login');
+              }
+            },
+          ),
+        ],
       ),
+      extendBodyBehindAppBar: true,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileHeader(context),
-            const SizedBox(height: 32),
-            _buildSectionHeader('Account & Security'),
-            const SizedBox(height: 16),
-            _buildAccountSecurityCard(context),
-            const SizedBox(height: 32),
-            _buildChangePasswordSection(),
-            const SizedBox(height: 32),
-            _buildSectionHeader('Social Accounts'),
-            const SizedBox(height: 16),
-            _buildSocialAccountsCard(),
-            const SizedBox(height: 32),
-            _buildDeleteAccountButton(),
-            const SizedBox(height: 48),
-            _buildFooter(),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileHeader(BuildContext context) {
-    return Column(
-      children: [
-        Center(
-          child: GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const VendorProfileSettingsScreen(),
-              ),
-            ),
-            child: Stack(
+            Stack(
+              clipBehavior: Clip.none,
               children: [
+                // Orange Header
                 Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(60),
-                    child: Image.network(
-                      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1000&auto=format&fit=crop',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary01,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Luxe Atelier',
-          style: GoogleFonts.roboto(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF1A1A24),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.location_on, size: 16, color: Colors.grey[400]),
-            const SizedBox(width: 4),
-            Text(
-              'New York, NY',
-              style: GoogleFonts.roboto(fontSize: 14, color: Colors.grey[500]),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        TextButton(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const VendorProfileSettingsScreen(),
-            ),
-          ),
-          style: TextButton.styleFrom(
-            backgroundColor: const Color(0xFFFFEBE5),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-          child: Text(
-            'Change Photo',
-            style: GoogleFonts.roboto(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary01,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Row(
-      children: [
-        Container(
-          width: 4,
-          height: 18,
-          decoration: BoxDecoration(
-            color: AppColors.primary01,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: GoogleFonts.roboto(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF1A1A24),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAccountSecurityCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        children: [
-          _buildListTile(
-            icon: Icons.person_outline_rounded,
-            title: 'Personal Information',
-            subtitle: 'Email, Name, Phone',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const VendorProfileSettingsScreen(),
-              ),
-            ),
-          ),
-          Divider(height: 1, color: Colors.grey[100]),
-          _buildListTile(
-            icon: Icons.verified_user_rounded,
-            title: 'Verification Status',
-            subtitle: 'Action Required',
-            subtitleColor: AppColors.primary01,
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFDB022),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Resubmit',
-                style: GoogleFonts.roboto(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          Divider(height: 1, color: Colors.grey[100]),
-          _buildListTile(
-            icon: Icons.account_balance_wallet_rounded,
-            title: 'Subscriptions',
-            isLast: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildListTile({
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    Color? subtitleColor,
-    Widget? trailing,
-    bool isLast = false,
-    VoidCallback? onTap,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, size: 20, color: const Color(0xFF64748B)),
-      ),
-      title: Text(
-        title,
-        style: GoogleFonts.roboto(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF1E293B),
-        ),
-      ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle,
-              style: GoogleFonts.roboto(
-                fontSize: 12,
-                color: subtitleColor ?? Colors.grey[500],
-              ),
-            )
-          : null,
-      trailing:
-          trailing ??
-          Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildChangePasswordSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.lock, size: 20, color: AppColors.primary01),
-              const SizedBox(width: 12),
-              Text(
-                'Change Password',
-                style: GoogleFonts.roboto(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1A1A24),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildPasswordField(
-            hintText: 'Current Password',
-            controller: _currentPasswordController,
-          ),
-          const SizedBox(height: 12),
-          _buildPasswordField(
-            hintText: 'New Password',
-            controller: _newPasswordController,
-          ),
-          const SizedBox(height: 12),
-          _buildPasswordField(
-            hintText: 'Confirm New Password',
-            controller: _confirmPasswordController,
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _handleUpdatePassword,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary01,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: Text(
-                'Update Password',
-                style: GoogleFonts.roboto(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPasswordField({
-    required String hintText,
-    required TextEditingController controller,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[100]!),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: true,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: GoogleFonts.roboto(color: Colors.grey[400], fontSize: 14),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
-          border: InputBorder.none,
-        ),
-      ),
-    );
-  }
-
-  void _showSuccessOverlay(String message) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.6),
-      transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (context, anim1, anim2) {
-        return Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 40),
-            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(32),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFECFDF5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.check_circle_rounded,
-                      color: Color(0xFF10B981),
-                      size: 48,
-                    ),
-                  ),
-                ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
-                const SizedBox(height: 24),
-                Text(
-                  'Success!',
-                  style: GoogleFonts.roboto(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1A1A24),
-                  ),
-                ).animate().fadeIn(delay: 200.ms),
-                const SizedBox(height: 8),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.roboto(
-                    fontSize: 14,
-                    color: const Color(0xFF64748B),
-                  ),
-                ).animate().fadeIn(delay: 300.ms),
-                const SizedBox(height: 32),
-                SizedBox(
+                  height: 240,
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A1A24),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFF97316), Color(0xFFEA580C)],
                     ),
-                    child: const Text('Back to Settings'),
                   ),
-                ).animate().fadeIn(delay: 400.ms).moveY(begin: 20, end: 0),
+                ),
+                // Blurred dots/pattern overlay
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.1,
+                    child: GridView.count(
+                      crossAxisCount: 10,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: List.generate(40, (i) => const Icon(Icons.circle, size: 4, color: Colors.white)),
+                    ),
+                  ),
+                ),
+                // Integrated Profile Info inside Header (Vertically Centered)
+                Positioned.fill(
+                  top: 40, // Account for app bar height roughly
+                  child: Center(
+                    child: _buildProfileHeader(isDark, textPrimary, textSecondary),
+                  ),
+                ),
               ],
             ),
-          ),
-        ).animate().fadeIn().scale(begin: const Offset(0.8, 0.8));
-      },
-    );
-  }
-
-  void _showDeleteConfirmationOverlay() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(32),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(32),
-              topRight: Radius.circular(32),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEF3F2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.delete_forever_rounded,
-                  color: Color(0xFFD92D20),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Delete Account?',
-                style: GoogleFonts.roboto(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1A1A24),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'This action is permanent and cannot be undone. All your leads, messages, and settings will be permanently deleted.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.roboto(
-                  fontSize: 14,
-                  color: const Color(0xFF64748B),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 32),
-              Row(
+            const SizedBox(height: 16), 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: Colors.grey[200]!),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.roboto(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
+                  Text(
+                    'Account Settings',
+                    style: GoogleFonts.roboto(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: textPrimary,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showSuccessOverlay('Account Deleted Successfully');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD92D20),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text('Delete'),
+                  const SizedBox(height: 16),
+                  _buildAccountSection(cardColor, textPrimary, textSecondary),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Preferences & Others',
+                    style: GoogleFonts.roboto(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: textPrimary,
+                      letterSpacing: -0.5,
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  _buildOthersSection(cardColor, textPrimary, textSecondary),
+                  const SizedBox(height: 100), // Padding for bottom nav
                 ],
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  void _handleUpdatePassword() {
-    if (_newPasswordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
-      return;
-    }
-    if (_newPasswordController.text.isEmpty) return;
+  Widget _buildProfileHeader(bool isDark, Color textPrimary, Color textSecondary) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: _isUpdatingAvatar ? null : _pickAndUploadAvatar,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Pro Plan Crown
+              if (_planName?.toLowerCase() == 'business_pro')
+                Positioned(
+                  top: -18,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Icon(
+                      Icons.king_bed_rounded, // Using king_bed as a simple crown representation or custom icon
+                      color: const Color(0xFFFFD700),
+                      size: 28,
+                    ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                     .scale(duration: 1.seconds, begin: const Offset(1, 1), end: const Offset(1.1, 1.1))
+                     .shimmer(delay: 2.seconds),
+                  ),
+                ),
+              
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.2),
+                  border: Border.all(
+                    color: _planName?.toLowerCase() == 'business_pro' 
+                        ? const Color(0xFFFFD700) 
+                        : Colors.white.withOpacity(0.5),
+                    width: 3,
+                  ),
+                ),
+                child: ClipOval(
+                  child: _isUpdatingAvatar 
+                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : (_userImage != null && _userImage!.isNotEmpty
+                        ? Image.network(
+                            _userImage!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => _buildInitialsPlaceholder(isHeader: true),
+                          )
+                        : _buildInitialsPlaceholder(isHeader: true)),
+                ),
+              ),
+              
+              // Free Plan White Bubble Badge (Exterior Tab Look)
+              if (_planName?.toLowerCase() != 'business_pro')
+                Positioned(
+                  left: 92, // Positioned tangent to the 100px avatar edge
+                  top: 38,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFEA580C), width: 2), 
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 8,
+                          offset: const Offset(3, 3),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'FREE PLAN',
+                      style: GoogleFonts.roboto(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFFEA580C),
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ),
 
-    // Simulate update
-    _showSuccessOverlay('Password Updated Successfully');
-    _currentPasswordController.clear();
-    _newPasswordController.clear();
-    _confirmPasswordController.clear();
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFEA580C), size: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _userName,
+              style: GoogleFonts.roboto(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${_planName ?? "Basic"} Vendor since ${_joinedDate ?? "2024"}',
+          style: GoogleFonts.roboto(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.white.withOpacity(0.9),
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildSocialAccountsCard() {
+  Widget _buildInitialsPlaceholder({bool isHeader = false}) {
+    String initials = 'V';
+    if (_userName.trim().isNotEmpty) {
+      final parts = _userName.trim().split(' ');
+      if (parts.length >= 2) {
+        initials = (parts[0][0] + parts[1][0]).toUpperCase();
+      } else if (parts[0].isNotEmpty) {
+        initials = parts[0][0].toUpperCase();
+      }
+    }
+    return Container(
+      color: isHeader ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+          color: isHeader ? Colors.white : const Color(0xFF4B5563),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountSection(Color cardColor, Color textPrimary, Color textSecondary) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[200]!),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          _buildSocialAccountTile(
-            title: 'Google',
-            icon: Icons.account_circle_rounded,
-            iconColor: const Color(0xFFEA4335),
-            trailing: TextButton(
-              onPressed: () {},
-              child: Text(
-                'Connect',
-                style: GoogleFonts.roboto(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary01,
-                ),
-              ),
-            ),
+          _buildListItem(
+            icon: Icons.person_outline_rounded,
+            title: 'Personal Information',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () => context.push('/vendor-personal-info'),
           ),
-          Divider(height: 1, color: Colors.grey[100]),
-          _buildSocialAccountTile(
-            title: 'Facebook',
-            icon: Icons.facebook_rounded,
-            iconColor: const Color(0xFF1877F2),
-            trailing: Switch(
-              value: true,
-              onChanged: (v) {},
-              activeThumbColor: Colors.white,
-              activeTrackColor: AppColors.primary01,
-            ),
+          _buildListItem(
+            icon: Icons.storefront_outlined,
+            title: 'Business Profile',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () => context.push('/vendor-profile-settings'),
+          ),
+          _buildListItem(
+            icon: Icons.location_on_outlined,
+            title: 'Location',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () {
+              context.push('/vendor-profile-settings');
+            },
+          ),
+          _buildListItem(
+            icon: Icons.vpn_key_outlined,
+            title: 'Security',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            isLast: true,
+            onTap: () {
+              context.push('/vendor-personal-info');
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSocialAccountTile({
-    required String title,
+  Widget _buildOthersSection(Color cardColor, Color textPrimary, Color textSecondary) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          _buildListItem(
+            icon: Icons.inventory_2_outlined,
+            title: 'My Items',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () {
+              AppToast.show(context, message: 'My Items coming soon!', type: ToastType.info);
+            },
+          ),
+          _buildListItem(
+            icon: Icons.notifications_none_outlined,
+            title: 'Preferences',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () {
+              AppToast.show(context, message: 'Preferences coming soon!', type: ToastType.info);
+            },
+          ),
+          _buildListItem(
+            icon: Icons.translate_outlined,
+            title: 'Language',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () {
+              AppToast.show(context, message: 'Language coming soon!', type: ToastType.info);
+            },
+          ),
+          _buildListItem(
+            icon: Icons.rate_review_outlined,
+            title: 'Ratings / Review',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () {
+              AppToast.show(context, message: 'Reviews coming soon!', type: ToastType.info);
+            },
+          ),
+          _buildListItem(
+            icon: Icons.help_outline_outlined,
+            title: 'Help / Support',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () => context.push('/vendor-help-support'),
+          ),
+          _buildListItem(
+            icon: Icons.logout_rounded,
+            title: 'Log out',
+            textPrimary: const Color(0xFFEF4444),
+            textSecondary: textSecondary,
+            isLast: true,
+            onTap: () async {
+              await AuthRepository().logout();
+              if (mounted) {
+                context.go('/login');
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListItem({
     required IconData icon,
-    required Widget trailing,
-    Color? iconColor,
+    required String title,
+    required Color textPrimary,
+    required Color textSecondary,
+    bool isLast = false,
+    required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, size: 24, color: iconColor ?? Colors.grey[400]),
-      title: Text(
-        title,
-        style: GoogleFonts.roboto(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF1E293B),
-        ),
-      ),
-      trailing: trailing,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-    );
-  }
-
-  Widget _buildDeleteAccountButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton.icon(
-        onPressed: _showDeleteConfirmationOverlay,
-        icon: const Icon(Icons.delete_forever, color: Color(0xFFD92D20)),
-        label: Text(
-          'Delete Account',
-          style: GoogleFonts.roboto(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFFD92D20),
-          ),
-        ),
-        style: TextButton.styleFrom(
-          backgroundColor: const Color(0xFFFEF3F2),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFFFEE4E2)),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: isLast ? const BorderRadius.vertical(bottom: Radius.circular(16)) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
           children: [
-            _buildFooterLink('Terms of Service', () {
-              // TODO: Navigate to Terms
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Terms of Service coming soon')),
-              );
-            }),
-            _buildFooterDot(),
-            _buildFooterLink('Privacy Policy', () {
-              // TODO: Navigate to Privacy
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Privacy Policy coming soon')),
-              );
-            }),
-            _buildFooterDot(),
-            _buildFooterLink('Help Center', () {
-              // TODO: Navigate to Help
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Help Center coming soon')),
-              );
-            }),
+            Icon(icon, size: 24, color: textPrimary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.roboto(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: textPrimary,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 24, color: textSecondary),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          'App Version 2.4.1 (Build 030)',
-          style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[400]),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFooterLink(String text, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Text(
-        text,
-        style: GoogleFonts.roboto(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: const Color(0xFF64748B),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFooterDot() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      width: 4,
-      height: 4,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        shape: BoxShape.circle,
       ),
     );
   }

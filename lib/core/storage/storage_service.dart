@@ -1,4 +1,3 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -8,7 +7,6 @@ class StorageService {
   StorageService._internal();
 
   late SharedPreferences _prefs;
-  final _secureStorage = const FlutterSecureStorage();
 
   Future<void> init() async {
     // Initialize Hive
@@ -26,17 +24,17 @@ class StorageService {
   bool? getBool(String key) => _prefs.getBool(key);
   Future<void> remove(String key) => _prefs.remove(key);
 
-  // --- SecureStorage Helpers (Tokens) ---
+  // --- Token Helpers ---
   Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: 'auth_token', value: token);
+    await _prefs.setString('auth_token', token);
   }
 
   Future<String?> getToken() async {
-    return await _secureStorage.read(key: 'auth_token');
+    return _prefs.getString('auth_token');
   }
 
   Future<void> deleteToken() async {
-    await _secureStorage.delete(key: 'auth_token');
+    await _prefs.remove('auth_token');
   }
 
   // --- Hive Helpers ---

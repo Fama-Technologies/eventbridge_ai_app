@@ -25,6 +25,8 @@ import 'package:eventbridge_ai/features/vendors_screen/vendor_profile_settings.d
 import 'package:eventbridge_ai/features/vendors_screen/vendor_packages_screen.dart';
 import 'package:eventbridge_ai/features/vendors_screen/vendor_availability_screen.dart';
 import 'package:eventbridge_ai/features/vendors_screen/subscription_screen.dart';
+import 'package:eventbridge_ai/features/vendors_screen/vendor_personal_information_screen.dart';
+import 'package:eventbridge_ai/features/vendors_screen/vendor_help_support_screen.dart';
 import 'package:eventbridge_ai/features/matching/presentation/submit_review_screen.dart';
 
 // Routes that don't require authentication
@@ -60,7 +62,11 @@ final appRouter = GoRouter(
     // If logged in and on the login page → redirect to role-based home
     if (isLoggedIn && path == '/login') {
       final role = storage.getString('user_role');
-      return role == 'VENDOR' ? '/vendor-home' : '/customer-home';
+      if (role == 'VENDOR') {
+        final onboarded = storage.getString('onboarding_completed');
+        return onboarded == 'true' ? '/vendor-home' : '/vendor-onboarding';
+      }
+      return '/customer-home';
     }
 
     return null; // No redirect
@@ -192,6 +198,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/vendor-packages',
       builder: (context, state) => const VendorPackagesScreen(),
+    ),
+    GoRoute(
+      path: '/vendor-personal-info',
+      builder: (context, state) => const VendorPersonalInformationScreen(),
+    ),
+    GoRoute(
+      path: '/vendor-help-support',
+      builder: (context, state) => const VendorHelpSupportScreen(),
     ),
     GoRoute(
       path: '/submit-review/:vendorId',

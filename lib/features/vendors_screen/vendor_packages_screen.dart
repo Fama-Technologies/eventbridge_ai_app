@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:eventbridge_ai/core/storage/storage_service.dart';
+import 'package:eventbridge_ai/core/widgets/app_toast.dart';
 
 class _PackageData {
   String id;
@@ -29,23 +32,82 @@ class VendorPackagesScreen extends StatefulWidget {
 class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
   // Mocking vendor plan: 'pro' or 'business_pro'
   final String _vendorPlan = 'business_pro'; 
+  bool _isLoading = false;
 
-  final List<_PackageData> _packages = [
-    _PackageData(
-      id: '1',
-      title: 'Starter Package',
-      description: '4 Hours of coverage • 1 Photographer • Digital Gallery',
-      price: 800,
-      isActive: true,
-    ),
-    _PackageData(
-      id: '2',
-      title: 'Premium Event',
-      description: 'Full Day • 2 Photographers • Drone • Cinematic Video',
-      price: 2400,
-      isActive: true,
-    ),
-  ];
+  final List<_PackageData> _packages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackages();
+  }
+
+  Future<void> _loadPackages() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final response = await ApiService.instance.getVendorProfile(userId);
+      if (response['success'] == true) {
+        final profile = response['profile'];
+        final pkgs = profile['packages'] as List?;
+        if (pkgs != null) {
+          setState(() {
+            _packages.clear();
+            for (var p in pkgs) {
+              _packages.add(_PackageData(
+                id: p['id'].toString(),
+                title: p['title'] ?? '',
+                description: p['description'] ?? '',
+                price: (p['price'] is num) ? p['price'].toDouble() : 0.0,
+                isActive: p['isActive'] ?? true,
+              ));
+            }
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, message: 'Failed to load packages: $e', type: ToastType.error);
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _savePackagesToBackend() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final packageList = _packages.map((p) => {
+        'title': p.title,
+        'description': p.description,
+        'price': p.price,
+        'isActive': p.isActive,
+      }).toList();
+
+      final response = await ApiService.instance.saveVendorPackages(
+        userId: userId,
+        packages: packageList,
+      );
+
+      if (response['success'] == true) {
+        if (mounted) {
+          AppToast.show(context, message: 'Packages saved successfully', type: ToastType.success);
+        }
+        _loadPackages(); // Reload to get IDs
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, message: 'Failed to save packages: $e', type: ToastType.error);
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   int get _maxPackages => _vendorPlan == 'business_pro' ? 6 : 3;
   bool get _canEdit => _vendorPlan == 'business_pro';
@@ -114,6 +176,7 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
                       }
                     });
                     context.pop();
+                    _savePackagesToBackend();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary01,
@@ -160,6 +223,7 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
               onPressed: () {
                 setState(() => _packages.remove(pkg));
                 context.pop();
+                _savePackagesToBackend();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444),
@@ -265,7 +329,9 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(24),
         child: Column(

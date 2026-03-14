@@ -70,6 +70,9 @@ class AuthRepository {
       if (user['image'] != null) {
         await _storage.setString('user_image', user['image']);
       }
+      // Save vendor onboarding status
+      final onboardingCompleted = user['onboardingCompleted'] ?? true;
+      await _storage.setString('onboarding_completed', onboardingCompleted.toString());
     } catch (e) {
       rethrow;
     }
@@ -100,6 +103,12 @@ class AuthRepository {
       await _storage.setString('user_email', user['email'] ?? '');
       if (user['image'] != null) {
         await _storage.setString('user_image', user['image']);
+      }
+      // New vendor hasn't completed onboarding yet
+      if (role.toUpperCase() == 'VENDOR') {
+        await _storage.setString('onboarding_completed', 'false');
+      } else {
+        await _storage.setString('onboarding_completed', 'true');
       }
     } catch (e) {
       rethrow;
@@ -158,6 +167,7 @@ class AuthRepository {
     await _storage.remove('user_name');
     await _storage.remove('user_email');
     await _storage.remove('user_image');
+    await _storage.remove('onboarding_completed');
   }
 
   Future<bool> isLoggedIn() async {
@@ -187,5 +197,14 @@ class AuthRepository {
 
   String? getUserImage() {
     return _storage.getString('user_image');
+  }
+
+  bool isOnboardingCompleted() {
+    final val = _storage.getString('onboarding_completed');
+    return val == 'true';
+  }
+
+  Future<void> setOnboardingCompleted() async {
+    await _storage.setString('onboarding_completed', 'true');
   }
 }

@@ -26,7 +26,12 @@ class _SplashScreenState extends State<SplashScreen> {
         final role = storage.getString('user_role');
         if (mounted) {
           if (role == 'VENDOR') {
-            context.go('/vendor-home');
+            final onboarded = storage.getString('onboarding_completed');
+            if (onboarded == 'true') {
+              context.go('/vendor-home');
+            } else {
+              context.go('/vendor-onboarding');
+            }
           } else {
             context.go('/customer-home');
           }

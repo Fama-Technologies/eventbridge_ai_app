@@ -59,32 +59,31 @@ class SubscriptionScreen extends StatelessWidget {
             _buildPlanCard(
               context: context,
               title: 'Pro',
-              priceUsd: '15',
-              priceUgx: 'UGX 54,750',
+              priceUgx: 'UGX 35,000',
               icon: Icons.business_center_rounded,
               features: [
-                'Up to 3 Service Packages',
-                'Basic Availability Calendar',
-                'Limited AI Matches per month',
-                '12 Portfolio Images',
+                'Unlimited Business Leads',
+                'Unlimited Digital Invoices',
+                'Unlimited Service Packages',
+                'Unlimited Media Uploads',
+                'Full Bookings Calendar',
               ],
-              buttonLabel: 'Current Plan',
-              isActive: true,
+              buttonLabel: 'Get Pro',
+              isActive: false,
               isPremium: false,
             ),
             const SizedBox(height: 24),
             _buildPlanCard(
               context: context,
               title: 'Business Pro',
-              priceUsd: '30',
-              priceUgx: 'UGX 109,500',
+              priceUgx: 'UGX 52,500',
               icon: Icons.military_tech_rounded,
               features: [
-                'Up to 6 Service Packages',
-                'Unlimited Calendar & Booking Control',
-                'Top Recommendations in AI Matches',
-                '20 Portfolio Images',
-                'Priority Support',
+                'Everything in Pro',
+                'Top Listing Visibility',
+                'Top Recommendation Status',
+                'Portfolio Boost Analytics',
+                'Customer & Trends Insights',
               ],
               buttonLabel: 'Upgrade to Business Pro',
               isActive: false,
@@ -100,7 +99,6 @@ class SubscriptionScreen extends StatelessWidget {
   Widget _buildPlanCard({
     required BuildContext context,
     required String title,
-    required String priceUsd,
     required String priceUgx,
     required IconData icon,
     required List<String> features,
@@ -186,9 +184,9 @@ class SubscriptionScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '\$$priceUsd',
+                priceUgx,
                 style: GoogleFonts.roboto(
-                  fontSize: 36,
+                  fontSize: 28, // Slighly smaller to fit UGX
                   fontWeight: FontWeight.w900,
                   color: isPremium ? Colors.white : const Color(0xFF1A1A24),
                   letterSpacing: -1,
@@ -207,16 +205,6 @@ class SubscriptionScreen extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            priceUgx,
-            style: GoogleFonts.roboto(
-              fontSize: 14,
-              color: isPremium
-                  ? Colors.white.withValues(alpha: 0.5)
-                  : const Color(0xFF9CA3AF),
-            ),
           ),
           const SizedBox(height: 24),
           const Divider(color: Color(0xFFE5E7EB)),

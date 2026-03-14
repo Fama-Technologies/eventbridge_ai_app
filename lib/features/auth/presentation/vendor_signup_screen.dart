@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart' as gap;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:eventbridge_ai/core/widgets/app_toast.dart';
 
 class VendorSignupScreen extends ConsumerStatefulWidget {
   const VendorSignupScreen({super.key});
@@ -53,11 +54,10 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
 
     ref.listen<AsyncValue<void>>(authControllerProvider, (_, state) {
       if (state.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(state.error.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
+        AppToast.show(
+          context,
+          message: state.error.toString().replaceAll('Exception: ', ''),
+          type: ToastType.error,
         );
       }
     });
@@ -259,12 +259,10 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                             ? null
                             : () async {
                                 if (!_agreedToTerms) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Please agree to the Terms of Service.',
-                                      ),
-                                    ),
+                                  AppToast.show(
+                                    context,
+                                    message: 'Please agree to the Terms of Service.',
+                                    type: ToastType.error,
                                   );
                                   return;
                                 }
@@ -375,11 +373,10 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                               if (!ref.read(authControllerProvider).hasError) {
                                 context.go('/vendor-onboarding'); // Vendors go straight to onboarding
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(ref.read(authControllerProvider).error.toString().replaceAll('Exception: ', '')),
-                                    backgroundColor: Colors.red,
-                                  ),
+                                AppToast.show(
+                                  context,
+                                  message: ref.read(authControllerProvider).error.toString().replaceAll('Exception: ', ''),
+                                  type: ToastType.error,
                                 );
                               }
                             },
@@ -491,10 +488,10 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        color: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87,
+        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
       ),
     );
   }
@@ -515,7 +512,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
       keyboardType: keyboardType,
       validator: validator,
       style: TextStyle(
-        color: isDark ? AppColors.darkNeutral01 : const Color(0xFF222222),
+        color: isDark ? Colors.white : const Color(0xFF222222),
       ),
       decoration: InputDecoration(
         hintText: hint,

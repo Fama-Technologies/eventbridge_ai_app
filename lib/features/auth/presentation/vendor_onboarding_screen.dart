@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:eventbridge_ai/core/services/upload_service.dart';
 import 'package:eventbridge_ai/core/storage/storage_service.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
 import 'package:file_picker/file_picker.dart';
@@ -13,6 +15,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:eventbridge_ai/core/widgets/app_toast.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const _kOrange = AppColors.primary01;
@@ -163,6 +166,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
 
   Future<void> _loadDraft() async {
     final draftStr = StorageService().getString('vendor_onboarding_draft');
+    debugPrint('📋 Loading draft: ${draftStr != null ? "found" : "none"}');
     if (draftStr != null) {
       try {
         final draft = jsonDecode(draftStr);
@@ -176,6 +180,18 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
           if (draft['selectedSvc'] != null) {
             _selectedSvc.clear();
             _selectedSvc.addAll(List<String>.from(draft['selectedSvc']));
+          }
+          if (draft['selectedEvt'] != null) {
+            _selectedEvt.clear();
+            _selectedEvt.addAll(List<String>.from(draft['selectedEvt']));
+          }
+          // Resume from saved step
+          final savedStep = draft['step'] ?? 0;
+          if (savedStep > 0 && savedStep <= 2) {
+            _step = savedStep;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _page.jumpToPage(savedStep);
+            });
           }
         });
       } catch (e) {
@@ -194,17 +210,18 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         'exp': _expCtrl.text,
         'price': _priceCtrl.text,
         'selectedSvc': _selectedSvc.toList(),
+        'selectedEvt': _selectedEvt.toList(),
+        'step': _step,
       };
-      await StorageService().setString('vendor_onboarding_draft', jsonEncode(draft));
+      final jsonStr = jsonEncode(draft);
+      await StorageService().setString('vendor_onboarding_draft', jsonStr);
+      debugPrint('📋 Draft saved: $jsonStr');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Progress saved as draft!'), backgroundColor: Colors.green),
-      );
+      AppToast.show(context, message: 'Progress saved as draft!', type: ToastType.success);
     } catch (e) {
+      debugPrint('❌ Draft save error: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save draft.'), backgroundColor: Colors.red),
-      );
+      AppToast.show(context, message: 'Failed to save draft.', type: ToastType.error);
     }
   }
 
@@ -225,9 +242,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
 
   Future<void> _submitForm() async {
     if (_bizName.text.isEmpty || _country.text.isEmpty || _selectedSvc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill out all required fields.'), backgroundColor: Colors.red),
-      );
+      AppToast.show(context, message: 'Please fill out all required fields.', type: ToastType.error);
       return;
     }
 
@@ -235,12 +250,43 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
     
     try {
       final api = ApiService.instance;
-      // In a real scenario we'd get the actual user ID from the Auth state/local storage.
-      // For now, we use a placeholder or decode it from the stored token.
-      final mockUserId = StorageService().getString('user_email') ?? 'vendor_uuid';
+      final upload = UploadService.instance;
+      final userId = StorageService().getString('user_id') ?? '';
+
+      // Upload avatar to S3
+      String? avatarUrl;
+      if (_avatar != null) {
+        final bytes = kIsWeb
+            ? await _readWebFileBytes(_avatar!)
+            : await _avatar!.readAsBytes();
+        avatarUrl = await upload.uploadFile(
+          bytes: bytes,
+          fileName: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          contentType: 'image/jpeg',
+          folder: 'avatars/$userId',
+        );
+      }
+
+      // Upload gallery images to S3
+      List<String>? galleryUrls;
+      if (_gallery.isNotEmpty) {
+        galleryUrls = [];
+        for (int i = 0; i < _gallery.length; i++) {
+          final bytes = kIsWeb
+              ? await _readWebFileBytes(_gallery[i])
+              : await _gallery[i].readAsBytes();
+          final url = await upload.uploadFile(
+            bytes: bytes,
+            fileName: 'gallery_${i}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            contentType: 'image/jpeg',
+            folder: 'gallery/$userId',
+          );
+          galleryUrls.add(url);
+        }
+      }
       
       await api.submitVendorOnboarding(
-        userId: mockUserId, // Would use actual DB user ID here
+        userId: userId,
         businessName: _bizName.text,
         country: _country.text,
         location: _location.text,
@@ -248,20 +294,30 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         experience: _expCtrl.text,
         price: _priceCtrl.text,
         serviceCategories: _selectedSvc.toList(),
+        avatarUrl: avatarUrl,
+        galleryUrls: galleryUrls,
       );
 
       await StorageService().remove('vendor_onboarding_draft');
+      await StorageService().setString('onboarding_completed', 'true');
+      if (avatarUrl != null) {
+        await StorageService().setString('user_image', avatarUrl);
+      }
 
       if (!mounted) return;
-      context.go('/vendor-dashboard');
+      context.go('/vendor-home');
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
-      );
+      if (mounted) AppToast.show(context, message: 'Error: ${e.toString().replaceAll('Exception: ', '')}', type: ToastType.error);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<Uint8List> _readWebFileBytes(File file) async {
+    // On web, File.path is a blob URL, use XFile approach
+    final xFile = XFile(file.path);
+    return await xFile.readAsBytes();
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────────
@@ -581,11 +637,11 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                '\$',
+                                'UGX',
                                 style: TextStyle(
                                   color: _kOrange,
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],

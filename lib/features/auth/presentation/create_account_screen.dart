@@ -6,6 +6,7 @@ import 'package:eventbridge_ai/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge_ai/core/widgets/app_toast.dart';
 
 class CreateAccountScreen extends ConsumerStatefulWidget {
   const CreateAccountScreen({super.key});
@@ -42,11 +43,10 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
 
     ref.listen<AsyncValue<void>>(authControllerProvider, (_, state) {
       if (state.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(state.error.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
+        AppToast.show(
+          context,
+          message: state.error.toString().replaceAll('Exception: ', ''),
+          type: ToastType.error,
         );
       }
     });
@@ -409,10 +409,10 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
 
   Widget _buildLabel(String text) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
-          color: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87,
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
         ),
       );
 
@@ -432,7 +432,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
       keyboardType: keyboardType,
       validator: validator,
       style: TextStyle(
-        color: isDark ? AppColors.darkNeutral01 : const Color(0xFF222222),
+        color: isDark ? Colors.white : const Color(0xFF222222),
       ),
       decoration: InputDecoration(
         hintText: hint,
@@ -546,3 +546,4 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
         );
   }
 }
+//

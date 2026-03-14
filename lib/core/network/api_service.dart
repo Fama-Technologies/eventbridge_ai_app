@@ -82,7 +82,12 @@ class ApiService {
     String? description,
     String? experience,
     String? price,
-    required List<String> serviceCategories,
+    List<String>? serviceCategories,
+    String? avatarUrl,
+    List<String>? galleryUrls,
+    String? website,
+    int? travelRadius,
+    Map<String, String>? workingHours,
   }) async {
     try {
       final response = await _dio.post(
@@ -96,6 +101,91 @@ class ApiService {
           'experience': experience,
           'price': price,
           'serviceCategories': serviceCategories,
+          if (avatarUrl != null) 'avatarUrl': avatarUrl,
+          if (galleryUrls != null && galleryUrls.isNotEmpty) 'galleryUrls': galleryUrls,
+          if (website != null) 'website': website,
+          if (travelRadius != null) 'travelRadius': travelRadius,
+          if (workingHours != null) 'workingHours': workingHours,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getVendorProfile(String userId) async {
+    try {
+      final response = await _dio.get('/api/vendor/profile/$userId');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> saveVendorPackages({
+    required String userId,
+    required List<Map<String, dynamic>> packages,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/packages',
+        data: {
+          'userId': userId,
+          'packages': packages,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getVendorAvailability(String userId) async {
+    try {
+      final response = await _dio.get('/api/vendor/availability/$userId');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> saveVendorAvailability({
+    required String userId,
+    Map<String, dynamic>? workingHours,
+    List<String>? blockedDates,
+    bool? sameDayService,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/availability',
+        data: {
+          'userId': userId,
+          'workingHours': workingHours,
+          'blockedDates': blockedDates,
+          'sameDayService': sameDayService,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ── Upload ──────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getPresignedUrl({
+    required String fileName,
+    required String contentType,
+    String folder = 'uploads',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/upload/presigned-url',
+        data: {
+          'fileName': fileName,
+          'contentType': contentType,
+          'folder': folder,
         },
       );
       return response.data;

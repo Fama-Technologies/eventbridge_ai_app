@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:eventbridge_ai/core/storage/storage_service.dart';
+import 'package:eventbridge_ai/core/widgets/app_toast.dart';
 
 class VendorAvailabilityScreen extends StatefulWidget {
   const VendorAvailabilityScreen({super.key});
@@ -17,19 +20,73 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  // Mock data for dates
-  final Set<DateTime> _bookedDates = {
-    DateTime.now().add(const Duration(days: 2)),
-    DateTime.now().add(const Duration(days: 5)),
-    DateTime.now().add(const Duration(days: 12)),
-  };
-
-  final Set<DateTime> _blockedDates = {
-    DateTime.now().add(const Duration(days: 6)),
-    DateTime.now().add(const Duration(days: 7)),
-  };
-
+  // Data for dates
+  final Set<DateTime> _bookedDates = {};
+  final Set<DateTime> _blockedDates = {};
   bool _sameDayAvailable = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailability();
+  }
+
+  Future<void> _loadAvailability() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final response = await ApiService.instance.getVendorAvailability(userId);
+      if (response['success'] == true) {
+        setState(() {
+          _sameDayAvailable = response['sameDayService'] ?? false;
+          
+          final blocked = response['blockedDates'] as List?;
+          _blockedDates.clear();
+          if (blocked != null) {
+            for (var d in blocked) {
+              if (d is String) {
+                _blockedDates.add(DateTime.parse(d));
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, message: 'Failed to load availability: $e', type: ToastType.error);
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveAvailability() async {
+    // We don't necessarily need a full page loader for small toggles, 
+    // but for blocking/unblocking it's good feedback.
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final blockedList = _blockedDates.map((d) => d.toIso8601String()).toList();
+
+      await ApiService.instance.saveVendorAvailability(
+        userId: userId,
+        blockedDates: blockedList,
+        sameDayService: _sameDayAvailable,
+        // workingHours can be added later if needed
+      );
+      if (mounted) {
+        AppToast.show(context, message: 'Availability updated!', type: ToastType.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, message: 'Failed to save availability: $e', type: ToastType.error);
+      }
+    }
+  }
 
   bool isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -136,6 +193,7 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
                         }
                       });
                       context.pop();
+                      _saveAvailability();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: blocked
@@ -213,9 +271,11 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                children: [
             Container(
               color: Colors.white,
               child: TableCalendar(
@@ -343,6 +403,7 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
                           activeColor: AppColors.primary01,
                           onChanged: (val) {
                             setState(() => _sameDayAvailable = val);
+                            _saveAvailability();
                           },
                         ),
                       ],
