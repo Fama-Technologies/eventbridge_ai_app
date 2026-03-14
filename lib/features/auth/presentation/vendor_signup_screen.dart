@@ -1,5 +1,7 @@
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
 import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge_ai/features/auth/presentation/widgets/google_sign_in_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +24,15 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   final _passCtrl = TextEditingController();
   bool _isPasswordVisible = false;
   bool _agreedToTerms = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    // Pre-save the VENDOR role for Google Sign-In listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authControllerProvider.notifier).saveUserRole('VENDOR');
+    });
+  }
 
   @override
   void dispose() {
@@ -336,6 +347,24 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                     _buildAnimated(
                       Consumer(
                         builder: (context, ref, child) {
+                          if (kIsWeb) {
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: buildGoogleSignInButton(),
+                                ),
+                                const gap.Gap(8),
+                                const Text(
+                                  'Use the button above to continue with Google',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            );
+                          }
+
                           final authState = ref.watch(authControllerProvider);
                           return _buildSocialButton(
                             authState.isLoading ? 'Connecting...' : 'Continue with Google',
@@ -396,13 +425,17 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
               ),
             ),
           ),
-        ),
-      ),
-    ],
+                  ),
+        ).animate().slideY(
+              begin: 1.0,
+              duration: 600.ms,
+              curve: Curves.easeOutCirc,
+            ),
+      ],
+    ),
   ),
-),
 );
-  }
+}
 
   Widget _buildHero(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -461,7 +494,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        color: Colors.black87,
+        color: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87,
       ),
     );
   }
@@ -496,7 +529,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                   _isPasswordVisible
                       ? Icons.visibility_rounded
                       : Icons.visibility_off_rounded,
-                  color: Colors.black54,
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54,
                   size: 20,
                 ),
                 onPressed: () =>

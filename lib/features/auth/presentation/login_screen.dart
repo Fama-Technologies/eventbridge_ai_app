@@ -6,19 +6,25 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge_ai/core/widgets/app_toast.dart';
 import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge_ai/features/auth/presentation/widgets/google_sign_in_button.dart';
+import 'package:flutter/foundation.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
   bool _stayLoggedIn = false;
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   Widget _buildEntranceAnimation(
     Widget child, {
@@ -37,6 +43,13 @@ class _LoginScreenState extends State<LoginScreen> {
         );
   }
 
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             _buildGlovoTextField(
                               hint: 'Email address',
                               icon: Icons.email_outlined,
+                              controller: _emailCtrl,
                               keyboardType: TextInputType.emailAddress,
                               validator: (v) =>
                                   v == null || !v.contains('@')
@@ -144,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             _buildGlovoTextField(
                               hint: 'Password',
                               icon: Icons.lock_outline_rounded,
+                              controller: _passCtrl,
                               isPassword: true,
                               validator: (v) =>
                                   v == null || v.length < 6
@@ -154,14 +169,40 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const gap.Gap(32),
 
-                          // Login Button
                           _buildEntranceAnimation(
                             ElevatedButton(
-                              onPressed: () {
-                                if (_formKey.currentState!.validate()) {
-                                  context.go('/login-success');
-                                }
-                              },
+                              onPressed: _isLoading
+                                  ? null
+                                  : () async {
+                                      if (_formKey.currentState!.validate()) {
+                                        setState(() => _isLoading = true);
+                                        try {
+                                          final repo = ref.read(authRepositoryProvider);
+                                          await repo.login(
+                                            _emailCtrl.text.trim(),
+                                            _passCtrl.text,
+                                          );
+                                          if (!context.mounted) return;
+                                          // Role-based redirect
+                                          final role = repo.getUserRole();
+                                          if (role == 'VENDOR') {
+                                            context.go('/vendor-home');
+                                          } else {
+                                            context.go('/customer-home');
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            AppToast.show(
+                                              context,
+                                              message: e.toString().replaceAll('Exception: ', ''),
+                                              type: ToastType.error,
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) setState(() => _isLoading = false);
+                                        }
+                                      }
+                                    },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary01,
                                 foregroundColor: Colors.white,
@@ -171,13 +212,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 elevation: 0,
                               ),
-                              child: const Text(
-                                'Log in',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Log in',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                             delayMs: 360,
                           ),
@@ -238,30 +288,47 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           // Social Button
                           _buildEntranceAnimation(
-                            Consumer(
-                              builder: (context, ref, child) {
-                                final authState = ref.watch(authControllerProvider);
-                                
-                                return _buildSocialButton(
-                                  authState.isLoading ? 'Connecting...' : 'Continue with Google',
-                                  'assets/icons/google.png',
-                                  authState.isLoading ? () {} : () async {
-                                    await ref.read(authControllerProvider.notifier).continueWithGoogle(role: 'CUSTOMER');
-                                    if (!context.mounted) return;
-                                    if (!ref.read(authControllerProvider).hasError) {
-                                      context.go('/login-success');
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(ref.read(authControllerProvider).error.toString().replaceAll('Exception: ', '')),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                );
-                              }
-                            ),
+                            kIsWeb
+                                ? Column(
+                                    children: [
+                                      SizedBox(
+                                        height: 56,
+                                        width: double.infinity,
+                                        child: buildGoogleSignInButton(),
+                                      ),
+                                      const gap.Gap(8),
+                                      const Text(
+                                        'Use the button above to continue with Google',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  )
+                                : _buildSocialButton(
+                                    'Continue with Google',
+                                    'assets/icons/google.png',
+                                    () async {
+                                      try {
+                                        final repo = ref.read(authRepositoryProvider);
+                                        await repo.continueWithGoogle(role: 'CUSTOMER');
+                                        if (!context.mounted) return;
+                                        final role = repo.getUserRole();
+                                        if (role == 'VENDOR') {
+                                          context.go('/vendor-home');
+                                        } else {
+                                          context.go('/customer-home');
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          AppToast.show(
+                                            context,
+                                            message: e.toString().replaceAll('Exception: ', ''),
+                                            type: ToastType.error,
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
                             delayMs: 600,
                           ),
                           const gap.Gap(32),
@@ -437,6 +504,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildGlovoTextField({
     required String hint,
     required IconData icon,
+    TextEditingController? controller,
     bool isPassword = false,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
@@ -445,6 +513,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final textColor = isDark ? Colors.white : AppColors.darkNeutral01;
 
     return TextFormField(
+      controller: controller,
       obscureText: isPassword && !_isPasswordVisible,
       keyboardType: keyboardType,
       validator: validator,

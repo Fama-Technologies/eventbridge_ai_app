@@ -1,5 +1,6 @@
 // import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:eventbridge_ai/core/storage/storage_service.dart';
 import 'package:eventbridge_ai/features/auth/presentation/splash_screen.dart';
 import 'package:eventbridge_ai/features/auth/presentation/login_screen.dart';
 import 'package:eventbridge_ai/features/auth/presentation/role_selection_screen.dart';
@@ -26,8 +27,44 @@ import 'package:eventbridge_ai/features/vendors_screen/vendor_availability_scree
 import 'package:eventbridge_ai/features/vendors_screen/subscription_screen.dart';
 import 'package:eventbridge_ai/features/matching/presentation/submit_review_screen.dart';
 
+// Routes that don't require authentication
+const _publicRoutes = [
+  '/',
+  '/login',
+  '/signup',
+  '/create-account',
+  '/vendor-signup',
+  '/role-selection',
+  '/forgot-password',
+  '/verify-code',
+  '/signup-success',
+  '/login-success',
+  '/vendor-signup-success',
+];
+
 final appRouter = GoRouter(
-  initialLocation: '/onboarding',
+  initialLocation: '/',
+  redirect: (context, state) async {
+    final path = state.matchedLocation;
+    final isPublic = _publicRoutes.contains(path);
+
+    final storage = StorageService();
+    final token = await storage.getToken();
+    final isLoggedIn = token != null && token.isNotEmpty;
+
+    // If not logged in and trying to access a protected route → login
+    if (!isLoggedIn && !isPublic) {
+      return '/login';
+    }
+
+    // If logged in and on the login page → redirect to role-based home
+    if (isLoggedIn && path == '/login') {
+      final role = storage.getString('user_role');
+      return role == 'VENDOR' ? '/vendor-home' : '/customer-home';
+    }
+
+    return null; // No redirect
+  },
   routes: [
     GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),

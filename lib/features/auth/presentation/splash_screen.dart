@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge_ai/core/storage/storage_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,8 +17,23 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) context.go('/login');
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      final storage = StorageService();
+      final token = await storage.getToken();
+      if (token != null && token.isNotEmpty) {
+        // User is logged in — redirect based on role
+        final role = storage.getString('user_role');
+        if (mounted) {
+          if (role == 'VENDOR') {
+            context.go('/vendor-home');
+          } else {
+            context.go('/customer-home');
+          }
+        }
+      } else {
+        if (mounted) context.go('/login');
+      }
     });
   }
 

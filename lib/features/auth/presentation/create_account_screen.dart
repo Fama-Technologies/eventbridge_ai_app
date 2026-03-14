@@ -412,7 +412,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
-          color: Colors.black87,
+          color: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87,
         ),
       );
 
@@ -446,7 +446,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
                   _isPasswordVisible
                       ? Icons.visibility_rounded
                       : Icons.visibility_off_rounded,
-                  color: Colors.black54,
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54,
                   size: 20,
                 ),
                 onPressed: () =>

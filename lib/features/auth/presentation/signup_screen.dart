@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
 import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge_ai/features/auth/presentation/widgets/google_sign_in_button.dart';
+import 'package:flutter/foundation.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -159,6 +161,27 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                 Consumer(
                   builder: (context, ref, child) {
+                    if (kIsWeb) {
+                      return Column(
+                        children: [
+                          _buildEntranceAnimation(
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: buildGoogleSignInButton(),
+                            ),
+                            delayMs: 700,
+                          ),
+                          const Gap(8),
+                          const Text(
+                            'Use the button above to continue with Google',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      );
+                    }
+
                     final authState = ref.watch(authControllerProvider);
                     return SizedBox(
                       width: double.infinity,
@@ -242,7 +265,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Widget _buildRoleCard(String title, IconData icon, bool isSelected) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _isVendor = title == 'Vendor'),
+        onTap: () {
+          setState(() => _isVendor = title == 'Vendor');
+          ref.read(authControllerProvider.notifier).saveUserRole(_isVendor ? 'VENDOR' : 'CUSTOMER');
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(16),
@@ -336,5 +362,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildEntranceAnimation(Widget child, {required int delayMs}) {
+    return child.animate().fadeIn(delay: delayMs.ms).slideY(
+          begin: 0.1,
+          end: 0,
+          delay: delayMs.ms,
+          duration: 400.ms,
+          curve: Curves.easeOutCubic,
+        );
   }
 }
