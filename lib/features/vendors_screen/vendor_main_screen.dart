@@ -16,18 +16,19 @@ class VendorMainScreen extends StatefulWidget {
 
 class _VendorMainScreenState extends State<VendorMainScreen> {
   int _selectedIndex = 0;
-
   final List<Widget> _screens = [
     const VendorHomeScreen(),
     const LeadsScreen(),
     const MessagesListScreen(),
+    const VendorPackagesScreen(),
     const VendorProfileScreen(),
   ];
 
   static const _navItems = [
     _NavItemData(icon: Icons.home_rounded, label: 'Home'),
     _NavItemData(icon: Icons.dashboard_customize_rounded, label: 'Leads'),
-    _NavItemData(icon: Icons.campaign_rounded, label: 'Messages'),
+    _NavItemData(icon: Icons.chat_bubble_rounded, label: 'Messages'),
+    _NavItemData(icon: Icons.inventory_2_rounded, label: 'Packages'),
     _NavItemData(icon: Icons.person_rounded, label: 'Profile'),
   ];
 

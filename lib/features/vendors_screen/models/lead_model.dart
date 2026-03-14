@@ -15,6 +15,7 @@ class Lead {
   final String clientImageUrl;
   final bool isHighValue;
   final String lastActive;
+  final bool isAccepted;
 
   Lead({
     required this.id,
@@ -33,5 +34,6 @@ class Lead {
     required this.clientImageUrl,
     this.isHighValue = false,
     required this.lastActive,
+    this.isAccepted = false,
   });
 }

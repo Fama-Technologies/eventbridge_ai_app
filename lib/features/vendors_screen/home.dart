@@ -8,6 +8,7 @@ import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge_ai/core/widgets/app_toast.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:ui';
 
 class VendorHomeScreen extends StatefulWidget {
   const VendorHomeScreen({super.key});
@@ -16,17 +17,22 @@ class VendorHomeScreen extends StatefulWidget {
   State<VendorHomeScreen> createState() => _VendorHomeScreenState();
 }
 
-class _VendorHomeScreenState extends State<VendorHomeScreen> {
+class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<Lead> _filteredLeads = MockLeadRepository.leads;
-  bool _hasNotifications = true; // Demonstration purpose
+  bool _hasNotifications = true;
   String? _planName;
+  late AnimationController _meshController;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _loadPlan();
+    _meshController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
   }
 
   void _loadPlan() {
@@ -34,10 +40,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
     setState(() {
       _planName = storage.getString('vendor_plan');
     });
-    // Optional: fetch if missing
-    if (_planName == null) {
-      _fetchPlan();
-    }
+    if (_planName == null) _fetchPlan();
   }
 
   Future<void> _fetchPlan() async {
@@ -60,6 +63,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _meshController.dispose();
     super.dispose();
   }
 
@@ -73,13 +77,6 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
     });
   }
 
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning!';
-    if (hour < 17) return 'Good Afternoon!';
-    return 'Good Evening!';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -88,573 +85,568 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
     final userName = storage.getString('user_name') ?? 'Vendor';
     final userImage = storage.getString('user_image');
 
-    // Neutral header colors based on theme tokens
-    final headerBg = isDark ? AppColors.backgroundDark : AppColors.neutrals01;
-    final bg = isDark ? AppColors.backgroundDark : const Color(0xFFF7F7F8);
-    final cardBg = isDark ? AppColors.darkNeutral02 : Colors.white;
-    final textPrimary = isDark ? AppColors.foregroundDark : const Color(0xFF1A1A24);
-    final textSecondary = isDark ? AppColors.darkNeutral06 : const Color(0xFF6B7280);
-    final borderColor = isDark ? AppColors.darkNeutral03 : const Color(0xFFF1F5F9);
-
     return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Static Header ──────────────────────────────
-            _buildHeader(context, isDark, userName, userImage, textPrimary, headerBg),
-
-            // ── Scrolling Content ──────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 24), // Spacing after search bar
-
-                    // ── Analytics ──────────────────────────────────
-                    if (_searchController.text.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildAnalyticsCards(isDark, cardBg, textPrimary, borderColor),
-                      ),
-
-                    if (_searchController.text.isEmpty) const SizedBox(height: 28),
-
-                    // ── Business Hub ───────────────────────────────
-                    if (_searchController.text.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildBusinessHub(context, isDark, cardBg, textPrimary, borderColor),
-                      ),
-
-                    if (_searchController.text.isEmpty) const SizedBox(height: 24),
-
-                    // ── Upgrade Banner ─────────────────────────────
-                    if (_searchController.text.isEmpty && _planName?.toLowerCase() != 'business_pro')
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildUpgradeBanner(context, isDark),
-                      ),
-
-                    if (_searchController.text.isEmpty) const SizedBox(height: 28),
-
-                    // ── Recent Leads ───────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _buildRecentLeadsHeader(context, textPrimary, _searchController.text.isNotEmpty),
-                    ),
-                    const SizedBox(height: 14),
-                    
-                    if (_filteredLeads.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 40),
-                          child: Text('No matching leads found'),
-                        ),
-                      )
-                    else
-                      ..._filteredLeads.map(
-                        (lead) => Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                          child: _buildLeadCard(context, lead: lead, isDark: isDark, cardBg: cardBg, textPrimary: textPrimary, textSecondary: textSecondary, borderColor: borderColor),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, bool isDark, String userName, String? userImage, Color textPrimary, Color headerBg) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      decoration: BoxDecoration(
-        color: headerBg,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
+      backgroundColor: AppColors.primary01, // Orange behind the curve
+      body: Column(
         children: [
-          Row(
-            children: [
-              // Avatar with fallback to mock/initials
-              Stack(
-                clipBehavior: Clip.none,
+          // ── STATIC ORANGE HEADER (like login) ──────────────
+          _buildStaticHeader(isDark, userName, userImage),
+
+          // ── BODY with rounded top (like login bottom sheet) ──
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
                 children: [
-                  // Pro Plan Crown
-                  if (_planName?.toLowerCase() == 'business_pro')
-                    Positioned(
-                      top: -12,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Icon(
-                          Icons.king_bed_rounded,
-                          color: const Color(0xFFFFD700),
-                          size: 18,
-                        ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                         .scale(duration: 1.seconds, begin: const Offset(1, 1), end: const Offset(1.1, 1.1))
-                         .shimmer(delay: 2.seconds),
-                      ),
-                    ),
-                  
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isDark ? AppColors.darkNeutral02 : AppColors.neutrals02,
-                      border: Border.all(
-                        color: _planName?.toLowerCase() == 'business_pro' 
-                            ? const Color(0xFFFFD700) 
-                            : AppColors.neutrals02, 
-                        width: 2.5,
-                      ),
-                    ),
-                    child: ClipOval(
-                      child: (userImage != null && userImage.isNotEmpty)
-                          ? Image.network(
-                              userImage,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return _buildInitialsPlaceholder(userName);
-                              },
-                            )
-                          : _buildInitialsPlaceholder(userName),
-                    ),
+                  // ── STATIC SEARCH BAR (pinned, never scrolls) ──
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                    child: _buildGlassSearchBar(),
                   ),
 
-                  // Free Plan White Bubble Badge (Exterior Tab Look)
-                  if (_planName != null && _planName?.toLowerCase() != 'business_pro')
-                    Positioned(
-                      left: 58, // Almost tangent to the 64px avatar edge
-                      top: 28,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFEA580C), width: 1.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 4,
-                              offset: const Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'FREE',
-                          style: GoogleFonts.roboto(
-                            fontSize: 7,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFFEA580C),
-                            letterSpacing: 0.4,
+                  // ── SCROLLABLE CONTENT ──
+                  Expanded(
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        // ── Main Content Area ──────────────────────────
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          sliver: SliverList(
+                            delegate: SliverChildListDelegate([
+                              // ── Business Stats / Insights ──────────────────
+                              if (_searchController.text.isEmpty) ...[
+                                _buildSectionHeader(context, "Business Insights", isDark),
+                                const SizedBox(height: 16),
+                                _buildInsightsDashboard(isDark),
+                                const SizedBox(height: 32),
+
+                                // ── Quick Actions / Hub ───────────────────────
+                                _buildSectionHeader(context, "Business Hub", isDark),
+                                const SizedBox(height: 16),
+                                _buildBusinessHub(context, isDark),
+                                const SizedBox(height: 32),
+                              ],
+
+                              // ── Leads Section ─────────────────────────────
+                              _buildSectionHeader(
+                                context,
+                                _searchController.text.isEmpty ? "Recent Leads" : "Search Results",
+                                isDark,
+                                showViewAll: _searchController.text.isEmpty,
+                              ),
+                              const SizedBox(height: 16),
+                            ]),
                           ),
                         ),
-                      ),
+
+                        // ── Leads List ──────────────────────────────────
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          sliver: _filteredLeads.isEmpty
+                              ? SliverToBoxAdapter(
+                                  child: Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 40),
+                                      child: Text(
+                                        'No matching leads found',
+                                        style: GoogleFonts.roboto(color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 16),
+                                        child: _buildPremiumLeadCard(context, _filteredLeads[index], isDark),
+                                      ).animate().fadeIn(delay: (index * 100).ms, duration: 400.ms).slideX(begin: 0.1, end: 0);
+                                    },
+                                    childCount: _filteredLeads.length,
+                                  ),
+                                ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                      ],
                     ),
+                  ),
                 ],
               ),
-              const SizedBox(width: 44), // Increased to give room for exterior badge
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _greeting(),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? const Color(0xFF999999) : AppColors.neutrals07,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      userName,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : Colors.black,
-                        letterSpacing: -0.5,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-
-              GestureDetector(
-                onTap: () {
-                  setState(() => _hasNotifications = false);
-                  // Fixed: context.push('/vendor-settings') might be better if we want to go to notifications
-                  // but for now keeping as is or changing to settings
-                  context.push('/vendor-settings');
-                },
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary01,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.notifications_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                )
-                .animate(target: _hasNotifications ? 1 : 0, onPlay: (controller) => controller.repeat())
-                .shake(duration: 1.seconds, hz: 4)
-                .custom(
-                    duration: 1.5.seconds,
-                    builder: (context, value, child) => Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary01.withOpacity(0.5 * (1 - value)),
-                            blurRadius: 15 * value,
-                            spreadRadius: 8 * value,
-                          ),
-                        ],
-                      ),
-                      child: child,
-                    ),
-                  ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Pill-shaped Search bar (Exact match to screenshot)
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(40), 
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              style: const TextStyle(color: Colors.black, fontSize: 16), // Reduced font
-              decoration: InputDecoration(
-                hintText: 'Search Workouts...',
-                hintStyle: const TextStyle(color: Color(0xFF999999), fontWeight: FontWeight.w400, fontSize: 16),
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(left: 16, right: 8),
-                  child: Icon(Icons.search_rounded, color: Color(0xFF999999), size: 24), // Reduced Icon
-                ),
-                prefixIconConstraints: const BoxConstraints(minWidth: 48), 
-                suffixIcon: const Padding(
-                  padding: EdgeInsets.only(right: 16),
-                  child: Icon(Icons.tune_rounded, color: Colors.black, size: 24), // Reduced Icon
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14), // Reduced height
-              ),
             ),
           ),
-          const SizedBox(height: 12), // Extra padding at the bottom of the header
         ],
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  //  ANALYTICS CARDS
-  // ════════════════════════════════════════════════════════════════════════════
-  Widget _buildAnalyticsCards(bool isDark, Color cardBg, Color textPrimary, Color borderColor) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2A1A14) : const Color(0xFFFEE2E2),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: AppColors.primary01.withValues(alpha: isDark ? 0.2 : 0.1),
+  // ── STATIC HEADER (like login screen) ───────────────────────────────
+  Widget _buildStaticHeader(bool isDark, String userName, String? userImage) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Dots/Pattern overlay
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.1,
+              child: GridView.count(
+                crossAxisCount: 12,
+                physics: const NeverScrollableScrollPhysics(),
+                children: List.generate(
+                  120,
+                  (i) => const Icon(Icons.circle, size: 4, color: Colors.white),
+                ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary01,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 18),
+          ),
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              child: Row(
+                children: [
+                  _buildAvatar(userImage, userName),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _getGreeting(),
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        Text(
+                          userName,
+                          style: GoogleFonts.outfit(
+                            fontSize: 24,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary01,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'ACTIVE',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  'New Leads',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '12',
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: textPrimary),
-                ),
-              ],
+                  ),
+                  _buildNotificationBell(),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: borderColor),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkNeutral03 : const Color(0xFFF3F4F6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.visibility_rounded,
-                    color: isDark ? AppColors.darkNeutral06 : const Color(0xFF4B5563),
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                Text(
-                  'Profile Views',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '1.2k',
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: textPrimary),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  //  BUSINESS HUB
-  // ════════════════════════════════════════════════════════════════════════════
-  Widget _buildBusinessHub(BuildContext context, bool isDark, Color cardBg, Color textPrimary, Color borderColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildAvatar(String? userImage, String userName) {
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Business Hub',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: textPrimary),
-            ),
-            Icon(Icons.chevron_right_rounded, size: 18, color: isDark ? AppColors.darkNeutral06 : const Color(0xFF9CA3AF)),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            _buildHubCard(context, isDark: isDark, cardBg: cardBg, textPrimary: textPrimary, borderColor: borderColor,
-              icon: Icons.local_offer_rounded,
-              label: 'Packages',
-              bgColor: isDark ? const Color(0xFF0F2A3A) : const Color(0xFFF0F9FF),
-              iconColor: const Color(0xFF0EA5E9),
-              onTap: () => context.push('/vendor-packages'),
-            ),
-            const SizedBox(width: 12),
-            _buildHubCard(context, isDark: isDark, cardBg: cardBg, textPrimary: textPrimary, borderColor: borderColor,
-              icon: Icons.calendar_month_rounded,
-              label: 'Calendar',
-              bgColor: isDark ? const Color(0xFF0F2A1A) : const Color(0xFFF0FDF4),
-              iconColor: const Color(0xFF22C55E),
-              onTap: () => context.push('/vendor-calendar'),
-            ),
-            const SizedBox(width: 12),
-            _buildHubCard(context, isDark: isDark, cardBg: cardBg, textPrimary: textPrimary, borderColor: borderColor,
-              icon: Icons.image_rounded,
-              label: 'Portfolio',
-              bgColor: isDark ? const Color(0xFF2A1414) : const Color(0xFFFEF2F2),
-              iconColor: const Color(0xFFEF4444),
-              onTap: () => context.push('/vendor-profile-settings'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHubCard(BuildContext context, {
-    required bool isDark,
-    required Color cardBg,
-    required Color textPrimary,
-    required Color borderColor,
-    required IconData icon,
-    required String label,
-    required Color bgColor,
-    required Color iconColor,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
+        Container(
+          width: 54,
+          height: 54,
           decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: borderColor),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.2), width: 2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
+                color: Colors.black.withOpacity(0.2),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-                child: Icon(icon, color: iconColor, size: 22),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary),
-              ),
-            ],
+          child: ClipOval(
+            child: (userImage != null && userImage.isNotEmpty)
+                ? Image.network(userImage, fit: BoxFit.cover)
+                : _buildInitialsPlaceholder(userName),
           ),
         ),
+        if (_planName?.toLowerCase() == 'business_pro')
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFD700),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.king_bed_rounded, size: 12, color: Colors.black),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationBell() {
+    return GestureDetector(
+      onTap: () => setState(() => _hasNotifications = false),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(
+              color: Colors.white24,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.notifications_rounded, color: Colors.white, size: 26),
+          ),
+          if (_hasNotifications)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  //  UPGRADE BANNER
-  // ════════════════════════════════════════════════════════════════════════════
-  Widget _buildUpgradeBanner(BuildContext context, bool isDark) {
-    return GestureDetector(
-      onTap: () => context.push('/subscription'),
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF1A1A24), const Color(0xFF252536)]
-                : [const Color(0xFF1A1A24), const Color(0xFF2D2D3A)],
+  Widget _buildGlassSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 52,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search_rounded, color: Color(0xFFEA580C), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: GoogleFonts.outfit(color: const Color(0xFF1F2937), fontSize: 15),
+              decoration: InputDecoration(
+                hintText: "Search leads, events...",
+                hintStyle: GoogleFonts.outfit(color: Colors.black38, fontSize: 15),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          const Icon(Icons.tune_rounded, color: Color(0xFFEA580C), size: 22),
+        ],
+      ),
+    );
+  }
+
+  // ── INSIGHTS DASHBOARD ──────────────────────────
+  Widget _buildInsightsDashboard(bool isDark) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildInsightCard(
+            "Total Leads",
+            "${MockLeadRepository.leads.length}",
+            Icons.leaderboard_rounded,
+            const Color(0xFF10B981),
+            isDark,
           ),
         ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildInsightCard(
+            "Profile Views",
+            "1,204",
+            Icons.visibility_rounded,
+            const Color(0xFFF59E0B),
+            isDark,
+          ),
+        ),
+      ],
+    ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  Widget _buildInsightCard(String label, String value, IconData icon, Color accentColor, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02 : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: accentColor, size: 20),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: isDark ? Colors.white60 : Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 24,
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── BUSINESS HUB ──────────────────────────────
+  Widget _buildBusinessHub(BuildContext context, bool isDark) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          _buildHubTile(context, "Packages", Icons.inventory_2_outlined, const Color(0xFF6366F1), () => context.push('/vendor-packages'), isDark),
+          _buildHubTile(context, "Calendar", Icons.calendar_today_rounded, const Color(0xFF8B5CF6), () => context.push('/vendor-calendar'), isDark),
+          _buildHubTile(context, "Portfolio", Icons.photo_library_outlined, const Color(0xFFEC4899), () => context.push('/vendor-profile-settings'), isDark),
+          _buildHubTile(context, "Identity", Icons.badge_outlined, const Color(0xFFF43F5E), () {}, isDark),
+        ],
+      ),
+    ).animate().fadeIn(duration: 600.ms, delay: 400.ms).slideX(begin: 0.1, end: 0);
+  }
+
+  Widget _buildHubTile(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap, bool isDark) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkNeutral02 : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.military_tech_rounded, color: AppColors.primary01, size: 22),
-                ),
-                const SizedBox(width: 14),
-                const Text(
-                  'Upgrade to Pro',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            RichText(
-              text: TextSpan(
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  height: 1.5,
-                ),
-                children: [
-                  const TextSpan(text: 'Boost your visibility with '),
-                  TextSpan(
-                    text: 'Top AI Ranking',
-                    style: TextStyle(color: AppColors.primary01, fontWeight: FontWeight.bold),
-                  ),
-                  const TextSpan(text: ' and unlock advanced matching algorithms.'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => context.push('/subscription'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary01,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Get Started',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPremiumLeadCard(BuildContext context, Lead lead, bool isDark) {
+    return GestureDetector(
+      onTap: () => context.push('/lead-details/${lead.id}'),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkNeutral02 : Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    image: DecorationImage(
+                      image: NetworkImage(lead.clientImageUrl),
+                      fit: BoxFit.cover,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              lead.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : Colors.black,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ),
+                          if (lead.isHighValue)
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.star_rounded, color: Color(0xFFD97706), size: 14),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        lead.clientName,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          color: isDark ? Colors.white60 : Colors.black54,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                _buildCardBadge(Icons.location_on_outlined, lead.location, isDark),
+                const Spacer(),
+                _buildMatchPill(lead.matchScore.toInt()),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatchPill(int score) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary01, Color(0xFFEA580C)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        "$score% Match",
+        style: GoogleFonts.outfit(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardBadge(IconData icon, String label, bool isDark) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: isDark ? Colors.white38 : Colors.black38),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            color: isDark ? Colors.white38 : Colors.black38,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── HELPERS ────────────────────────────────────
+  Widget _buildSectionHeader(BuildContext context, String title, bool isDark, {bool showViewAll = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.outfit(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.black,
+            letterSpacing: -0.5,
+          ),
+        ),
+        if (showViewAll)
+          Text(
+            "View all",
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary01,
+            ),
+          ),
+      ],
     );
   }
 
@@ -668,172 +660,21 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
         initials = parts[0][0].toUpperCase();
       }
     }
-    
     return Container(
-      color: const Color(0xFFE5E7EB),
+      color: const Color(0xFF1E1E2E),
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF4B5563), // Darker gray for better contrast
-        ),
+        style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white70),
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  //  RECENT LEADS
-  // ════════════════════════════════════════════════════════════════════════════
-  Widget _buildRecentLeadsHeader(BuildContext context, Color textPrimary, bool isSearching) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          isSearching ? 'Search Results' : 'Recent Leads',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: textPrimary),
-        ),
-        if (!isSearching)
-          TextButton(
-            onPressed: () {},
-            child: Row(
-              children: [
-                const Text(
-                  'View all',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary01),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.arrow_forward_rounded, size: 15, color: AppColors.primary01),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildLeadCard(BuildContext context, {
-    required Lead lead,
-    required bool isDark,
-    required Color cardBg,
-    required Color textPrimary,
-    required Color textSecondary,
-    required Color borderColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      lead.title,
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textPrimary),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today_rounded, size: 14, color: textSecondary),
-                        const SizedBox(width: 6),
-                        Text(lead.date, style: TextStyle(fontSize: 12, color: textSecondary)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_rounded, size: 14, color: textSecondary),
-                        const SizedBox(width: 6),
-                        Text(lead.location, style: TextStyle(fontSize: 12, color: textSecondary)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'MATCH',
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: textSecondary, letterSpacing: 0.5),
-                  ),
-                  Text(
-                    '${lead.matchScore}%',
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.primary01),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  onPressed: () => context.push('/lead-details/${lead.id}'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? AppColors.darkNeutral03 : const Color(0xFFFFF1F0),
-                    foregroundColor: textPrimary,
-                    elevation: 0,
-                    minimumSize: const Size(0, 44),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('View Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 15),
-                  label: const Text('Accept'),
-                  onPressed: () => context.push('/vendor-chat/${lead.id}'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary01,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    minimumSize: const Size(0, 44),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    AppToast.show(context, message: 'Lead declined and customer notified.', type: ToastType.info);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? AppColors.darkNeutral03 : const Color(0xFFF3F4F6),
-                    foregroundColor: isDark ? AppColors.foregroundDark : const Color(0xFF1F2937),
-                    elevation: 0,
-                    minimumSize: const Size(0, 44),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Decline', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
   }
 }
+

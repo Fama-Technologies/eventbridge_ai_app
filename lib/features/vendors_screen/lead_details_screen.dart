@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
@@ -6,14 +7,39 @@ import 'package:go_router/go_router.dart';
 import 'package:eventbridge_ai/features/vendors_screen/data/mock_lead_data.dart';
 import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
 import 'package:eventbridge_ai/features/shared/report_bottom_sheet.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-class LeadDetailsScreen extends StatelessWidget {
+class LeadDetailsScreen extends StatefulWidget {
   final String leadId;
   const LeadDetailsScreen({super.key, required this.leadId});
 
   @override
+  State<LeadDetailsScreen> createState() => _LeadDetailsScreenState();
+}
+
+class _LeadDetailsScreenState extends State<LeadDetailsScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final lead = MockLeadRepository.getById(leadId);
+    final lead = MockLeadRepository.getById(widget.leadId);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     if (lead == null) {
       return Scaffold(
@@ -25,227 +51,370 @@ class LeadDetailsScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F8),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A24)),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Lead Details',
-          style: GoogleFonts.roboto(
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF1A1A24),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Color(0xFF1A1A24)),
-            onPressed: () => ReportBottomSheet.show(context),
-          ),
-        ],
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
+      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 16),
-                _buildProfileHeader(lead),
-                const SizedBox(height: 32),
-                _buildLeadStats(lead),
-                const SizedBox(height: 32),
-                _buildEventDetailsHeader(),
-                const SizedBox(height: 16),
-                _buildEventDetailItem(
-                  icon: Icons.calendar_month_rounded,
-                  iconColor: const Color(0xFFFFE2E2),
-                  iconDataColor: AppColors.primary01,
-                  label: 'DATE & TIME',
-                  value: lead.date,
-                  subValue: lead.time,
-                ),
-                const SizedBox(height: 16),
-                _buildVenueCard(lead),
-                const SizedBox(height: 32),
-                _buildClientMessage(lead),
-                const SizedBox(height: 120), // Space for bottom buttons
-              ],
-            ),
-          ),
-          _buildBottomActions(context, lead),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileHeader(Lead lead) {
-    return Column(
-      children: [
-        Stack(
-          children: [
-            CircleAvatar(
-              radius: 60,
-              backgroundColor: const Color(0xFFF3F4F6),
-              backgroundImage: NetworkImage(lead.clientImageUrl),
-              onBackgroundImageError: (_, __) =>
-                  const Icon(Icons.person, size: 60, color: Color(0xFF9CA3AF)),
-              child:
-                  null, // child will be hidden by backgroundImage if it loads
-            ),
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF22C55E),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Text(
-          lead.clientName,
-          style: GoogleFonts.roboto(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF1A1A24),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (lead.isHighValue)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1F0),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'HIGH VALUE',
-                  style: GoogleFonts.roboto(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primary01,
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildSliverHeader(context, lead, isDark),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 24),
+                      _buildMatchGaugeSection(lead, isDark),
+                      const SizedBox(height: 32),
+                      _buildLeadStats(lead, isDark),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Event Details', isDark),
+                      const SizedBox(height: 16),
+                      _buildEventDetailItem(
+                        icon: Icons.calendar_today_rounded,
+                        label: 'Date & Time',
+                        value: lead.date,
+                        subValue: lead.time,
+                        isDark: isDark,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildVenueCard(lead, isDark),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Client Message', isDark),
+                      const SizedBox(height: 16),
+                      _buildPremiumMessage(lead, isDark),
+                      const SizedBox(height: 160), // Space for bottom sheet
+                    ],
                   ),
                 ),
               ),
-            if (lead.isHighValue) const SizedBox(width: 12),
-            Text(
-              'Active ${lead.lastActive}',
-              style: GoogleFonts.roboto(
-                fontSize: 14,
-                color: const Color(0xFF6B7280),
+            ],
+          ),
+          _buildFloatingActions(context, lead, isDark),
+          _buildTopBar(context, isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context, bool isDark) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 10,
+      left: 20,
+      right: 20,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildGlassButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            onTap: () => context.pop(),
+            isDark: isDark,
+          ),
+          _buildGlassButton(
+            icon: Icons.more_horiz_rounded,
+            onTap: () => ReportBottomSheet.show(context),
+            isDark: isDark,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliverHeader(BuildContext context, Lead lead, bool isDark) {
+    return SliverAppBar(
+      expandedHeight: 340,
+      automaticallyImplyLeading: false,
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              lead.clientImageUrl,
+              fit: BoxFit.cover,
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.4),
+                    Colors.transparent,
+                    isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
+                  ],
+                  stops: const [0.0, 0.4, 0.95],
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 40,
+              left: 20,
+              right: 20,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (lead.isHighValue)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: BackdropFilter(
+                        filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white30),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary01.withValues(alpha: 0.2),
+                                blurRadius: 15,
+                                spreadRadius: -5,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.stars_rounded, color: Colors.white, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                'PREMIUM LEAD',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  Text(
+                    lead.clientName,
+                    style: GoogleFonts.outfit(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -1.5,
+                      height: 1,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          offset: const Offset(0, 4),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      ScaleTransition(
+                        scale: Tween(begin: 0.8, end: 1.2).animate(
+                          CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+                        ),
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF22C55E),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFF22C55E),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Offline • Last active ${lead.lastActive}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildLeadStats(Lead lead) {
+  Widget _buildMatchGaugeSection(Lead lead, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02.withValues(alpha: 0.6) : Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: CircularProgressIndicator(
+                  value: lead.matchScore / 100,
+                  strokeWidth: 10,
+                  backgroundColor: isDark ? Colors.white10 : const Color(0xFFF3F4F6),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary01),
+                  strokeCap: StrokeCap.round,
+                ),
+              ),
+              Text(
+                '${lead.matchScore.toInt()}%',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Expert Match',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This client’s requirements perfectly align with your services.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeadStats(Lead lead, bool isDark) {
     return Row(
       children: [
-        _buildStatItem(
-          'BUDGET',
-          '\$${lead.budget.toInt().toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]},")}',
-          '~10%',
-          true,
+        _buildStatCard(
+          'Budget',
+          'USh ${lead.budget.toInt().toString()}',
+          Icons.payments_outlined,
+          isDark,
         ),
         const SizedBox(width: 12),
-        _buildStatItem('GUESTS', lead.guests.toString(), 'EST.', false),
+        _buildStatCard(
+          'Size',
+          '${lead.guests}',
+          Icons.people_outline_rounded,
+          isDark,
+        ),
         const SizedBox(width: 12),
-        _buildStatItem('RESPONSE', lead.responseTime, '~5%', false),
+        _buildStatCard(
+          'Response',
+          lead.responseTime,
+          Icons.timer_outlined,
+          isDark,
+        ),
       ],
     );
   }
 
-  Widget _buildStatItem(
-    String label,
-    String value,
-    String change,
-    bool isPositive,
-  ) {
+  Widget _buildStatCard(String label, String value, IconData icon, bool isDark) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppColors.darkNeutral02.withValues(alpha: 0.6) : Colors.white,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: const Color(0xFFE5E7EB).withValues(alpha: 0.5),
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Column(
           children: [
-            Text(
-              label,
-              style: GoogleFonts.roboto(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF9CA3AF),
-                letterSpacing: 0.5,
-              ),
+            Icon(
+              icon,
+              color: isDark ? Colors.white38 : const Color(0xFF9CA3AF),
+              size: 20,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               value,
-              style: GoogleFonts.roboto(
-                fontSize: 20,
+              style: GoogleFonts.outfit(
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1A1A24),
+                color: isDark ? Colors.white : const Color(0xFF1A1A24),
               ),
             ),
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (label != 'GUESTS')
-                  Icon(
-                    isPositive
-                        ? Icons.trending_up_rounded
-                        : Icons.trending_down_rounded,
-                    size: 12,
-                    color: isPositive
-                        ? const Color(0xFF22C55E)
-                        : AppColors.primary01,
-                  ),
-                const SizedBox(width: 2),
-                Text(
-                  change,
-                  style: GoogleFonts.roboto(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: label == 'GUESTS'
-                        ? const Color(0xFF9CA3AF)
-                        : (isPositive
-                              ? const Color(0xFF22C55E)
-                              : AppColors.primary01),
-                  ),
-                ),
-              ],
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white38 : const Color(0xFF9CA3AF),
+                letterSpacing: 0.5,
+              ),
             ),
           ],
         ),
@@ -253,24 +422,15 @@ class LeadDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEventDetailsHeader() {
+  Widget _buildSectionTitle(String title, bool isDark) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'Event Details',
-          style: GoogleFonts.roboto(
+          title,
+          style: GoogleFonts.outfit(
             fontSize: 20,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF1A1A24),
-          ),
-        ),
-        Text(
-          'View All',
-          style: GoogleFonts.roboto(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary01,
+            color: isDark ? Colors.white : const Color(0xFF1A1A24),
           ),
         ),
       ],
@@ -279,19 +439,18 @@ class LeadDetailsScreen extends StatelessWidget {
 
   Widget _buildEventDetailItem({
     required IconData icon,
-    required Color iconColor,
-    required Color iconDataColor,
     required String label,
     required String value,
     required String subValue,
+    required bool isDark,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkNeutral02.withValues(alpha: 0.6) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: const Color(0xFFE5E7EB).withValues(alpha: 0.5),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Row(
@@ -299,10 +458,10 @@ class LeadDetailsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: iconColor,
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.primary01.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: iconDataColor, size: 24),
+            child: Icon(icon, color: AppColors.primary01, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -311,27 +470,26 @@ class LeadDetailsScreen extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.roboto(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF9CA3AF),
-                    letterSpacing: 0.5,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white38 : const Color(0xFF9CA3AF),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: GoogleFonts.roboto(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1A1A24),
+                  style: GoogleFonts.outfit(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A24),
                   ),
                 ),
                 Text(
                   subValue,
-                  style: GoogleFonts.roboto(
-                    fontSize: 13,
-                    color: const Color(0xFF6B7280),
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: isDark ? Colors.white38 : const Color(0xFF6B7280),
                   ),
                 ),
               ],
@@ -342,92 +500,108 @@ class LeadDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVenueCard(Lead lead) {
+  Widget _buildVenueCard(Lead lead, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkNeutral02.withValues(alpha: 0.6) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: const Color(0xFFE5E7EB).withValues(alpha: 0.5),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1F0),
-                  borderRadius: BorderRadius.circular(12),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22C55E).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.location_on_rounded, color: Color(0xFF22C55E), size: 24),
                 ),
-                child: Icon(
-                  Icons.location_on_rounded,
-                  color: AppColors.primary01,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'VENUE',
-                      style: GoogleFonts.roboto(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF9CA3AF),
-                        letterSpacing: 0.5,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'VENUE',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white38 : const Color(0xFF9CA3AF),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      lead.venueName,
-                      style: GoogleFonts.roboto(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1A1A24),
+                      const SizedBox(height: 4),
+                      Text(
+                        lead.venueName,
+                        style: GoogleFonts.outfit(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                        ),
                       ),
-                    ),
-                    Text(
-                      lead.venueAddress,
-                      style: GoogleFonts.roboto(
-                        fontSize: 13,
-                        color: const Color(0xFF6B7280),
+                      Text(
+                        lead.venueAddress,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          color: isDark ? Colors.white38 : const Color(0xFF6B7280),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 120,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              image: const DecorationImage(
-                image: NetworkImage(
-                  'https://images.unsplash.com/photo-1524613032530-449a5d94c285?auto=format&fit=crop&q=80&w=600',
-                ),
-                fit: BoxFit.cover,
-              ),
+              ],
             ),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary01,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+          ),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+            child: Container(
+              height: 160,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: NetworkImage(
+                    'https://images.unsplash.com/photo-1524613032530-449a5d94c285?auto=format&fit=crop&q=80&w=600',
+                  ),
+                  fit: BoxFit.cover,
                 ),
-                child: const Icon(
-                  Icons.location_on_rounded,
-                  color: Colors.white,
-                  size: 20,
+              ),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.map_outlined, color: Colors.white, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Open in Maps',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -437,107 +611,126 @@ class LeadDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildClientMessage(Lead lead) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Client Message',
-          style: GoogleFonts.roboto(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF1A1A24),
-          ),
+  Widget _buildPremiumMessage(Lead lead, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : AppColors.primary01.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : AppColors.primary01.withValues(alpha: 0.1),
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF7ED), // Very light orange
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFFFEDD5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.format_quote_rounded, color: AppColors.primary01, size: 32),
+            ],
           ),
-          child: Text(
-            '"${lead.clientMessage}"',
-            style: GoogleFonts.roboto(
-              fontSize: 15,
-              color: const Color(0xFF4B5563),
+          const SizedBox(height: 8),
+          Text(
+            lead.clientMessage,
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1F2937),
               height: 1.6,
+              fontWeight: FontWeight.w500,
               fontStyle: FontStyle.italic,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildBottomActions(BuildContext context, Lead lead) {
+  Widget _buildFloatingActions(BuildContext context, Lead lead, bool isDark) {
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
         decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              (isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC)).withValues(alpha: 0.0),
+              (isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC)).withValues(alpha: 0.9),
+              isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
+            ],
+            stops: const [0.0, 0.2, 0.4],
+          ),
         ),
         child: Row(
           children: [
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Lead declined.'),
-                      backgroundColor: const Color(0xFF4B5563),
-                      behavior: SnackBarBehavior.floating,
+              flex: 2,
+              child: GestureDetector(
+                onTap: () => context.pop(),
+                child: Container(
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white10 : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Decline',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white70 : const Color(0xFF4B5563),
+                      ),
                     ),
-                  );
-                  context.pop();
-                },
-                icon: const Icon(Icons.close_rounded),
-                label: const Text('Decline'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF3F4F6),
-                  foregroundColor: const Color(0xFF1A1A24),
-                  elevation: 0,
-                  minimumSize: const Size(0, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Trigger booking creation simulation and go to chat
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Lead accepted!'),
-                      backgroundColor: const Color(0xFF22C55E),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  context.push('/vendor-chat/${lead.id}');
+              flex: 3,
+              child: GestureDetector(
+                onTap: () {
+                  _showPremiumSuccess(context);
+                  Future.delayed(const Duration(milliseconds: 1500), () {
+                    context.push('/vendor-chat/${lead.id}');
+                  });
                 },
-                icon: const Icon(Icons.check_circle_outline_rounded),
-                label: const Text('Accept'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary01,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  minimumSize: const Size(0, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary01, AppColors.primary01.withValues(alpha: 0.8)],
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary01.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Accept Lead',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -546,5 +739,65 @@ class LeadDetailsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showPremiumSuccess(BuildContext context) {
+    final entry = OverlayEntry(
+      builder: (context) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Colors.white24),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary01.withValues(alpha: 0.4),
+                  blurRadius: 40,
+                  spreadRadius: 10,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF22C55E),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'LEAD ACCEPTED',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Opening your chat now...',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ).animate().scale(duration: const Duration(milliseconds: 400), curve: Curves.easeOutBack).fadeIn().then().fadeOut(delay: const Duration(seconds: 1)),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(entry);
+    Future.delayed(const Duration(seconds: 2), () => entry.remove());
   }
 }

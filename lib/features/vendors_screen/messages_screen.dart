@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge_ai/core/theme/app_colors.dart';
@@ -7,147 +8,309 @@ import 'package:eventbridge_ai/features/vendors_screen/data/mock_lead_data.dart'
 import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-class MessagesListScreen extends StatelessWidget {
+class MessagesListScreen extends StatefulWidget {
   const MessagesListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildSearchBox(),
-            Expanded(child: _buildChatList(context)),
-          ],
-        ),
-      ),
-      floatingActionButton:
-          FloatingActionButton(
-            onPressed: () {},
-            backgroundColor: AppColors.primary01,
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.chat_bubble_rounded,
-              color: Colors.white,
-              size: 28,
-            ),
-          ).animate().scale(
-            delay: 400.ms,
-            duration: 400.ms,
-            curve: Curves.easeOutBack,
-          ),
-    );
+  State<MessagesListScreen> createState() => _MessagesListScreenState();
+}
+
+class _MessagesListScreenState extends State<MessagesListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _sortBy = 'recent';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Messages',
-                style: GoogleFonts.roboto(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF1A1A24),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          _buildSliverHeader(context, isDark),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            sliver: SliverToBoxAdapter(
+              child: _buildSearchBar(isDark),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 24, right: 24, bottom: 16),
+              child: Row(
                 children: [
                   Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF22C55E),
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '3 New Conversations',
-                    style: GoogleFonts.roboto(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
+                    '3 NEW CONVERSATIONS',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          _buildChatList(context, isDark),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: AppColors.primary01,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 30),
+      ).animate().scale(delay: const Duration(milliseconds: 400), duration: const Duration(milliseconds: 400), curve: Curves.easeOutBack),
+    );
+  }
+
+  Widget _buildSliverHeader(BuildContext context, bool isDark) {
+    return SliverPadding(
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 20),
+      sliver: SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Messages',
+                style: GoogleFonts.outfit(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : Colors.black,
+                  letterSpacing: -1,
+                ),
+              ),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => context.push('/vendor-help-support'),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF5224), // Vibrant orange requested
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF5224).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 26),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: GestureDetector(
+                        onTap: () => _showFilterSheet(context, isDark),
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+                          ),
+                          child: Icon(Icons.tune_rounded, color: isDark ? Colors.white : Colors.black, size: 22),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
-            ),
-            child: const Icon(
-              Icons.filter_list_rounded,
-              color: Color(0xFF1A1A24),
-              size: 22,
-            ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(bool isDark) {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02 : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSearchBox() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
-        ),
-        child: TextField(
-          decoration: InputDecoration(
-            hintText: 'Search people or keywords...',
-            hintStyle: GoogleFonts.roboto(
-              color: const Color(0xFF94A3B8),
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-            prefixIcon: const Icon(
-              Icons.search_rounded,
-              color: Color(0xFF94A3B8),
-              size: 22,
-            ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 18),
-          ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (val) => setState(() => _searchQuery = val),
+        style: GoogleFonts.outfit(color: isDark ? Colors.white : Colors.black),
+        decoration: InputDecoration(
+          hintText: 'Search conversations...',
+          hintStyle: GoogleFonts.outfit(color: isDark ? Colors.white30 : Colors.black.withValues(alpha: 0.3), fontSize: 16),
+          prefixIcon: Icon(Icons.search_rounded, color: isDark ? Colors.white30 : Colors.black.withValues(alpha: 0.3), size: 24),
+          suffixIcon: _searchQuery.isNotEmpty 
+              ? IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  onPressed: () => setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                  }),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),
       ),
     );
   }
 
-  Widget _buildChatTile(BuildContext context, Lead lead, int index) {
+  Widget _buildChatList(BuildContext context, bool isDark) {
+    final allLeads = MockLeadRepository.leads;
+    final filteredLeads = allLeads.where((l) {
+      if (_searchQuery.isEmpty) return true;
+      return l.clientName.toLowerCase().contains(_searchQuery.toLowerCase()) || 
+             l.clientMessage.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final lead = filteredLeads[index];
+          return _buildChatTile(context, lead, index, isDark);
+        },
+        childCount: filteredLeads.length,
+      ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkNeutral01 : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: isDark ? Colors.white24 : Colors.black12, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Filter Chats',
+              style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.black),
+            ),
+            const SizedBox(height: 24),
+            _buildFilterOption('All Messages', 'recent', Icons.chat_bubble_outline_rounded, isDark),
+            _buildFilterOption('Unread First', 'unread', Icons.mark_chat_unread_outlined, isDark),
+            _buildFilterOption('Archived', 'archived', Icons.archive_outlined, isDark),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterOption(String title, String value, IconData icon, bool isDark) {
+    final isSelected = _sortBy == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _sortBy = value);
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+                  child: const Icon(Icons.filter_list_rounded, color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Filtered by $title',
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: isDark ? AppColors.darkNeutral01 : const Color(0xFF1A1A24),
+            elevation: 10,
+            margin: const EdgeInsets.only(bottom: 110, left: 24, right: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary01.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? AppColors.primary01 : (isDark ? Colors.white10 : Colors.black12)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isSelected ? AppColors.primary01 : (isDark ? Colors.white38 : Colors.black38)),
+            const SizedBox(width: 16),
+            Text(title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, color: isSelected ? AppColors.primary01 : (isDark ? Colors.white : Colors.black))),
+            const Spacer(),
+            if (isSelected) Icon(Icons.check_circle_rounded, color: AppColors.primary01, size: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatTile(BuildContext context, Lead lead, int index, bool isDark) {
     final bool isUnread = lead.id == '1' || lead.id == '4';
-    final String time = index == 0
-        ? '2m ago'
-        : (index == 1 ? '1h ago' : 'Yesterday');
+    final String time = index == 0 ? '2m ago' : (index == 1 ? '1h ago' : 'Yesterday');
 
     return InkWell(
       onTap: () => context.push('/vendor-chat/${lead.id}'),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            _buildAvatar(lead),
+            _buildAvatar(lead, isDark),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -158,29 +321,23 @@ class MessagesListScreen extends StatelessWidget {
                     children: [
                       Text(
                         lead.clientName,
-                        style: GoogleFonts.roboto(
-                          fontSize: 16,
-                          fontWeight: isUnread
-                              ? FontWeight.w900
-                              : FontWeight.w700,
-                          color: const Color(0xFF1E293B),
+                        style: GoogleFonts.outfit(
+                          fontSize: 17,
+                          fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
                       Text(
                         time,
-                        style: GoogleFonts.roboto(
+                        style: GoogleFonts.outfit(
                           fontSize: 12,
-                          color: isUnread
-                              ? AppColors.primary01
-                              : const Color(0xFF94A3B8),
-                          fontWeight: isUnread
-                              ? FontWeight.w900
-                              : FontWeight.w500,
+                          color: isUnread ? AppColors.primary01 : (isDark ? Colors.white38 : Colors.black38),
+                          fontWeight: isUnread ? FontWeight.w800 : FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
@@ -188,36 +345,20 @@ class MessagesListScreen extends StatelessWidget {
                           lead.clientMessage,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.roboto(
+                          style: GoogleFonts.outfit(
                             fontSize: 14,
-                            color: isUnread
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFF64748B),
-                            fontWeight: isUnread
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                            color: isDark ? (isUnread ? Colors.white : Colors.white60) : (isUnread ? Colors.black : Colors.black54),
+                            fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
                       ),
                       if (isUnread)
                         Container(
-                              margin: const EdgeInsets.only(left: 12),
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary01,
-                                shape: BoxShape.circle,
-                              ),
-                            )
-                            .animate(
-                              onPlay: (controller) =>
-                                  controller.repeat(reverse: true),
-                            )
-                            .scale(
-                              begin: const Offset(0.8, 0.8),
-                              end: const Offset(1.2, 1.2),
-                              duration: 1000.ms,
-                            ),
+                          margin: const EdgeInsets.only(left: 12),
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(color: AppColors.primary01, shape: BoxShape.circle),
+                        ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(begin: const Offset(0.8, 0.8), end: const Offset(1.2, 1.2), duration: const Duration(seconds: 1)),
                     ],
                   ),
                 ],
@@ -226,71 +367,47 @@ class MessagesListScreen extends StatelessWidget {
           ],
         ),
       ),
-    ).animate().fadeIn(delay: (index * 100).ms).moveX(begin: 10, end: 0);
+    ).animate().fadeIn(delay: Duration(milliseconds: (index * 80))).slideX(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
   }
 
-  Widget _buildAvatar(Lead lead) {
+  Widget _buildAvatar(Lead lead, bool isDark) {
     final bool isOnline = lead.id == '1' || lead.id == '3';
-    return Stack(
-      children: [
-        Container(
-          width: 58,
-          height: 58,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    return Hero(
+      tag: 'avatar_${lead.id}',
+      child: Stack(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              image: DecorationImage(image: NetworkImage(lead.clientImageUrl), fit: BoxFit.cover),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
           ),
-          child: ClipOval(
-            child: Image.network(
-              lead.clientImageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: const Color(0xFFF1F5F9),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: Color(0xFF94A3B8),
+          if (isOnline)
+            Positioned(
+              bottom: 2,
+              right: 2,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22C55E),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: isDark ? AppColors.backgroundDark : Colors.white, width: 3),
                 ),
               ),
             ),
-          ),
-        ),
-        if (isOnline)
-          Positioned(
-            bottom: 2,
-            right: 2,
-            child: Container(
-              width: 14,
-              height: 14,
-              decoration: BoxDecoration(
-                color: const Color(0xFF22C55E),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2.5),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildChatList(BuildContext context) {
-    final leads = MockLeadRepository.leads;
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 8, bottom: 100),
-      itemCount: leads.length,
-      separatorBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.only(left: 98, right: 24),
-        child: Divider(height: 1, color: const Color(0xFFF1F5F9)),
+        ],
       ),
-      itemBuilder: (context, index) {
-        return _buildChatTile(context, leads[index], index);
-      },
     );
   }
 }
