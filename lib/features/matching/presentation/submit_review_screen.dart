@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 
 class SubmitReviewScreen extends StatefulWidget {
   final String vendorId;

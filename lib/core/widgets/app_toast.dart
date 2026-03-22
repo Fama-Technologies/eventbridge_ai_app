@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 
 enum ToastType { error, success, info }
 

@@ -5,9 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/features/matching/models/match_vendor.dart';
-import 'package:eventbridge_ai/features/matching/presentation/matching_controller.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/features/matching/models/match_vendor.dart';
+import 'package:eventbridge/features/matching/presentation/matching_controller.dart';
 
 class MatchResultsScreen extends ConsumerWidget {
   const MatchResultsScreen({super.key});
@@ -22,7 +22,13 @@ class MatchResultsScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A24)),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/customer-home');
+            }
+          },
         ),
         title: Text(
           'Your AI Matches',
@@ -407,7 +413,7 @@ class _VendorMatchCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '\$${vendor.minPackagePrice.toStringAsFixed(0)}',
+                          'Shs ${vendor.minPackagePrice.toStringAsFixed(0)}',
                           style: GoogleFonts.roboto(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -490,6 +496,10 @@ class _VendorMatchCard extends StatelessWidget {
                   images[0],
                   fit: BoxFit.cover,
                   height: double.infinity,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 20),
+                  ),
                 ),
               ),
               if (images.length > 1) ...[
@@ -503,6 +513,10 @@ class _VendorMatchCard extends StatelessWidget {
                           images[1],
                           fit: BoxFit.cover,
                           width: double.infinity,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.grey[100],
+                            child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 16),
+                          ),
                         ),
                       ),
                       if (images.length > 2) ...[
@@ -515,10 +529,14 @@ class _VendorMatchCard extends StatelessWidget {
                                 images[2],
                                 fit: BoxFit.cover,
                                 width: double.infinity,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: Colors.grey[100],
+                                  child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 16),
+                                ),
                               ),
                               if (vendor.portfolio.length > 4)
                                 Container(
-                                  color: Colors.black.withValues(alpha: 0.5),
+                                  color: Colors.black.withOpacity(0.5),
                                   child: Center(
                                     child: Text(
                                       '+${vendor.portfolio.length - 4}',

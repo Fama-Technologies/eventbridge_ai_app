@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
-import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/features/auth/data/auth_repository.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 
@@ -99,10 +101,153 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                     onTap: () => context.push('/vendor-profile-settings'),
                   ),
                   _buildSettingsTile(
+                    icon: Icons.workspace_premium_rounded,
+                    title: 'Subscription Plan',
+                    subtitle: 'Manage your vendor plan and billing',
+                    onTap: () => context.push('/subscription'),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.photo_library_outlined,
+                    title: 'My Portfolio',
+                    subtitle: 'Public view of your best work',
+                    onTap: () => context.push('/vendor-portfolio'),
+                  ),
+                  _buildSettingsTile(
                     icon: Icons.help_outline_rounded,
                     title: 'Help & Support',
                     subtitle: 'FAQs and direct contact',
-                    onTap: () {},
+                    onTap: () => context.push('/vendor-help-support'),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.logout_rounded,
+                    title: 'Log out',
+                    subtitle: 'Sign out of your account',
+                    onTap: () async {
+                      await AuthRepository().logout();
+                      if (context.mounted) {
+                        context.go('/login');
+                      }
+                    },
+                    iconColor: const Color(0xFFEF4444),
+                    titleColor: const Color(0xFFEF4444),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.delete_forever_rounded,
+                    title: 'Delete Account',
+                    subtitle: 'Permanently remove your data',
+                    onTap: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: Colors.white,
+                          surfaceTintColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          titlePadding: const EdgeInsets.only(top: 32, left: 24, right: 24),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          actionsPadding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+                          title: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 36),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Delete Account?',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.roboto(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFF1E293B),
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          content: Text(
+                            'This action cannot be undone. All your data, portfolio, and settings will be permanently removed.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.roboto(
+                              fontSize: 15,
+                              color: const Color(0xFF64748B),
+                              height: 1.4,
+                            ),
+                          ),
+                          actionsAlignment: MainAxisAlignment.center,
+                          actions: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      backgroundColor: const Color(0xFFF1F5F9),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Cancel',
+                                      style: GoogleFonts.roboto(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      backgroundColor: const Color(0xFFEF4444),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Delete',
+                                      style: GoogleFonts.roboto(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true && context.mounted) {
+                        final userId = StorageService().getString('user_id');
+                        if (userId != null) {
+                          try {
+                            await ApiService.instance.deleteAccount(userId);
+                          } catch (e) {
+                            if (context.mounted) {
+                              AppToast.show(context, message: 'Failed to delete account', type: ToastType.error);
+                            }
+                            return;
+                          }
+                        }
+                        await AuthRepository().logout();
+                        if (context.mounted) context.go('/login');
+                      }
+                    },
+                    iconColor: const Color(0xFFEF4444),
+                    titleColor: const Color(0xFFEF4444),
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -391,6 +536,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     required String subtitle,
     required VoidCallback onTap,
     String? trailing,
+    Color? iconColor,
+    Color? titleColor,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -409,10 +556,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
+                  color: iconColor?.withOpacity(0.1) ?? const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: const Color(0xFF4B5563), size: 20),
+                child: Icon(icon, color: iconColor ?? const Color(0xFF4B5563), size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -424,7 +571,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                       style: GoogleFonts.roboto(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1A1A24),
+                        color: titleColor ?? const Color(0xFF1A1A24),
                       ),
                     ),
                     const SizedBox(height: 2),

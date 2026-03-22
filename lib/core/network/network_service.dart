@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
 
 class NetworkService {
   static final NetworkService _instance = NetworkService._internal();

@@ -5,9 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
-import 'package:eventbridge_ai/features/auth/presentation/widgets/google_sign_in_button.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge/features/auth/presentation/widgets/google_sign_in_button.dart';
 import 'package:flutter/foundation.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -19,8 +19,21 @@ class SignUpScreen extends ConsumerStatefulWidget {
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _businessCtrl = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isVendor = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _businessCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +95,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 _buildTextField(
                   label: 'Full Name',
                   hint: 'enter your name',
+                  controller: _nameCtrl,
                   icon: Icons.person_outline_rounded,
                   validator: (value) => value == null || value.isEmpty
                       ? 'Name is required'
@@ -92,6 +106,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   _buildTextField(
                     label: 'Business Name',
                     hint: 'enter your business name',
+                    controller: _businessCtrl,
                     icon: Icons.business_center_rounded,
                     validator: (value) => value == null || value.isEmpty
                         ? 'Business name is required'
@@ -102,6 +117,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 _buildTextField(
                   label: 'Email Address',
                   hint: 'enter your email',
+                  controller: _emailCtrl,
                   icon: Icons.alternate_email_rounded,
                   validator: (value) => value == null || !value.contains('@')
                       ? 'Enter a valid email'
@@ -111,6 +127,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 _buildTextField(
                   label: 'Password',
                   hint: 'create a password',
+                  controller: _passCtrl,
                   icon: Icons.lock_outline_rounded,
                   isPassword: true,
                   validator: (value) => value == null || value.length < 6
@@ -120,9 +137,25 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                 const Gap(40),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (_formKey.currentState!.validate()) {
-                      // Perform Signup
+                      try {
+                        final repo = ref.read(authRepositoryProvider);
+                        await repo.signup(
+                          _nameCtrl.text.trim(),
+                          _emailCtrl.text.trim(),
+                          _passCtrl.text,
+                          role: _isVendor ? 'VENDOR' : 'CUSTOMER',
+                        );
+                        if (!context.mounted) return;
+                        if (_isVendor) {
+                          context.go('/vendor-onboarding');
+                        } else {
+                          context.go('/customer-home');
+                        }
+                      } catch (e) {
+                         // show toast
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -199,9 +232,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             );
                           } else {
                             if (_isVendor) {
-                               context.go('/vendor-onboarding');
+                               final repo = ref.read(authRepositoryProvider);
+                               if (repo.isOnboardingCompleted()) {
+                                 context.go('/vendor-home');
+                               } else {
+                                 context.go('/vendor-onboarding');
+                               }
                             } else {
-                               context.go('/home'); // Or wherever customer goes
+                               context.go('/customer-home');
                             }
                           }
                         },
@@ -310,6 +348,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     required String label,
     required String hint,
     required IconData icon,
+    TextEditingController? controller,
     bool isPassword = false,
     String? Function(String?)? validator,
   }) {
@@ -326,6 +365,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
         const Gap(8),
         TextFormField(
+          controller: controller,
           obscureText: isPassword && !_isPasswordVisible,
           validator: validator,
           decoration: InputDecoration(

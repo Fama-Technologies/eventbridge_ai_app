@@ -1,11 +1,13 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 // import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/features/vendors_screen/data/mock_lead_data.dart';
-import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/features/vendors_screen/data/mock_lead_data.dart';
+import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class MessagesListScreen extends StatefulWidget {
@@ -16,9 +18,35 @@ class MessagesListScreen extends StatefulWidget {
 }
 
 class _MessagesListScreenState extends State<MessagesListScreen> {
+  String _sortBy = 'recent';
+  List<dynamic> _chats = [];
+  bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _sortBy = 'recent';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchChats();
+  }
+
+  Future<void> _fetchChats() async {
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final result = await ApiService.instance.getVendorChats(userId);
+      if (mounted && result['success'] == true) {
+        setState(() {
+          _chats = result['chats'] ?? [];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching chats: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -55,7 +83,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '3 NEW CONVERSATIONS',
+                    '${_chats.where((c) => (c['unreadCount'] as int? ?? 0) > 0).length} NEW CONVERSATIONS',
                     style: GoogleFonts.outfit(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -67,7 +95,22 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
               ),
             ),
           ),
-          _buildChatList(context, isDark),
+          if (_isLoading)
+            const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.only(top: 40), child: CircularProgressIndicator()))),
+          if (!_isLoading && _chats.isEmpty)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Text(
+                    'No conversions found',
+                    style: GoogleFonts.outfit(color: isDark ? Colors.white38 : Colors.black38),
+                  ),
+                ),
+              ),
+            ),
+          if (!_isLoading && _chats.isNotEmpty)
+            _buildChatList(context, isDark),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
@@ -189,20 +232,21 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
   }
 
   Widget _buildChatList(BuildContext context, bool isDark) {
-    final allLeads = MockLeadRepository.leads;
-    final filteredLeads = allLeads.where((l) {
+    final filteredChats = _chats.where((c) {
       if (_searchQuery.isEmpty) return true;
-      return l.clientName.toLowerCase().contains(_searchQuery.toLowerCase()) || 
-             l.clientMessage.toLowerCase().contains(_searchQuery.toLowerCase());
+      final name = (c['clientName'] as String).toLowerCase();
+      final msg = (c['lastMessage'] as String? ?? '').toLowerCase();
+      return name.contains(_searchQuery.toLowerCase()) || 
+             msg.contains(_searchQuery.toLowerCase());
     }).toList();
 
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          final lead = filteredLeads[index];
-          return _buildChatTile(context, lead, index, isDark);
+          final chat = filteredChats[index];
+          return _buildChatTile(context, chat, index, isDark);
         },
-        childCount: filteredLeads.length,
+        childCount: filteredChats.length,
       ),
     );
   }
@@ -300,17 +344,19 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     );
   }
 
-  Widget _buildChatTile(BuildContext context, Lead lead, int index, bool isDark) {
-    final bool isUnread = lead.id == '1' || lead.id == '4';
-    final String time = index == 0 ? '2m ago' : (index == 1 ? '1h ago' : 'Yesterday');
+  Widget _buildChatTile(BuildContext context, dynamic chat, int index, bool isDark) {
+    final bool isUnread = (chat['unreadCount'] as int? ?? 0) > 0;
+    final String lastMsg = chat['lastMessage'] ?? 'No messages yet';
+    final DateTime? lastTime = chat['lastMessageTime'] != null ? DateTime.parse(chat['lastMessageTime']) : null;
+    final String timeStr = lastTime != null ? '${lastTime.hour}:${lastTime.minute.toString().padLeft(2, '0')}' : '';
 
     return InkWell(
-      onTap: () => context.push('/vendor-chat/${lead.id}'),
+      onTap: () => context.push('/vendor-chat/${chat['id']}'),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            _buildAvatar(lead, isDark),
+            _buildAvatar(chat, isDark),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -320,7 +366,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        lead.clientName,
+                        chat['clientName'],
                         style: GoogleFonts.outfit(
                           fontSize: 17,
                           fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
@@ -328,7 +374,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                         ),
                       ),
                       Text(
-                        time,
+                        timeStr,
                         style: GoogleFonts.outfit(
                           fontSize: 12,
                           color: isUnread ? AppColors.primary01 : (isDark ? Colors.white38 : Colors.black38),
@@ -342,7 +388,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          lead.clientMessage,
+                          lastMsg,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.outfit(
@@ -370,10 +416,9 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     ).animate().fadeIn(delay: Duration(milliseconds: (index * 80))).slideX(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
   }
 
-  Widget _buildAvatar(Lead lead, bool isDark) {
-    final bool isOnline = lead.id == '1' || lead.id == '3';
+  Widget _buildAvatar(dynamic chat, bool isDark) {
     return Hero(
-      tag: 'avatar_${lead.id}',
+      tag: 'avatar_${chat['id']}',
       child: Stack(
         children: [
           Container(
@@ -381,7 +426,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
             height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              image: DecorationImage(image: NetworkImage(lead.clientImageUrl), fit: BoxFit.cover),
+              image: DecorationImage(image: NetworkImage(chat['clientImageUrl']), fit: BoxFit.cover),
               border: Border.all(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), width: 1),
               boxShadow: [
                 BoxShadow(
@@ -392,20 +437,6 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
               ],
             ),
           ),
-          if (isOnline)
-            Positioned(
-              bottom: 2,
-              right: 2,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF22C55E),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: isDark ? AppColors.backgroundDark : Colors.white, width: 3),
-                ),
-              ),
-            ),
         ],
       ),
     );

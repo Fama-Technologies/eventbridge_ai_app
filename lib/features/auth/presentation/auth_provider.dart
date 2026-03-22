@@ -1,5 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:eventbridge_ai/features/auth/data/auth_repository.dart';
+import 'package:eventbridge/features/auth/data/auth_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 part 'auth_provider.g.dart';

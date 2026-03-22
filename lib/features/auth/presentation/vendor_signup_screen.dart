@@ -1,6 +1,6 @@
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
-import 'package:eventbridge_ai/features/auth/presentation/widgets/google_sign_in_button.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge/features/auth/presentation/widgets/google_sign_in_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart' as gap;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/core/widgets/app_toast.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
 
 class VendorSignupScreen extends ConsumerStatefulWidget {
   const VendorSignupScreen({super.key});

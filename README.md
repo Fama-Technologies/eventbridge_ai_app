@@ -1,4 +1,4 @@
-# eventbridge_ai
+# eventbridge
 
 ## Product Documentation
 

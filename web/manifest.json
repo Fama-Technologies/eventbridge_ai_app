@@ -1,6 +1,6 @@
 {
-    "name": "eventbridge_ai",
-    "short_name": "eventbridge_ai",
+    "name": "EventBridge",
+    "short_name": "EventBridge",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

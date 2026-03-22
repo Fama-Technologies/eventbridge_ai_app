@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
-import 'package:eventbridge_ai/core/network/api_service.dart';
-import 'package:eventbridge_ai/core/services/upload_service.dart';
-import 'package:eventbridge_ai/core/widgets/app_toast.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/services/upload_service.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:eventbridge/core/services/notification_service.dart';
 import 'dart:io';
 
 class VendorPersonalInformationScreen extends StatefulWidget {

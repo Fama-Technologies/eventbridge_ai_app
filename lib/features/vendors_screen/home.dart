@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/core/network/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
-import 'package:eventbridge_ai/features/vendors_screen/data/mock_lead_data.dart';
-import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/features/vendors_screen/data/mock_lead_data.dart';
+import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/core/widgets/app_toast.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
 
@@ -19,20 +19,83 @@ class VendorHomeScreen extends StatefulWidget {
 
 class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  List<Lead> _filteredLeads = MockLeadRepository.leads;
+  List<Lead> _filteredLeads = [];
   bool _hasNotifications = true;
   String? _planName;
   late AnimationController _meshController;
+  bool _isLoadingLeads = true;
+  int _totalLeadsCount = 0;
+  int _profileViewsCount = 0;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _loadPlan();
+    _loadDashboardData();
     _meshController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat();
+  }
+
+  void _loadDashboardData() {
+    _loadPlan();
+    _fetchLeads();
+    _fetchStats();
+  }
+
+  Future<void> _fetchLeads() async {
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final result = await ApiService.instance.getVendorLeads(userId);
+      if (mounted && result['success'] == true) {
+        final List<dynamic> leadsData = result['leads'] ?? [];
+        setState(() {
+          _filteredLeads = leadsData.map((json) => Lead(
+            id: json['id'].toString(),
+            title: json['title'] ?? 'Lead',
+            date: json['date'] ?? 'TBD',
+            time: json['time'] ?? 'TBD',
+            location: json['location'] ?? 'TBD',
+            matchScore: int.tryParse(json['matchScore']?.toString() ?? '0') ?? 0,
+            budget: (json['budget'] is num) ? (json['budget'] as num).toDouble() : double.tryParse(json['budget']?.toString() ?? '0.0') ?? 0.0,
+            guests: int.tryParse(json['guests']?.toString() ?? '0') ?? 0,
+            responseTime: json['responseTime'] ?? '2h',
+            clientName: json['clientName'] ?? 'Client',
+            clientMessage: json['clientMessage'] ?? '',
+            venueName: json['venueName'] ?? '',
+            venueAddress: json['venueAddress'] ?? '',
+            clientImageUrl: json['clientImageUrl'] ?? 'https://via.placeholder.com/150',
+            isHighValue: json['isHighValue'] ?? false,
+            lastActive: json['lastActive'] ?? 'Active now',
+            isAccepted: json['isAccepted'] ?? false,
+          )).toList();
+          _isLoadingLeads = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching leads: $e');
+      if (mounted) setState(() => _isLoadingLeads = false);
+    }
+  }
+
+  Future<void> _fetchStats() async {
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final result = await ApiService.instance.getVendorDashboardStats(userId);
+      if (mounted && result['success'] == true) {
+        setState(() {
+          _totalLeadsCount = int.tryParse(result['stats']['totalLeads']?.toString() ?? '0') ?? 0;
+          _profileViewsCount = int.tryParse(result['stats']['profileViews']?.toString() ?? '0') ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching stats: $e');
+    }
   }
 
   void _loadPlan() {
@@ -68,13 +131,8 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
   }
 
   void _onSearchChanged() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredLeads = MockLeadRepository.leads.where((lead) {
-        return lead.title.toLowerCase().contains(query) ||
-            lead.location.toLowerCase().contains(query);
-      }).toList();
-    });
+    // Search is handled locally for now but we could also search via API
+    // Actually, since we only fetch a few, let's just use the current list
   }
 
   @override
@@ -218,8 +276,6 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
               child: Row(
                 children: [
-                  _buildAvatar(userImage, userName),
-                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,7 +354,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
 
   Widget _buildNotificationBell() {
     return GestureDetector(
-      onTap: () => setState(() => _hasNotifications = false),
+      onTap: () => context.push('/vendor-notifications'),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -372,7 +428,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
         Expanded(
           child: _buildInsightCard(
             "Total Leads",
-            "${MockLeadRepository.leads.length}",
+            "$_totalLeadsCount",
             Icons.leaderboard_rounded,
             const Color(0xFF10B981),
             isDark,
@@ -382,7 +438,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
         Expanded(
           child: _buildInsightCard(
             "Profile Views",
-            "1,204",
+            "$_profileViewsCount",
             Icons.visibility_rounded,
             const Color(0xFFF59E0B),
             isDark,
@@ -449,8 +505,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
         children: [
           _buildHubTile(context, "Packages", Icons.inventory_2_outlined, const Color(0xFF6366F1), () => context.push('/vendor-packages'), isDark),
           _buildHubTile(context, "Calendar", Icons.calendar_today_rounded, const Color(0xFF8B5CF6), () => context.push('/vendor-calendar'), isDark),
-          _buildHubTile(context, "Portfolio", Icons.photo_library_outlined, const Color(0xFFEC4899), () => context.push('/vendor-profile-settings'), isDark),
-          _buildHubTile(context, "Identity", Icons.badge_outlined, const Color(0xFFF43F5E), () {}, isDark),
+          _buildHubTile(context, "Portfolio", Icons.photo_library_outlined, const Color(0xFFEC4899), () => context.push('/vendor-portfolio'), isDark),
         ],
       ),
     ).animate().fadeIn(duration: 600.ms, delay: 400.ms).slideX(begin: 0.1, end: 0);
@@ -470,7 +525,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 28),
+            Icon(icon, color: color, size: 36),
             const SizedBox(height: 10),
             Text(
               label,

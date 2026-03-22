@@ -1,12 +1,19 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/features/vendors_screen/data/mock_lead_data.dart';
-import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/features/vendors_screen/data/mock_lead_data.dart';
+import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/network/websocket_service.dart';
+import 'package:eventbridge/features/vendors_screen/widgets/full_screen_image_view.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:dio/dio.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:async';
 
 class VendorChatScreen extends StatefulWidget {
   final String leadId;
@@ -19,51 +26,225 @@ class VendorChatScreen extends StatefulWidget {
 class _VendorChatScreenState extends State<VendorChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  List<dynamic> _messages = [];
+  bool _isLoading = true;
+  Timer? _pollingTimer;
+  Timer? _typingTimer;
+  bool _isClientTyping = false;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMessages();
+    _startPolling();
+    _markAsRead();
+    _initWebSocket();
+  }
+
+  void _initWebSocket() {
+    WebSocketService().connect();
+    WebSocketService().addListener(_onWebSocketMessage);
+  }
+
+  void _onWebSocketMessage(Map<String, dynamic> data) {
+    if (data['type'] == 'NEW_MESSAGE') {
+      final message = data['message'];
+      if (message['chat_id'].toString() == widget.leadId) {
+        // If it's a message for THIS chat, add it instantly
+        if (mounted) {
+          setState(() {
+            // Check if message already exists to avoid duplicates (from polling)
+            final exists = _messages.any((m) => m['id'] == message['id']);
+            if (!exists) {
+              _messages.add(message);
+              _scrollToBottom();
+            }
+          });
+        }
+      }
+    }
+  }
+
+  void _markAsRead() {
+    final userId = StorageService().getString('user_id');
+    if (userId != null) {
+      ApiService.instance.markChatAsRead(chatId: widget.leadId, userId: userId);
+    }
+  }
+
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      _fetchMessages(isBackground: true);
+      _fetchChatStatus();
+    });
+  }
+
+  Future<void> _fetchChatStatus() async {
+    try {
+      // For now, we reuse getVendorChats or a more specific endpoint to get status
+      // Let's assume getChatMessages could return chat metadata too
+      // or we just poll the specific chat status in a real app.
+      // Since I don't have a separate 'getChat' endpoint, I'll fetch chats list filtered for this one.
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+      
+      final result = await ApiService.instance.getVendorChats(userId);
+      if (mounted && result['success'] == true) {
+        final chats = result['chats'] as List;
+        final thisChat = chats.firstWhere((c) => c['id'].toString() == widget.leadId, orElse: () => null);
+        if (thisChat != null) {
+          setState(() {
+            _isClientTyping = thisChat['client_is_typing'] == true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching chat status: $e');
+    }
+  }
+
+  void _onMessageChanged(String value) {
+    if (_typingTimer?.isActive ?? false) return;
+
+    final userId = StorageService().getString('user_id');
+    if (userId == null) return;
+
+    ApiService.instance.updateTypingStatus(
+      chatId: widget.leadId,
+      userId: userId,
+      isTyping: true,
+    );
+
+    _typingTimer = Timer(const Duration(seconds: 2), () {
+      ApiService.instance.updateTypingStatus(
+        chatId: widget.leadId,
+        userId: userId,
+        isTyping: false,
+      );
+    });
+  }
+
+  Future<void> _fetchMessages({bool isBackground = false}) async {
+    try {
+      final result = await ApiService.instance.getChatMessages(widget.leadId);
+      if (mounted && result['success'] == true) {
+        final newMessages = result['messages'] ?? [];
+        if (newMessages.length != _messages.length) {
+          setState(() {
+            _messages = newMessages;
+            _isLoading = false;
+          });
+          _scrollToBottom();
+        } else if (!isBackground) {
+          setState(() => _isLoading = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching messages: $e');
+      if (mounted && !isBackground) setState(() => _isLoading = false);
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
+    final userId = StorageService().getString('user_id');
+    if (userId == null) return;
+
+    _messageController.clear();
+
+    try {
+      final result = await ApiService.instance.sendChatMessage(
+        chatId: widget.leadId,
+        senderId: userId,
+        text: text,
+      );
+      if (mounted && result['success'] == true) {
+        _fetchMessages(isBackground: true);
+      }
+    } catch (e) {
+      debugPrint('Error sending message: $e');
+    }
+  }
 
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        // Here you would typically upload the image and send it as a message
-        // For now, we'll just show a success toast
         if (mounted) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                    child: const Icon(Icons.broken_image_rounded, color: Colors.white, size: 16),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Image attached successfully!',
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFF22C55E), // Success Green
-              elevation: 10,
-              margin: const EdgeInsets.only(bottom: 90, left: 24, right: 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              duration: const Duration(seconds: 2),
+              content: Text('Uploading image...', style: GoogleFonts.outfit()),
+              backgroundColor: AppColors.primary01,
+              duration: const Duration(seconds: 1),
             ),
           );
         }
+
+        // 1. Get presigned URL
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_chat_${widget.leadId}.jpg';
+        final presignedResult = await ApiService.instance.getPresignedUrl(
+          fileName: fileName,
+          contentType: 'image/jpeg',
+          folder: 'chats',
+        );
+
+        if (presignedResult['success'] == true) {
+          final uploadUrl = presignedResult['uploadUrl'];
+          final publicUrl = presignedResult['publicUrl'];
+
+          // 2. Upload to S3
+          final fileBytes = await image.readAsBytes();
+          await Dio().put(
+            uploadUrl,
+            data: fileBytes,
+            options: Options(headers: {'Content-Type': 'image/jpeg'}),
+          );
+
+          // 3. Send message with imageUrl
+          final userId = StorageService().getString('user_id');
+          if (userId != null) {
+            await ApiService.instance.sendChatMessage(
+              chatId: widget.leadId,
+              senderId: userId,
+              text: 'Sent an image',
+              imageUrl: publicUrl,
+            );
+            _fetchMessages(isBackground: true);
+          }
+        }
       }
     } catch (e) {
-      debugPrint('Error picking image: $e');
+      debugPrint('Error picking/uploading image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload image: $e')),
+        );
+      }
     }
   }
 
   @override
   void dispose() {
     _messageController.dispose();
+    _pollingTimer?.cancel();
+    _typingTimer?.cancel();
+    _scrollController.dispose();
+    WebSocketService().removeListener(_onWebSocketMessage);
     super.dispose();
   }
 
@@ -90,7 +271,21 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
             children: [
               _buildAppBar(context, lead, isDark),
               _buildLeadBanner(context, lead, isDark),
-              Expanded(child: _buildChatArea(lead, isDark)),
+              Expanded(
+                child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator())
+                  : Stack(
+                      children: [
+                        _buildChatArea(lead, isDark),
+                        if (_isClientTyping)
+                          Positioned(
+                            bottom: 10,
+                            left: 20,
+                            child: _buildTypingIndicator(lead, isDark),
+                          ),
+                      ],
+                    )
+              ),
               _buildInputArea(isDark),
             ],
           ),
@@ -241,43 +436,45 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
   }
 
   Widget _buildChatArea(Lead lead, bool isDark) {
-    return ListView(
+    if (_messages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.chat_bubble_outline_rounded, size: 64, color: isDark ? Colors.white10 : Colors.black12),
+            const SizedBox(height: 16),
+            Text(
+              'No messages yet.\nSay hi to get started!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(color: isDark ? Colors.white38 : Colors.black38, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      children: [
-        _buildMessageBubble(
-          'Hi! I\'m interested in your catering services for my upcoming wedding event. Do you have availability for October 12th?',
-          '10:30 AM',
-          false,
+      itemCount: _messages.length,
+      itemBuilder: (context, index) {
+        final msg = _messages[index];
+        final userId = StorageService().getString('user_id');
+        final isMe = msg['sender_id'].toString() == userId;
+        final DateTime createdAt = DateTime.parse(msg['created_at']);
+        final timeStr = '${createdAt.hour}:${createdAt.minute.toString().padLeft(2, '0')}';
+
+        return _buildMessageBubble(
+          msg['text'],
+          timeStr,
+          isMe,
           lead.clientImageUrl,
-          0,
+          index,
           isDark,
-        ),
-        _buildMessageBubble(
-          'Hello Sarah! Congratulations on your upcoming wedding. Yes, we are currently available for October 12th. I\'d love to discuss your menu preferences.',
-          '10:32 AM',
-          true,
-          '',
-          1,
-          isDark,
-        ),
-        _buildMessageBubble(
-          'That\'s great news! We were thinking of a Mediterranean theme with plenty of vegetarian options. Could you send over a sample menu?',
-          '10:35 AM',
-          false,
-          lead.clientImageUrl,
-          2,
-          isDark,
-        ),
-        _buildMessageBubble(
-          'Absolutely. I\'ve attached our Mediterranean Fusion menu below for you to review.',
-          '10:38 AM',
-          true,
-          '',
-          3,
-          isDark,
-        ),
-      ],
+          imageUrl: msg['image_url'],
+        );
+      },
     );
   }
 
@@ -285,10 +482,11 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
     String text,
     String time,
     bool isMe,
-    String imageUrl,
+    String clientAvatar,
     int index,
-    bool isDark,
-  ) {
+    bool isDark, {
+    String? imageUrl,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -304,48 +502,90 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
                   height: 32,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    image: DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover),
+                    image: DecorationImage(image: NetworkImage(clientAvatar), fit: BoxFit.cover),
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
                   ),
                 ),
               if (!isMe) const SizedBox(width: 10),
               Flexible(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 280),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: isMe ? AppColors.primary01 : (isDark ? AppColors.darkNeutral02 : Colors.white),
-                    gradient: isMe
-                        ? LinearGradient(
-                            colors: [AppColors.primary01, AppColors.primary01.withValues(alpha: 0.8)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(24),
-                      topRight: const Radius.circular(24),
-                      bottomLeft: Radius.circular(isMe ? 24 : 8),
-                      bottomRight: Radius.circular(isMe ? 8 : 24),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isMe ? AppColors.primary01.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                child: Column(
+                  crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    if (imageUrl != null)
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FullScreenImageView(
+                                imageUrl: imageUrl,
+                                tag: 'msg_img_${imageUrl}',
+                              ),
+                            ),
+                          );
+                        },
+                        child: Hero(
+                          tag: 'msg_img_${imageUrl}',
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            constraints: const BoxConstraints(maxWidth: 240, maxHeight: 320),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: isMe ? AppColors.primary01.withValues(alpha: 0.3) : Colors.black12),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: isDark ? Colors.white10 : Colors.black12,
+                                  child: const Center(child: CircularProgressIndicator()),
+                                ),
+                                errorWidget: (context, url, error) => const Icon(Icons.error_outline),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    text,
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      color: isMe ? Colors.white : (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87),
-                      fontWeight: isMe ? FontWeight.w600 : FontWeight.w500,
-                      height: 1.5,
+                    Container(
+                      constraints: const BoxConstraints(maxWidth: 280),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: isMe ? AppColors.primary01 : (isDark ? AppColors.darkNeutral02 : Colors.white),
+                        gradient: isMe
+                            ? LinearGradient(
+                                colors: [AppColors.primary01, AppColors.primary01.withValues(alpha: 0.8)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(24),
+                          topRight: const Radius.circular(24),
+                          bottomLeft: Radius.circular(isMe ? 24 : 8),
+                          bottomRight: Radius.circular(isMe ? 8 : 24),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isMe ? AppColors.primary01.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        text,
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          color: isMe ? Colors.white : (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87),
+                          fontWeight: isMe ? FontWeight.w600 : FontWeight.w500,
+                          height: 1.5,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
@@ -372,6 +612,59 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
         ],
       ),
     ).animate().fadeIn(delay: Duration(milliseconds: (index * 100))).moveY(begin: 10, end: 0, curve: Curves.easeOut);
+  }
+
+  Widget _buildTypingIndicator(Lead lead, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02 : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${lead.clientName} is typing',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: isDark ? Colors.white70 : Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildTypingDots(isDark),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.5, end: 0);
+  }
+
+  Widget _buildTypingDots(bool isDark) {
+    return Row(
+      children: List.generate(3, (index) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          width: 4,
+          height: 4,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white38 : Colors.black38,
+            shape: BoxShape.circle,
+          ),
+        ).animate(onPlay: (c) => c.repeat()).scale(
+              delay: Duration(milliseconds: index * 200),
+              duration: const Duration(milliseconds: 600),
+              begin: const Offset(0.5, 0.5),
+              end: const Offset(1.2, 1.2),
+            );
+      }),
+    );
   }
 
   Widget _buildInputArea(bool isDark) {
@@ -441,8 +734,8 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              constraints: const BoxConstraints(minHeight: 56, maxHeight: 150),
               decoration: BoxDecoration(
                 color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(20),
@@ -450,54 +743,29 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
                   color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                 ),
               ),
-              child: TextField(
-                controller: _messageController,
-                style: GoogleFonts.outfit(color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  hintText: 'Type a message...',
-                  hintStyle: GoogleFonts.outfit(
-                    color: isDark ? Colors.white38 : Colors.black38,
-                    fontSize: 15,
+              child: Scrollbar(
+                child: TextField(
+                  controller: _messageController,
+                  onChanged: _onMessageChanged,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  style: GoogleFonts.outfit(color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    hintText: 'Type a message...',
+                    hintStyle: GoogleFonts.outfit(
+                      color: isDark ? Colors.white38 : Colors.black38,
+                      fontSize: 15,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  border: InputBorder.none,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
           GestureDetector(
-            onTap: () {
-              if (_messageController.text.isNotEmpty) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                          child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Message sent successfully',
-                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: AppColors.primary01,
-                    elevation: 10,
-                    margin: const EdgeInsets.only(bottom: 90, left: 24, right: 24),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-                _messageController.clear();
-              }
-            },
+            onTap: _sendMessage,
             child: Container(
               width: 56,
               height: 56,

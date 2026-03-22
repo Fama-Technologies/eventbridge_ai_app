@@ -1,12 +1,12 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:eventbridge_ai/features/vendors_screen/data/mock_lead_data.dart';
-import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
-import 'package:eventbridge_ai/features/shared/report_bottom_sheet.dart';
+import 'package:eventbridge/features/vendors_screen/data/mock_lead_data.dart';
+import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/features/shared/report_bottom_sheet.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class LeadDetailsScreen extends StatefulWidget {

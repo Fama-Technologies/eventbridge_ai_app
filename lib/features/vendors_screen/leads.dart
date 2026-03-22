@@ -1,10 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/features/vendors_screen/data/mock_lead_data.dart';
-import 'package:eventbridge_ai/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/features/vendors_screen/data/mock_lead_data.dart';
+import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
 import 'package:go_router/go_router.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class LeadsScreen extends StatefulWidget {
@@ -20,6 +22,8 @@ class _LeadsScreenState extends State<LeadsScreen> {
   String _searchQuery = '';
   String _sortBy = 'recent'; // 'recent', 'score', 'budget'
   final TextEditingController _searchController = TextEditingController();
+  List<Lead> _allLeads = [];
+  bool _isLoading = true;
 
   @override
   void dispose() {
@@ -28,9 +32,52 @@ class _LeadsScreenState extends State<LeadsScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchLeads();
+  }
+
+  Future<void> _fetchLeads() async {
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+
+      final result = await ApiService.instance.getVendorLeads(userId);
+      if (mounted && result['success'] == true) {
+        final List<dynamic> leadsData = result['leads'] ?? [];
+        setState(() {
+          _allLeads = leadsData.map((json) => Lead(
+            id: json['id'].toString(),
+            title: json['title'] ?? 'Lead',
+            date: json['date'] ?? 'TBD',
+            time: json['time'] ?? 'TBD',
+            location: json['location'] ?? 'TBD',
+            matchScore: int.tryParse(json['matchScore']?.toString() ?? '0') ?? 0,
+            budget: (json['budget'] is num) ? (json['budget'] as num).toDouble() : double.tryParse(json['budget']?.toString() ?? '0.0') ?? 0.0,
+            guests: int.tryParse(json['guests']?.toString() ?? '0') ?? 0,
+            responseTime: json['responseTime'] ?? '2h',
+            clientName: json['clientName'] ?? 'Client',
+            clientMessage: json['clientMessage'] ?? '',
+            venueName: json['venueName'] ?? '',
+            venueAddress: json['venueAddress'] ?? '',
+            clientImageUrl: json['clientImageUrl'] ?? 'https://via.placeholder.com/150',
+            isHighValue: json['isHighValue'] ?? false,
+            lastActive: json['lastActive'] ?? 'Active now',
+            isAccepted: json['isAccepted'] ?? false,
+          )).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching leads: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final allLeads = MockLeadRepository.leads;
+    final allLeads = _allLeads;
     
     // Initial Segment Filtering
     var filteredLeads = allLeads.where((l) => _selectedSegment == 0 ? !l.isAccepted : l.isAccepted).toList();
@@ -60,17 +107,32 @@ class _LeadsScreenState extends State<LeadsScreen> {
         slivers: [
           _buildCinematicHeader(context, isDark, filteredLeads.length),
           _buildSegmentSwitcher(isDark),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return _buildPremiumLeadCard(context, filteredLeads[index], isDark, index);
-                },
-                childCount: filteredLeads.length,
+          if (_isLoading)
+            const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.only(top: 40), child: CircularProgressIndicator()))),
+          if (!_isLoading && filteredLeads.isEmpty)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Text(
+                    'No ${_selectedSegment == 0 ? 'new' : 'active'} leads found',
+                    style: GoogleFonts.outfit(color: isDark ? Colors.white38 : Colors.black38),
+                  ),
+                ),
               ),
             ),
-          ),
+          if (!_isLoading && filteredLeads.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    return _buildPremiumLeadCard(context, filteredLeads[index], isDark, index);
+                  },
+                  childCount: filteredLeads.length,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -298,7 +360,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
           child: Row(
             children: [
               _buildSegmentItem(0, 'New Leads', isDark),
-              _buildSegmentItem(1, 'Active Jobs', isDark),
+              _buildSegmentItem(1, 'Active Bookings', isDark),
             ],
           ),
         ),

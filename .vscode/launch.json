@@ -6,18 +6,18 @@
     "configurations": [
         
         {
-            "name": "eventbridge_ai_app",
+            "name": "eventbridge_app",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "eventbridge_ai_app (profile mode)",
+            "name": "eventbridge_app (profile mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "eventbridge_ai_app (release mode)",
+            "name": "eventbridge_app (release mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"

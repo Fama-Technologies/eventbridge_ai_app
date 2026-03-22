@@ -5,15 +5,6 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -41,48 +32,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBjLFT_3GFBgOCLdAMwIRM033PoN9szQ38',
-    appId: '1:366724706110:web:25d5fe20ad97e09060066f',
-    messagingSenderId: '366724706110',
-    projectId: 'eventbridge-ai',
-    authDomain: 'eventbridge-ai.firebaseapp.com',
-    storageBucket: 'eventbridge-ai.firebasestorage.app',
-    measurementId: 'G-Y3XJ2XLW9C',
+    apiKey: 'AIzaSyBrf0vApoO-VZh4lK7igp6FhRhgvuJRyAI',
+    appId: '1:210290711848:web:7a92b2d3e918fc96b8041d',
+    messagingSenderId: '210290711848',
+    projectId: 'eventbridge-34569',
+    authDomain: 'eventbridge-34569.firebaseapp.com',
+    storageBucket: 'eventbridge-34569.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDIjpzMpLRf_Vd5tp_cYxLOz3No23A5OLk',
-    appId: '1:366724706110:android:f28f1a1c55beb8b560066f',
-    messagingSenderId: '366724706110',
-    projectId: 'eventbridge-ai',
-    storageBucket: 'eventbridge-ai.firebasestorage.app',
+    apiKey: 'AIzaSyBrf0vApoO-VZh4lK7igp6FhRhgvuJRyAI',
+    appId: '1:210290711848:android:4698e8e659367fcab8041d',
+    messagingSenderId: '210290711848',
+    projectId: 'eventbridge-34569',
+    storageBucket: 'eventbridge-34569.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDJsKqBmhHb4bGGdVQdVVGaTeKMItECEa0',
-    appId: '1:366724706110:ios:90ff986710ed9e9860066f',
-    messagingSenderId: '366724706110',
-    projectId: 'eventbridge-ai',
-    storageBucket: 'eventbridge-ai.firebasestorage.app',
-    iosBundleId: 'com.eventbridge.eventbridgeAi',
+    apiKey: 'AIzaSyBfSemhIre-QzglwMeF7bI6DI4EfamTjPg',
+    appId: '1:210290711848:ios:550cb3da79517190b8041d',
+    messagingSenderId: '210290711848',
+    projectId: 'eventbridge-34569',
+    storageBucket: 'eventbridge-34569.firebasestorage.app',
+    iosBundleId: 'com.eventbridge.eventbridge',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDJsKqBmhHb4bGGdVQdVVGaTeKMItECEa0',
-    appId: '1:366724706110:ios:90ff986710ed9e9860066f',
-    messagingSenderId: '366724706110',
-    projectId: 'eventbridge-ai',
-    storageBucket: 'eventbridge-ai.firebasestorage.app',
-    iosBundleId: 'com.eventbridge.eventbridgeAi',
+    apiKey: 'AIzaSyBfSemhIre-QzglwMeF7bI6DI4EfamTjPg',
+    appId: '1:210290711848:ios:550cb3da79517190b8041d',
+    messagingSenderId: '210290711848',
+    projectId: 'eventbridge-34569',
+    storageBucket: 'eventbridge-34569.firebasestorage.app',
+    iosBundleId: 'com.eventbridge.eventbridge',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBjLFT_3GFBgOCLdAMwIRM033PoN9szQ38',
-    appId: '1:366724706110:web:693dabaa8c85717a60066f',
-    messagingSenderId: '366724706110',
-    projectId: 'eventbridge-ai',
-    authDomain: 'eventbridge-ai.firebaseapp.com',
-    storageBucket: 'eventbridge-ai.firebasestorage.app',
-    measurementId: 'G-YBV03C4VK2',
+    apiKey: 'AIzaSyBrf0vApoO-VZh4lK7igp6FhRhgvuJRyAI',
+    appId: '1:210290711848:web:7a92b2d3e918fc96b8041d',
+    messagingSenderId: '210290711848',
+    projectId: 'eventbridge-34569',
+    authDomain: 'eventbridge-34569.firebaseapp.com',
+    storageBucket: 'eventbridge-34569.firebasestorage.app',
   );
 }

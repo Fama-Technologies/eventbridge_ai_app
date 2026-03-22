@@ -1,5 +1,6 @@
-import 'package:eventbridge_ai/core/network/api_service.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/services/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
@@ -19,7 +20,7 @@ class AuthRepository {
 
   Future<void> _handleGoogleSignInResult(gsi.GoogleSignInAccount account) async {
     try {
-      final googleAuth = account.authentication;
+      final googleAuth = await account.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null) return;
 
@@ -41,6 +42,15 @@ class AuthRepository {
       if (user['image'] != null) {
         await _storage.setString('user_image', user['image']);
       }
+      
+      
+      // Save vendor onboarding status
+      final accountType = user['accountType'] ?? role.toUpperCase();
+      final onboardingCompleted = user['onboardingCompleted'] ?? (accountType == 'VENDOR' ? false : true);
+      await _storage.setString('onboarding_completed', onboardingCompleted.toString());
+
+      // Sync FCM Token
+      await NotificationService().updateToken();
     } catch (e) {
       // In a real app, you might want to expose this error via a stream
       print('Error in background Google Sign-In: $e');
@@ -71,8 +81,16 @@ class AuthRepository {
         await _storage.setString('user_image', user['image']);
       }
       // Save vendor onboarding status
-      final onboardingCompleted = user['onboardingCompleted'] ?? true;
+      final accountType = user['accountType'] ?? 'CUSTOMER';
+      final onboardingCompleted = user['onboardingCompleted'] ?? (accountType == 'VENDOR' ? false : true);
       await _storage.setString('onboarding_completed', onboardingCompleted.toString());
+      
+      // Save vendor verification status
+      final verificationStatus = user['verificationStatus'] ?? 'not_submitted';
+      await _storage.setString('verification_status', verificationStatus);
+
+      // Sync FCM Token
+      await NotificationService().updateToken();
     } catch (e) {
       rethrow;
     }
@@ -110,6 +128,9 @@ class AuthRepository {
       } else {
         await _storage.setString('onboarding_completed', 'true');
       }
+
+      // Sync FCM Token
+      await NotificationService().updateToken();
     } catch (e) {
       rethrow;
     }
@@ -128,8 +149,9 @@ class AuthRepository {
       }
 
       final googleUser = await _googleSignIn.authenticate();
+      if (googleUser == null) return;
       
-      final googleAuth = googleUser.authentication;
+      final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
@@ -153,14 +175,40 @@ class AuthRepository {
       if (user['image'] != null) {
         await _storage.setString('user_image', user['image']);
       }
+      
+      // Save vendor onboarding status
+      final accountType = user['accountType'] ?? role.toUpperCase();
+      final onboardingCompleted = user['onboardingCompleted'] ?? (accountType == 'VENDOR' ? false : true);
+      await _storage.setString('onboarding_completed', onboardingCompleted.toString());
+      
+      // Save vendor verification status
+      final verificationStatus = user['verificationStatus'] ?? 'not_submitted';
+      await _storage.setString('verification_status', verificationStatus);
+
+      // Sync FCM Token
+      await NotificationService().updateToken();
     } catch (e) {
       rethrow;
     }
   }
 
   Future<void> logout() async {
-    await _firebaseAuth.signOut();
-    await _googleSignIn.signOut();
+    try {
+      await _firebaseAuth.signOut();
+    } catch (e) {
+      debugPrint('Firebase signout error: $e');
+    }
+    
+    try {
+      if (kIsWeb) {
+        await _googleSignIn.disconnect();
+      } else {
+        await _googleSignIn.signOut();
+      }
+    } catch (e) {
+      debugPrint('Google signout error: $e');
+    }
+    
     await _storage.deleteToken();
     await _storage.remove('user_id');
     await _storage.remove('user_role');
@@ -168,6 +216,7 @@ class AuthRepository {
     await _storage.remove('user_email');
     await _storage.remove('user_image');
     await _storage.remove('onboarding_completed');
+    await _storage.remove('verification_status');
   }
 
   Future<bool> isLoggedIn() async {

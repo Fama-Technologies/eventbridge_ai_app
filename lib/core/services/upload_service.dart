@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
-import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:eventbridge/core/network/api_service.dart';
 
 /// Handles uploading files to S3 via presigned URLs
 class UploadService {

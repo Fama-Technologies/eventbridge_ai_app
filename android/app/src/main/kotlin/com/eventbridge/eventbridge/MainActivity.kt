@@ -1,4 +1,4 @@
-package com.eventbridge.eventbridge_ai
+package com.eventbridge.eventbridge
 
 import io.flutter.embedding.android.FlutterActivity
 

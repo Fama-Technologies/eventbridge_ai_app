@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/features/vendors_screen/home.dart';
-import 'package:eventbridge_ai/features/vendors_screen/leads.dart';
-import 'package:eventbridge_ai/features/vendors_screen/messages_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/settings.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_packages_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/profile_screen.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/features/vendors_screen/home.dart';
+import 'package:eventbridge/features/vendors_screen/leads.dart';
+import 'package:eventbridge/features/vendors_screen/messages_screen.dart';
+import 'package:eventbridge/features/vendors_screen/settings.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_packages_screen.dart';
+import 'package:eventbridge/features/vendors_screen/profile_screen.dart';
 
 class VendorMainScreen extends StatefulWidget {
   const VendorMainScreen({super.key});

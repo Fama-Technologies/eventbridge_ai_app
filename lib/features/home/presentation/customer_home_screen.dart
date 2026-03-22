@@ -1,232 +1,150 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/features/shared/widgets/customer_bottom_navbar.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-class CustomerHomeScreen extends StatefulWidget {
+import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge/core/services/suggestion_service.dart';
+import 'package:eventbridge/core/services/notification_service.dart';
+
+class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
 
   @override
-  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+  ConsumerState<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   int _currentIndex = 0;
+  Future<List<dynamic>>? _recommendedVendorsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRecommendedVendors();
+  }
+
+  void _fetchRecommendedVendors() {
+    setState(() {
+      _recommendedVendorsFuture = ApiService.instance.getCustomerRecommendedVendors()
+          .then((res) => res['success'] == true ? res['vendors'] as List<dynamic> : [])
+          .catchError((_) => <dynamic>[]);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authStateChangesProvider).value;
+    final firstName = user?.displayName?.split(' ').first ?? 'Friend';
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F8),
-      body: _buildBody(),
-      bottomNavigationBar: _buildBottomNav(),
+      backgroundColor: const Color(0xFFF9F9FB), // Very light grey/white background
+      appBar: _buildAppBar(firstName),
+      body: Stack(
+        children: [
+          _buildBackgroundAura(),
+          ListView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 120), // Bottom padding for floating nav
+            children: [
+              _buildHeroCard(),
+              const SizedBox(height: 32),
+              _buildSectionHeader('Recommended for You', 'AI RANKED', 'View History', () => context.push('/matches')),
+              const SizedBox(height: 16),
+              _buildRecommendedList(),
+              const SizedBox(height: 32),
+              _buildSectionHeader('AI Features & Pro Vendors', null, 'See All', () => context.push('/matches')),
+              const SizedBox(height: 16),
+              _buildAIFeaturesList(),
+              const SizedBox(height: 32),
+              _buildInfoBox(),
+            ],
+          ),
+        ],
+      ),
+      bottomNavigationBar: const CustomerBottomNavbar(currentRoute: '/customer-home'),
     );
   }
 
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return _buildHomeTab();
-      case 1:
-        return const Center(child: Text('Search (Coming Soon)'));
-      case 2:
-        return _buildBookingsTab();
-      case 3:
-        return const Center(child: Text('Messages (Coming Soon)'));
-      case 4:
-        return const Center(child: Text('Profile (Coming Soon)'));
-      default:
-        return _buildHomeTab();
-    }
-  }
-
-  Widget _buildHomeTab() {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1A1A24), Color(0xFF2D1810)],
-              ),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Good Morning,',
-                          style: GoogleFonts.roboto(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        Text(
-                          'Sarah James',
-                          style: GoogleFonts.roboto(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 2),
-                      ),
-                      child: CircleAvatar(
-                        radius: 24,
-                        backgroundColor: AppColors.primary01.withValues(alpha: 0.2),
-                        child: Text(
-                          'S',
-                          style: GoogleFonts.roboto(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary01,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(Icons.celebration_rounded, color: Colors.white),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Plan Your Next Event',
-                              style: GoogleFonts.roboto(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Let AI find the perfect vendors',
-                              style: GoogleFonts.roboto(
-                                fontSize: 13,
-                                color: Colors.white.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => context.push('/home'),
-                        icon: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  AppBar _buildAppBar(String name) {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      toolbarHeight: 80,
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Good Evening,',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary01.withValues(alpha: 0.6),
             ),
           ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    'Quick Search by Category',
-                    style: GoogleFonts.roboto(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1A1A24),
-                    ),
+          Text(
+            name,
+            style: GoogleFonts.outfit(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: AppColors.primary01,
+              letterSpacing: -0.5,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: GestureDetector(
+            onTap: () {}, // Future toggle theme or notifications
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    children: [
-                      _buildCategoryChip('Wedding', Icons.favorite_rounded),
-                      _buildCategoryChip('Birthday', Icons.cake_rounded),
-                      _buildCategoryChip('Corporate', Icons.business_center_rounded),
-                      _buildCategoryChip('Party', Icons.music_note_rounded),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Recent vendor matches',
-                        style: GoogleFonts.roboto(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1A1A24),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'View all',
-                          style: GoogleFonts.roboto(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary01,
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(Icons.notifications_none_rounded, color: AppColors.primary01, size: 24),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary01, // Using theme primary for the badge
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary01.withValues(alpha: 0.4),
+                            blurRadius: 4,
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ).animate(onPlay: (controller) => controller.repeat())
+                     .shimmer(duration: 2.seconds, color: Colors.white.withValues(alpha: 0.5))
+                     .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.1, 1.1), duration: 1.seconds, curve: Curves.easeInOut),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 200,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      _buildRecentMatchCard('Golden Hour Studio', 'Photography', '4.9', 'v1'),
-                      _buildRecentMatchCard('Elite Catering', 'Catering', '4.7', 'v2'),
-                      _buildRecentMatchCard('Bloom Decor', 'Decor', '4.8', 'v4'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40), // Bottom padding
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -234,212 +152,602 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Widget _buildBookingsTab() {
-    return SafeArea(
+  Widget _buildHeroCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.primary01, // Orange
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary01.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'My Bookings',
-              style: GoogleFonts.roboto(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF1A1A24),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.calendar_today_rounded, size: 60, color: const Color(0xFFD1D5DB)),
-                  const SizedBox(height: 16),
                   Text(
-                    'No upcoming events',
-                    style: GoogleFonts.roboto(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF4B5563),
+                    'MY EVENT PLANNER',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Active Projects',
+                    style: GoogleFonts.outfit(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
-            ),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.visibility_rounded, color: Colors.white, size: 20),
+              )
+            ],
           ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => context.push('/match-intake'),
+                  child: Container(
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.auto_awesome_rounded, color: AppColors.primary01, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Find\nVendors',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary01,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => context.push('/matches'),
+                  child: Container(
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.history_rounded, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'View Past\nMatches',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          )
         ],
       ),
     );
   }
 
-  Widget _buildCategoryChip(String label, IconData icon) {
-    return Container(
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary01),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: GoogleFonts.roboto(
+  Widget _buildSectionHeader(String title, String? subtitle, String actionText, VoidCallback onAction) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary01,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome, color: AppColors.primary01, size: 12),
+                  const SizedBox(width: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary01,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ]
+          ],
+        ),
+        GestureDetector(
+          onTap: onAction,
+          child: Text(
+            actionText,
+            style: GoogleFonts.outfit(
               fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF4B5563),
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary01,
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendedList() {
+    return SizedBox(
+      height: 240,
+      child: FutureBuilder<List<dynamic>>(
+        future: _recommendedVendorsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary01));
+          }
+          final vendors = snapshot.data ?? [];
+          if (vendors.isEmpty) {
+            return Center(
+              child: Text(
+                'No recommendations found yet.',
+                style: GoogleFonts.outfit(color: Colors.black54),
+              ),
+            );
+          }
+
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            itemCount: vendors.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final v = vendors[index];
+              final String id = v['id']?.toString() ?? '';
+              final String name = v['name'] ?? 'Vendor';
+              final List services = v['services'] is List ? v['services'] as List : [];
+              final String category = services.isNotEmpty ? services.first.toString().toUpperCase() : 'VENDOR';
+              final String rating = v['rating']?.toString() ?? 'New';
+              
+              String imageUrl = 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=400&auto=format&fit=crop';
+              if (v['avatar'] != null && v['avatar'].toString().isNotEmpty) {
+                 imageUrl = v['avatar'];
+              } else if (v['portfolio'] != null && v['portfolio'] is List && (v['portfolio'] as List).isNotEmpty) {
+                 imageUrl = (v['portfolio'] as List).first.toString();
+              }
+
+              return _buildVendorCard(id, category, name, rating, imageUrl);
+            },
+          );
+        },
       ),
     );
   }
 
-  Widget _buildRecentMatchCard(String name, String service, String rating, String vendorId) {
+  Widget _buildVendorCard(String id, String category, String name, String rating, String imageUrl) {
     return GestureDetector(
-      onTap: () => context.push('/vendor-public/$vendorId'),
+      onTap: () => context.push('/vendor-public/$id'),
       child: Container(
-        width: 160,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        padding: const EdgeInsets.all(16),
+        width: 180,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  name.substring(0, 1),
-                  style: GoogleFonts.roboto(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF9CA3AF),
-                  ),
-                ),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              name,
-              style: GoogleFonts.roboto(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              service,
-              style: GoogleFonts.roboto(
-                fontSize: 12,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
+            // Image Section
+            Stack(
               children: [
-                const Icon(Icons.star_rounded, size: 14, color: Color(0xFFF59E0B)),
-                const SizedBox(width: 4),
-                Text(
-                  rating,
-                  style: GoogleFonts.roboto(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF4B5563),
+                Container(
+                  height: 140,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    image: DecorationImage(
+                      image: NetworkImage(imageUrl),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.star_rounded, color: AppColors.primary01, size: 10),
+                        const SizedBox(width: 4),
+                        Text(
+                          'TOP MATCH',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary01,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               ],
             ),
+            // Details Section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary01,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary01,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Color(0xFFFFB800), size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        rating,
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildAIFeaturesList() {
+    return SizedBox(
+      height: 200,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          // Purple AI Card
+          GestureDetector(
+            onTap: () => context.push('/match-intake'),
+            child: Container(
+              width: 280,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4338CA), // Deep Indigo/Purple
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4338CA).withValues(alpha: 0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'NEW FEATURE',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'AI Smart Matching',
+                    style: GoogleFonts.outfit(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Instantly find vendors that match your unique style and budget constraints.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Try Now',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Dark Pro Card (Show a generic pro vendor tip or just hide if no data)
+          FutureBuilder<List<dynamic>>(
+            future: _recommendedVendorsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data!.length > 1) {
+                final v = snapshot.data![1];
+                return GestureDetector(
+                  onTap: () => context.push('/vendor-public/${v['id']}'),
+                  child: Container(
+                    width: 220,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary01,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'PRO HIGHLY RATED',
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          v['name'] ?? 'Elite Vendor',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          v['business_overview'] ?? 'Premium quality services.',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.6),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Text(
+                              'View Profile',
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoBox() {
     return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          if (index == 4) {
-             context.push('/customer-settings');
-          } else {
-             setState(() => _currentIndex = index);
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: AppColors.primary01,
-        unselectedItemColor: const Color(0xFF9CA3AF),
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        selectedLabelStyle: GoogleFonts.roboto(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-        unselectedLabelStyle: GoogleFonts.roboto(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-        elevation: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Home',
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primary01.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.lightbulb_rounded, color: AppColors.primary01, size: 24),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search_rounded),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event_note_rounded),
-            label: 'Bookings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            label: 'Profile',
-          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Why automated matching?',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary01,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Save up to 15 hours of manual searching.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          )
         ],
       ),
+    );
+  }
+
+
+  Widget _buildBackgroundAura() {
+    return Stack(
+      children: [
+        Positioned(
+          top: -150,
+          right: -100,
+          child: Container(
+            width: 400,
+            height: 400,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.primary01.withValues(alpha: 0.1),
+                  AppColors.primary01.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 100,
+          left: -150,
+          child: Container(
+            width: 450,
+            height: 450,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.primary01.withValues(alpha: 0.08),
+                  AppColors.primary01.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

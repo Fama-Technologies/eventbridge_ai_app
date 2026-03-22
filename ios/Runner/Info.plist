@@ -7,7 +7,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Eventbridge Ai</string>
+		<string>EventBridge</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>eventbridge_ai</string>
+		<string>EventBridge</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -70,5 +70,16 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>https</string>
+			<string>http</string>
+		</array>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>This app needs access to location when open to show nearby events and vendors.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>This app needs camera access to take photos for your profile and event posts.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>This app needs photo library access to upload images for events and profiles.</string>
 	</dict>
 </plist>

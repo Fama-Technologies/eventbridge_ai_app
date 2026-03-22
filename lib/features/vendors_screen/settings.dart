@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_profile_settings.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_personal_information_screen.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
-import 'package:eventbridge_ai/core/widgets/app_toast.dart';
-import 'package:eventbridge_ai/features/auth/data/auth_repository.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_profile_settings.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_personal_information_screen.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
+import 'package:eventbridge/features/auth/data/auth_repository.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:eventbridge_ai/core/services/upload_service.dart';
-import 'package:eventbridge_ai/core/network/api_service.dart';
+import 'package:eventbridge/core/services/upload_service.dart';
+import 'package:eventbridge/core/network/api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:eventbridge/core/services/notification_service.dart';
 import 'dart:io';
 
 class VendorSettingsScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
   bool _isLoadingData = true;
   String? _planName;
   String? _joinedDate;
+  bool _isVerifiedBadge = false;
 
   @override
   void initState() {
@@ -66,6 +68,7 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
               final date = DateTime.parse(createdAt);
               _joinedDate = DateFormat('MMMM yyyy').format(date);
             }
+            _isVerifiedBadge = profile['isVerifiedBadge'] == true;
             _isLoadingData = false;
           });
         }
@@ -369,8 +372,10 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(width: 8),
-            const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+            if (_isVerifiedBadge) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+            ],
           ],
         ),
         const SizedBox(height: 4),
@@ -380,6 +385,35 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: Colors.white.withOpacity(0.9),
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => context.push('/vendor-subscription'),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.upgrade_rounded, color: Colors.white, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  _planName == null || _planName == 'free_trial'
+                      ? 'Upgrade Plan'
+                      : 'Active: ${_planName == "business_pro" ? "Premium Vendor" : "Basic Vendor"}',
+                  style: GoogleFonts.roboto(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -512,11 +546,48 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             title: 'Log out',
             textPrimary: const Color(0xFFEF4444),
             textSecondary: textSecondary,
-            isLast: true,
             onTap: () async {
               await AuthRepository().logout();
               if (mounted) {
                 context.go('/login');
+              }
+            },
+          ),
+          _buildListItem(
+            icon: Icons.delete_forever_rounded,
+            title: 'Delete Account',
+            textPrimary: const Color(0xFFEF4444),
+            textSecondary: textSecondary,
+            isLast: true,
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Delete Account?'),
+                  content: const Text('This will permanently delete your account and all data. This action cannot be undone.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true && mounted) {
+                final userId = StorageService().getString('user_id');
+                if (userId != null) {
+                  try {
+                    await ApiService.instance.deleteAccount(userId);
+                  } catch (e) {
+                    if (mounted) {
+                      AppToast.show(context, message: 'Failed to delete account: ${e.toString().replaceAll("Exception: ", "")}', type: ToastType.error);
+                    }
+                    return;
+                  }
+                }
+                await AuthRepository().logout();
+                if (mounted) context.go('/login');
               }
             },
           ),

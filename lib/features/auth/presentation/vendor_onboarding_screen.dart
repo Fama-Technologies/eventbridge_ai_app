@@ -2,11 +2,10 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:eventbridge_ai/core/network/api_service.dart';
-import 'package:eventbridge_ai/core/services/upload_service.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/services/upload_service.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,15 +14,21 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:eventbridge_ai/core/widgets/app_toast.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
+import 'dart:async';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:dio/dio.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const _kOrange = AppColors.primary01;
 const _kBg = Color(0xFFF6F7FB);
 const _kCard = Colors.white;
 const _kText = Color(0xFF111827);
-const _kMuted = Color(0xFF6B7280);
+const _kMuted = AppColors.darkNeutral06; // Changed from Color(0xFF6B7280)
 const _kBorder = Color(0xFFE5E7EB);
+const _kMapsApiKey = "AIzaSyBh-GVHVYhZ7irbZ5o8QAyzpZPsXuNUwLM"; // Added
 
 ImageProvider<Object> _pickedImageProvider(File file) {
   if (kIsWeb) return NetworkImage(file.path);
@@ -60,6 +65,15 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   final _bizName = TextEditingController();
   final _country = TextEditingController();
   final _location = TextEditingController();
+  double? _lat;
+  double? _lng;
+  double _radiusKm = 20.0;
+  
+  // Autocomplete state
+  Timer? _debounce;
+  List<Map<String, String>> _placeSuggestions = [];
+  bool _isLoadingPlaces = false;
+  String? _selectedPlaceDescription;
   bool _moreServices = false;
   bool _moreEvents = false;
   final _serviceCats = [
@@ -94,15 +108,14 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   TimeOfDay _endTime = const TimeOfDay(hour: 22, minute: 0);
   final _gallery = <File>[];
   final _priceCtrl = TextEditingController();
-
-  // Step 3
-  File? _licenseFile;
-  File? _tinFile;
-  File? _locationFile;
+  String _selectedCurrency = 'UGX';
+  final List<String> _currencies = ['UGX', 'USD', 'KES', 'TZS', 'RWF', 'GBP', 'EUR'];
+  String _selectedPriceUnit = 'Per Event';
+  final List<String> _priceUnits = ['Per Event', 'Per Plate', 'Per Hour', 'Per Day', 'Per Session', 'Flat Rate'];
 
   // ── Nav ──────────────────────────────────────────────────────────────────────
   void _goto(int s) {
-    if (s < 0 || s > 2) return;
+    if (s < 0 || s > 1) return;
     setState(() => _step = s);
     _page.animateToPage(s, duration: 320.ms, curve: Curves.easeInOutCubic);
   }
@@ -124,17 +137,52 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
     if (p != null && mounted) setState(() => _gallery.add(File(p.path)));
   }
 
-  Future<void> _pickDoc(String key) async {
-    final r = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+  Future<void> _showLocationPicker() async {
+    // Check permissions
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) AppToast.show(context, message: 'Location services are disabled.', type: ToastType.error);
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) AppToast.show(context, message: 'Location permissions are denied.', type: ToastType.error);
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) AppToast.show(context, message: 'Location permissions are permanently denied.', type: ToastType.error);
+      return;
+    }
+
+    Position? currentPos;
+    try {
+      currentPos = await Geolocator.getCurrentPosition();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _LocationPickerSheet(
+        initialLat: _lat ?? currentPos?.latitude ?? 0.3476, // default Kampala
+        initialLng: _lng ?? currentPos?.longitude ?? 32.5825,
+      ),
     );
-    if (r != null && r.files.single.path != null && mounted) {
-      final f = File(r.files.single.path!);
+
+    if (result != null && mounted) {
       setState(() {
-        if (key == 'license') _licenseFile = f;
-        if (key == 'tin') _tinFile = f;
-        if (key == 'loc') _locationFile = f;
+        _lat = result['lat'];
+        _lng = result['lng'];
+        _location.text = result['address'];
+        _selectedPlaceDescription = result['address']; // Update selected place description
       });
     }
   }
@@ -162,6 +210,104 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   void initState() {
     super.initState();
     _loadDraft();
+    _location.addListener(_onLocationChanged); // Added listener
+  }
+
+  @override
+  void dispose() {
+    _location.removeListener(_onLocationChanged); // Removed listener
+    _page.dispose();
+    _bizName.dispose();
+    _country.dispose();
+    _location.dispose();
+    _descCtrl.dispose();
+    _expCtrl.dispose();
+    _priceCtrl.dispose();
+    _debounce?.cancel(); // Cancel debounce timer
+    super.dispose();
+  }
+
+  void _onLocationChanged() {
+    final query = _location.text;
+    if (query.isEmpty || query == _selectedPlaceDescription) {
+      if (_placeSuggestions.isNotEmpty) {
+        setState(() => _placeSuggestions.clear());
+      }
+      return;
+    }
+
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _fetchPlaceSuggestions(query);
+    });
+  }
+
+  Future<void> _fetchPlaceSuggestions(String query) async {
+    if (query.isEmpty) return;
+    setState(() => _isLoadingPlaces = true);
+    try {
+      final url = 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$_kMapsApiKey';
+      final res = await Dio().get(url);
+      if (res.data['status'] == 'OK') {
+        final preds = res.data['predictions'] as List;
+        setState(() {
+          _placeSuggestions = preds.map((p) => {
+            'description': p['description'] as String,
+            'place_id': p['place_id'] as String,
+          }).toList();
+        });
+      } else {
+        setState(() => _placeSuggestions.clear());
+      }
+    } catch (_) {
+      setState(() => _placeSuggestions.clear());
+    } finally {
+      if (mounted) setState(() => _isLoadingPlaces = false);
+    }
+  }
+
+  Future<void> _selectPlace(String placeId, String description) async {
+    setState(() {
+      _selectedPlaceDescription = description;
+      _location.text = description;
+      _placeSuggestions.clear();
+      FocusScope.of(context).unfocus();
+    });
+
+    try {
+      final url = 'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$_kMapsApiKey';
+      final res = await Dio().get(url);
+      if (res.data['status'] == 'OK') {
+        final resultInfo = res.data['result'];
+        final loc = resultInfo['geometry']['location'];
+        final addressComponents = resultInfo['address_components'] as List?;
+        String? foundCountry;
+        if (addressComponents != null) {
+          for (var comp in addressComponents) {
+            final types = comp['types'] as List;
+            if (types.contains('country')) {
+              foundCountry = comp['long_name'];
+              break;
+            }
+          }
+        }
+        setState(() {
+          _lat = loc['lat'];
+          _lng = loc['lng'];
+          if (foundCountry != null) {
+             _country.text = foundCountry;
+             // Auto-select currency based on country for convenience
+             if (foundCountry.contains('Uganda')) _selectedCurrency = 'UGX';
+             else if (foundCountry.contains('Kenya')) _selectedCurrency = 'KES';
+             else if (foundCountry.contains('Tanzania')) _selectedCurrency = 'TZS';
+             else if (foundCountry.contains('Rwanda')) _selectedCurrency = 'RWF';
+             else _selectedCurrency = 'USD';
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) AppToast.show(context, message: 'Could not fetch coordinates.', type: ToastType.error);
+    }
   }
 
   Future<void> _loadDraft() async {
@@ -174,6 +320,12 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
           _bizName.text = draft['bizName'] ?? '';
           _country.text = draft['country'] ?? '';
           _location.text = draft['location'] ?? '';
+          if (draft['lat'] != null) _lat = (draft['lat'] as num).toDouble();
+          if (draft['lng'] != null) _lng = (draft['lng'] as num).toDouble();
+          if (draft['radiusKm'] != null) _radiusKm = (draft['radiusKm'] as num).toDouble();
+          if (draft['currency'] != null) _selectedCurrency = draft['currency'];
+          if (draft['priceUnit'] != null) _selectedPriceUnit = draft['priceUnit'];
+          _selectedPlaceDescription = _location.text; // Added this line
           _descCtrl.text = draft['desc'] ?? '';
           _expCtrl.text = draft['exp'] ?? '';
           _priceCtrl.text = draft['price'] ?? '';
@@ -206,11 +358,16 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         'bizName': _bizName.text,
         'country': _country.text,
         'location': _location.text,
+        'lat': _lat,
+        'lng': _lng,
+        'radiusKm': _radiusKm,
         'desc': _descCtrl.text,
         'exp': _expCtrl.text,
         'price': _priceCtrl.text,
         'selectedSvc': _selectedSvc.toList(),
         'selectedEvt': _selectedEvt.toList(),
+        'currency': _selectedCurrency,
+        'priceUnit': _selectedPriceUnit,
         'step': _step,
       };
       final jsonStr = jsonEncode(draft);
@@ -223,18 +380,6 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
       if (!mounted) return;
       AppToast.show(context, message: 'Failed to save draft.', type: ToastType.error);
     }
-  }
-
-  @override
-  void dispose() {
-    _page.dispose();
-    _bizName.dispose();
-    _country.dispose();
-    _location.dispose();
-    _descCtrl.dispose();
-    _expCtrl.dispose();
-    _priceCtrl.dispose();
-    super.dispose();
   }
 
   // ── Submission ──────────────────────────────────────────────────────────────
@@ -294,8 +439,15 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         experience: _expCtrl.text,
         price: _priceCtrl.text,
         serviceCategories: _selectedSvc.toList(),
+        eventCategories: _selectedEvt.toList(),
         avatarUrl: avatarUrl,
         galleryUrls: galleryUrls,
+        latitude: _lat,
+        longitude: _lng,
+        travelRadius: _radiusKm.toInt(),
+        currency: _selectedCurrency,
+        priceUnit: _selectedPriceUnit,
+        isVerified: false,
       );
 
       await StorageService().remove('vendor_onboarding_draft');
@@ -318,6 +470,133 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
     // On web, File.path is a blob URL, use XFile approach
     final xFile = XFile(file.path);
     return await xFile.readAsBytes();
+  }
+
+  Future<void> _addCustomCategory(bool isService) async {
+    final ctrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkNeutral02 : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 20,
+                  offset: Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkNeutral03 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const Gap(24),
+                Text(
+                  'Add Custom ${isService ? 'Service' : 'Event'}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const Gap(8),
+                Text(
+                  isService
+                      ? 'Type the name of a specialty service you provide.'
+                      : 'Type the name of a unique event type you cover.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.darkNeutral06,
+                  ),
+                ),
+                const Gap(24),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontSize: 16,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: isService ? 'e.g. Drone Photography' : 'e.g. Cultural Ceremonies',
+                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 15),
+                    filled: true,
+                    fillColor: isDark ? AppColors.darkNeutral03 : const Color(0xFFF9FAFB),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: isDark ? const Color(0xFF333333) : Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: isDark ? const Color(0xFF333333) : Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AppColors.primary01, width: 2),
+                    ),
+                  ),
+                ),
+                const Gap(24),
+                ElevatedButton(
+                  onPressed: () {
+                    if (ctrl.text.trim().isNotEmpty) {
+                       Navigator.pop(ctx, ctrl.text.trim());
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary01,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Add Category', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result != null && result.isNotEmpty && mounted) {
+      setState(() {
+        if (isService) {
+          if (!_serviceCats.contains(result)) _serviceCats.add(result);
+          _selectedSvc.add(result);
+          _moreServices = true; // Ensure newly added is visible
+        } else {
+          if (!_eventCats.contains(result)) _eventCats.add(result);
+          _selectedEvt.add(result);
+          _moreEvents = true; // Ensure newly added is visible
+        }
+      });
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────────
@@ -345,7 +624,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                 controller: _page,
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (i) => setState(() => _step = i),
-                children: [_step1(), _step2(), _step3()],
+                children: [_step1(), _step2()],
               ),
             ),
             if (_isSubmitting)
@@ -353,11 +632,20 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
             if (!_isSubmitting)
               _BottomNav(
                 step: _step,
-                onNext: () =>
-                    _step < 2 ? _goto(_step + 1) : _submitForm(),
+                onNext: () {
+                  if (_step == 0) {
+                    if (_bizName.text.isEmpty || _country.text.isEmpty || _selectedSvc.isEmpty) {
+                      AppToast.show(context, message: 'Please fill in all required fields marked with *', type: ToastType.error);
+                      return;
+                    }
+                    _goto(1);
+                  } else {
+                    _submitForm();
+                  }
+                },
                 onBack: _step > 0 ? () => _goto(_step - 1) : null,
-                onSkip: _step == 2 ? () => _submitForm() : null,
-                onSaveDraft: _step < 2 ? _saveDraft : null,
+                onSkip: null,
+                onSaveDraft: _step < 1 ? _saveDraft : null,
               ),
           ],
         ),
@@ -369,6 +657,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   // STEP 1 – Profile Setup
   // ══════════════════════════════════════════════════════════════════════════════
   Widget _step1() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       child: Column(
@@ -415,7 +704,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _FieldLabel('Business Name'),
+                const _FieldLabel('Business Name', isRequired: true),
                 const Gap(10),
                 _Input(ctrl: _bizName, hint: 'e.g. Acme Event Solutions'),
               ],
@@ -431,6 +720,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               children: [
                 _CategoryHeader(
                   title: 'Service Categories',
+                  isRequired: true,
                   expanded: _moreServices,
                   onToggle: () =>
                       setState(() => _moreServices = !_moreServices),
@@ -448,7 +738,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                   ),
                 ),
                 const Gap(8),
-                _AddCustomButton(onTap: () {}),
+                _AddCustomButton(onTap: () => _addCustomCategory(true)),
               ],
             ),
           ).animate(delay: 130.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
@@ -476,7 +766,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                   ),
                 ),
                 const Gap(8),
-                _AddCustomButton(onTap: () {}),
+                _AddCustomButton(onTap: () => _addCustomCategory(false)),
               ],
             ),
           ).animate(delay: 160.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
@@ -488,26 +778,128 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _FieldLabel('Country'),
+                const _FieldLabel('Country', isRequired: true),
                 const Gap(10),
                 _Input(ctrl: _country, hint: 'Enter country'),
                 const Gap(16),
                 _FieldLabel('Primary Location'),
                 const Gap(10),
-                _Input(
-                  ctrl: _location,
-                  hint: 'City, state or zip…',
-                  prefix: const Icon(
-                    Icons.location_on_rounded,
-                    size: 18,
-                    color: _kOrange,
+                Stack(
+                  children: [
+                    _Input(
+                      ctrl: _location,
+                      hint: 'Type your city or district...',
+                      prefix: const Icon(
+                        Icons.location_on_rounded,
+                        size: 18,
+                        color: _kOrange,
+                      ),
+                    ),
+                    if (_isLoadingPlaces)
+                      const Positioned(
+                        right: 14,
+                        top: 14,
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: _kOrange),
+                        ),
+                      ),
+                  ],
+                ),
+                if (_placeSuggestions.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkNeutral02 : Colors.white,
+                      border: Border.all(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _placeSuggestions.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
+                      itemBuilder: (ctx, i) {
+                        final s = _placeSuggestions[i];
+                        return ListTile(
+                          leading: const Icon(Icons.place_outlined, color: _kMuted, size: 20),
+                          title: Text(s['description']!, style: const TextStyle(fontSize: 13)),
+                          onTap: () => _selectPlace(s['place_id']!, s['description']!),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const Gap(6),
-                const Text(
-                  "We'll match you with local events.",
-                  style: TextStyle(fontSize: 12, color: _kMuted),
-                ),
+                if (_lat != null && _lng != null && _placeSuggestions.isEmpty) ...[
+                  const Gap(12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      height: 120,
+                      width: double.infinity,
+                      child: GoogleMap(
+                        key: ValueKey('${_lat!}_${_lng!}'),
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(_lat!, _lng!),
+                          zoom: 14,
+                        ),
+                        liteModeEnabled: true,
+                        mapToolbarEnabled: false,
+                        zoomControlsEnabled: false,
+                        myLocationButtonEnabled: false,
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('vendor_loc'),
+                            position: LatLng(_lat!, _lng!),
+                          ),
+                        },
+                      ),
+                    ),
+                  ),
+                  const Gap(16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const _FieldLabel('Service Radius'),
+                      Text('${_radiusKm.toInt()} km', style: const TextStyle(fontWeight: FontWeight.bold, color: _kOrange)),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: _kOrange,
+                      inactiveTrackColor: _kOrange.withOpacity(0.2),
+                      thumbColor: _kOrange,
+                      overlayColor: _kOrange.withOpacity(0.1),
+                      trackHeight: 4,
+                    ),
+                    child: Slider(
+                      value: _radiusKm,
+                      min: 5,
+                      max: 500,
+                      divisions: 495,
+                      onChanged: (val) => setState(() => _radiusKm = val),
+                    ),
+                  ),
+                  const Text(
+                    "This sets how far you're willing to travel for events.",
+                    style: TextStyle(fontSize: 12, color: _kMuted),
+                  ),
+                ],
+                if (_lat == null) ...[
+                  const Gap(6),
+                  const Text(
+                    "We'll match you with local events.",
+                    style: TextStyle(fontSize: 12, color: _kMuted),
+                  ),
+                ]
               ],
             ),
           ).animate(delay: 190.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
@@ -631,20 +1023,23 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                       child: _Input(
                         ctrl: _priceCtrl,
                         hint: '0,000',
+                        keyboardType: TextInputType.number,
                         prefix: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'UGX',
-                                style: TextStyle(
-                                  color: _kOrange,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedCurrency,
+                              icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: _kOrange),
+                              items: _currencies.map((String c) {
+                                return DropdownMenuItem(
+                                  value: c,
+                                  child: Text(c, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _kOrange)),
+                                );
+                              }).toList(),
+                              onChanged: (v) {
+                                if (v != null) setState(() => _selectedCurrency = v);
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -653,8 +1048,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                     Expanded(
                       flex: 3,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: Theme.of(context).brightness == Brightness.dark
                               ? AppColors.darkNeutral02.withValues(alpha: 0.5)
@@ -666,12 +1060,23 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                                 : const Color(0xFFE5E7EB),
                           ),
                         ),
-                        child: const Text(
-                          'Per Event',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: _kMuted,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedPriceUnit,
+                            isExpanded: true,
+                            icon: const Icon(Icons.arrow_drop_down, color: _kMuted),
+                            dropdownColor: Theme.of(context).brightness == Brightness.dark 
+                              ? AppColors.darkNeutral02 
+                              : Colors.white,
+                            items: _priceUnits.map((String unit) {
+                              return DropdownMenuItem(
+                                value: unit,
+                                child: Text(unit, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kMuted)),
+                              );
+                            }).toList(),
+                            onChanged: (v) {
+                              if (v != null) setState(() => _selectedPriceUnit = v);
+                            },
                           ),
                         ),
                       ),
@@ -704,111 +1109,6 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               ],
             ),
           ).animate(delay: 160.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
-        ],
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════════
-  // STEP 3 – Verify
-  // ══════════════════════════════════════════════════════════════════════════════
-  Widget _step3() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Hero banner
-          _VerifyHeroBanner()
-              .animate()
-              .fadeIn(duration: 350.ms)
-              .slideY(begin: 0.15),
-
-          const Gap(20),
-
-          // Review process
-          _Card(
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: _kOrange.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.hourglass_top_rounded,
-                    color: _kOrange,
-                    size: 22,
-                  ),
-                ),
-                const Gap(14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Review Process: 24–48 Hours',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: _kText,
-                        ),
-                      ),
-                      Gap(3),
-                      Text(
-                        'Our team will manually review your documents for local compliance.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _kMuted,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ).animate(delay: 60.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
-
-          const Gap(20),
-
-          // Doc cards
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _DocCard(
-                  icon: Icons.assignment_outlined,
-                  title: 'Business\nLicense',
-                  hint: 'Official business registration or license.',
-                  file: _licenseFile,
-                  onTap: () => _pickDoc('license'),
-                ),
-              ),
-              const Gap(10),
-              Expanded(
-                child: _DocCard(
-                  icon: Icons.badge_outlined,
-                  title: 'TIN\nDocument',
-                  hint: 'Taxpayer Identification Number.',
-                  file: _tinFile,
-                  onTap: () => _pickDoc('tin'),
-                ),
-              ),
-              const Gap(10),
-              Expanded(
-                child: _DocCard(
-                  icon: Icons.location_city_outlined,
-                  title: 'Location\nProof',
-                  hint: 'Utility bill, lease, or bank statement.',
-                  file: _locationFile,
-                  onTap: () => _pickDoc('loc'),
-                ),
-              ),
-            ],
-          ).animate(delay: 100.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
         ],
       ),
     );
@@ -905,7 +1205,7 @@ class _StepRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['Profile Setup', 'Services', 'Verify'];
+    const labels = ['Profile Setup', 'Services'];
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final card = isDark ? AppColors.darkNeutral02 : Colors.white;
@@ -974,12 +1274,16 @@ class _StepRail extends StatelessWidget {
                     ),
                   ),
                   const Gap(7),
-                  Text(
-                    labels[i],
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: (done || active) ? _kOrange : Colors.grey.shade400,
+                  Flexible(
+                    child: Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: (done || active) ? _kOrange : Colors.grey.shade400,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   if (i < labels.length - 1) ...[
@@ -1094,7 +1398,7 @@ class _BottomNav extends StatelessWidget {
           ],
           if (onSkip == null) const Spacer(),
           _PrimaryButton(
-            label: step == 2 ? 'Submit for Review' : 'Next Step',
+            label: step == 1 ? 'Submit for Review' : 'Next Step',
             onTap: onNext,
           ),
         ],
@@ -1176,20 +1480,35 @@ class _SectionTitle extends StatelessWidget {
 // Field label
 class _FieldLabel extends StatelessWidget {
   final String text;
-  const _FieldLabel(this.text);
+  final bool isRequired;
+  const _FieldLabel(this.text, {this.isRequired = false});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = isDark ? Colors.white : const Color(0xFF111827);
 
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: color,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+        if (isRequired)
+          const Text(
+            ' *',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: _kOrange,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1237,7 +1556,8 @@ class _Input extends StatelessWidget {
   final TextEditingController ctrl;
   final String hint;
   final Widget? prefix;
-  const _Input({required this.ctrl, required this.hint, this.prefix});
+  final TextInputType? keyboardType;
+  const _Input({required this.ctrl, required this.hint, this.prefix, this.keyboardType});
 
   @override
   Widget build(BuildContext context) {
@@ -1250,6 +1570,7 @@ class _Input extends StatelessWidget {
 
     return TextField(
       controller: ctrl,
+      keyboardType: keyboardType,
       style: TextStyle(fontSize: 14, color: text),
       decoration: InputDecoration(
         hintText: hint,
@@ -1325,24 +1646,40 @@ class _TextArea extends StatelessWidget {
 class _CategoryHeader extends StatelessWidget {
   final String title;
   final bool expanded;
+  final bool isRequired;
   final VoidCallback onToggle;
   const _CategoryHeader({
     required this.title,
     required this.expanded,
     required this.onToggle,
+    this.isRequired = false,
   });
 
   @override
   Widget build(BuildContext context) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: _kText,
-        ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: _kText,
+            ),
+          ),
+          if (isRequired)
+            const Text(
+              ' *',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _kOrange,
+              ),
+            ),
+        ],
       ),
       GestureDetector(
         onTap: onToggle,
@@ -1617,14 +1954,18 @@ class _TimeChip extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: text,
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: text,
+                ),
               ),
             ),
+            const Gap(4),
             Icon(Icons.access_time_rounded, size: 14, color: muted),
           ],
         ),
@@ -1733,235 +2074,6 @@ class _GalleryGrid extends StatelessWidget {
   }
 }
 
-// Doc upload card
-class _DocCard extends StatelessWidget {
-  final IconData icon;
-  final String title, hint;
-  final File? file;
-  final VoidCallback onTap;
-  const _DocCard({
-    required this.icon,
-    required this.title,
-    required this.hint,
-    required this.onTap,
-    this.file,
-  });
-
-  bool _isImageFile(String path) {
-    final p = path.toLowerCase();
-    return p.endsWith('.jpg') || p.endsWith('.jpeg') || p.endsWith('.png');
-  }
-
-  String _fileName(String path) {
-    return path.replaceAll('\\', '/').split('/').last;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final done = file != null;
-    final imagePreview = done && _isImageFile(file!.path);
-    final card = isDark ? AppColors.darkNeutral02 : Colors.white;
-    final border = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
-    final text = isDark ? Colors.white : const Color(0xFF111827);
-    final muted = isDark ? AppColors.darkNeutral06 : const Color(0xFF6B7280);
-    final iconBg = isDark ? AppColors.darkNeutral03 : const Color(0xFFF3F4F6);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: 250.ms,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: done ? _kOrange.withValues(alpha: 0.05) : card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: done ? _kOrange.withValues(alpha: 0.5) : border,
-            width: done ? 1.5 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            if (imagePreview)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: _pickedImageWidget(
-                  file!,
-                  fit: BoxFit.cover,
-                  height: 66,
-                  width: 66,
-                ),
-              )
-            else
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: done
-                      ? _kOrange.withValues(alpha: 0.12)
-                      : iconBg,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  done ? Icons.check_circle_outline_rounded : icon,
-                  color: done ? _kOrange : muted,
-                  size: 22,
-                ),
-              ),
-            const Gap(10),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: text,
-                height: 1.3,
-              ),
-            ),
-            const Gap(5),
-            Text(
-              hint,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: muted, height: 1.4),
-            ),
-            if (done) ...[
-              const Gap(6),
-              Text(
-                _fileName(file!.path),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: muted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-            const Gap(12),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-              decoration: BoxDecoration(
-                color: done ? _kOrange : (isDark ? AppColors.darkNeutral03 : Colors.white),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: done ? _kOrange : border),
-              ),
-              child: Text(
-                done ? 'Uploaded ✓' : 'Upload Files\n(PDF/JPG)',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: done ? Colors.white : text,
-                  height: 1.3,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Verify hero banner
-class _VerifyHeroBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFFFF6B35), Color(0xFFFF3D00)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: _kOrange.withValues(alpha: 0.35),
-          blurRadius: 16,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.verified_rounded, color: Colors.white, size: 20),
-                  Gap(8),
-                  Text(
-                    'Boost trust with verification',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-              const Gap(6),
-              const Text(
-                '(optional)',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const Gap(10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '2x more leads for verified vendors',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const Gap(10),
-              Text(
-                "You can do this later, but starting now helps you rank higher.",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.85),
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Gap(12),
-        const Icon(Icons.shield_rounded, color: Colors.white, size: 60),
-      ],
-    ),
-  );
-}
-
 // Primary button
 class _PrimaryButton extends StatelessWidget {
   final String label;
@@ -2011,3 +2123,172 @@ class _PrimaryButton extends StatelessWidget {
     ),
   );
 }
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Location Picker Sheet
+// ════════════════════════════════════════════════════════════════════════════════
+class _LocationPickerSheet extends StatefulWidget {
+  final double initialLat;
+  final double initialLng;
+
+  const _LocationPickerSheet({required this.initialLat, required this.initialLng});
+
+  @override
+  State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
+}
+
+class _LocationPickerSheetState extends State<_LocationPickerSheet> {
+  late GoogleMapController _controller;
+  late LatLng _target;
+  bool _isDragging = false;
+  String _currentAddress = 'Move map to select location';
+
+  @override
+  void initState() {
+    super.initState();
+    _target = LatLng(widget.initialLat, widget.initialLng);
+    _updateAddress(_target);
+  }
+
+  Future<void> _updateAddress(LatLng pos) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        if (mounted) {
+          setState(() {
+            _currentAddress = [p.street, p.subLocality, p.locality, p.country]
+                .where((e) => e != null && e.isNotEmpty)
+                .join(', ');
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _currentAddress = 'Unknown location');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AppColors.darkNeutral02 : Colors.white;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Pin Primary Location',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                )
+              ],
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _target,
+                    zoom: 15,
+                  ),
+                  onMapCreated: (ctrl) => _controller = ctrl,
+                  onCameraMoveStarted: () => setState(() => _isDragging = true),
+                  onCameraMove: (pos) => _target = pos.target,
+                  onCameraIdle: () {
+                    setState(() => _isDragging = false);
+                    _updateAddress(_target);
+                  },
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  zoomControlsEnabled: false,
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Icon(
+                      Icons.location_pin,
+                      size: 40,
+                      color: _isDragging ? Colors.grey : AppColors.primary01,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: bg,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                )
+              ],
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined, color: AppColors.primary01),
+                      const Gap(10),
+                      Expanded(
+                        child: Text(
+                          _currentAddress,
+                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Gap(16),
+                  ElevatedButton(
+                    onPressed: _isDragging
+                        ? null
+                        : () {
+                            Navigator.pop(context, {
+                              'lat': _target.latitude,
+                              'lng': _target.longitude,
+                              'address': _currentAddress,
+                            });
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary01,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Confirm Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

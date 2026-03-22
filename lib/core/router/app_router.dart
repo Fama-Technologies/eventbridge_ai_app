@@ -1,33 +1,41 @@
 // import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
-import 'package:eventbridge_ai/features/auth/presentation/splash_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/login_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/role_selection_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/create_account_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/signup_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/vendor_signup_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/signup_success_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/vendor_onboarding_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/forgot_password_screen.dart';
-import 'package:eventbridge_ai/features/auth/presentation/verify_code_screen.dart';
-import 'package:eventbridge_ai/features/home/presentation/home_screen.dart';
-import 'package:eventbridge_ai/features/home/presentation/customer_home_screen.dart';
-import 'package:eventbridge_ai/features/home/presentation/customer_settings_screen.dart';
-import 'package:eventbridge_ai/features/matching/presentation/event_request_screen.dart';
-import 'package:eventbridge_ai/features/matching/presentation/match_results_screen.dart';
-import 'package:eventbridge_ai/features/matching/presentation/vendor_public_profile_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_main_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/lead_details_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/settings.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_chat_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_profile_settings.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_packages_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_availability_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/subscription_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_personal_information_screen.dart';
-import 'package:eventbridge_ai/features/vendors_screen/vendor_help_support_screen.dart';
-import 'package:eventbridge_ai/features/matching/presentation/submit_review_screen.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/features/auth/presentation/splash_screen.dart';
+import 'package:eventbridge/features/auth/presentation/login_screen.dart';
+import 'package:eventbridge/features/auth/presentation/role_selection_screen.dart';
+import 'package:eventbridge/features/auth/presentation/create_account_screen.dart';
+import 'package:eventbridge/features/auth/presentation/signup_screen.dart';
+import 'package:eventbridge/features/auth/presentation/vendor_signup_screen.dart';
+import 'package:eventbridge/features/auth/presentation/signup_success_screen.dart';
+import 'package:eventbridge/features/auth/presentation/vendor_onboarding_screen.dart';
+import 'package:eventbridge/features/auth/presentation/forgot_password_screen.dart';
+import 'package:eventbridge/features/auth/presentation/verify_code_screen.dart';
+import 'package:eventbridge/features/home/presentation/home_screen.dart';
+import 'package:eventbridge/features/home/presentation/customer_home_screen.dart';
+import 'package:eventbridge/features/home/presentation/customer_settings_screen.dart';
+import 'package:eventbridge/features/home/presentation/customer_profile_screen.dart';
+import 'package:eventbridge/features/matching/presentation/event_request_screen.dart';
+import 'package:eventbridge/features/matching/presentation/match_results_screen.dart';
+import 'package:eventbridge/features/matching/presentation/vendor_public_profile_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_main_screen.dart';
+import 'package:eventbridge/features/vendors_screen/lead_details_screen.dart';
+import 'package:eventbridge/features/vendors_screen/settings.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_chat_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_profile_settings.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_packages_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_availability_screen.dart';
+import 'package:eventbridge/features/vendors_screen/subscription_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_personal_information_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_help_support_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_portfolio_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_notifications_screen.dart';
+import 'package:eventbridge/features/matching/presentation/submit_review_screen.dart';
+import 'package:eventbridge/features/matching/presentation/match_intake_form_screen.dart';
+import 'package:eventbridge/features/matching/presentation/ai_analyzing_screen.dart';
+import 'package:eventbridge/features/messaging/presentation/customer_chats_screen.dart';
+import 'package:eventbridge/features/messaging/presentation/customer_chat_detail_screen.dart';
+import 'package:eventbridge/features/matching/presentation/ai_results_screen.dart';
 
 // Routes that don't require authentication
 const _publicRoutes = [
@@ -44,6 +52,51 @@ const _publicRoutes = [
   '/vendor-signup-success',
 ];
 
+// Routes reserved for Vendors
+const _vendorOnlyRoutes = [
+  '/vendor-home',
+  '/vendor-onboarding',
+  '/onboarding-success',
+  '/lead-details',
+  '/vendor-chat',
+  '/vendor-settings',
+  '/vendor-calendar',
+  '/subscription',
+  '/vendor-profile-settings',
+  '/vendor-packages',
+  '/vendor-personal-info',
+  '/vendor-help-support',
+  '/vendor-portfolio',
+  '/vendor-notifications',
+];
+
+// Routes reserved for Customers
+const _customerOnlyRoutes = [
+  '/customer-home',
+  '/customer-settings',
+  '/customer-profile',
+  '/home',
+  '/matches',
+  '/match-intake',
+  '/ai-analyzing',
+  '/ai-results',
+  '/customer-chats',
+  '/customer-chat',
+  '/submit-review',
+];
+
+bool _isVendorRoute(String path) {
+  return _vendorOnlyRoutes.any(
+    (route) => path == route || path.startsWith('$route/'),
+  );
+}
+
+bool _isCustomerRoute(String path) {
+  return _customerOnlyRoutes.any(
+    (route) => path == route || path.startsWith('$route/'),
+  );
+}
+
 final appRouter = GoRouter(
   initialLocation: '/',
   redirect: (context, state) async {
@@ -54,14 +107,21 @@ final appRouter = GoRouter(
     final token = await storage.getToken();
     final isLoggedIn = token != null && token.isNotEmpty;
 
-    // If not logged in and trying to access a protected route → login
-    if (!isLoggedIn && !isPublic) {
-      return '/login';
+    // 1. Handle Unauthenticated Users
+    if (!isLoggedIn) {
+      // If trying to access a protected route, go to login
+      if (!isPublic) return '/login';
+      return null;
     }
 
-    // If logged in and on the login page → redirect to role-based home
-    if (isLoggedIn && path == '/login') {
-      final role = storage.getString('user_role');
+    // 2. Handle Authenticated Users
+    final role = storage.getString('user_role');
+
+    // If on public "getting started" pages, redirect to their role-based home
+    if (path == '/' ||
+        path == '/login' ||
+        path == '/signup' ||
+        path == '/role-selection') {
       if (role == 'VENDOR') {
         final onboarded = storage.getString('onboarding_completed');
         return onboarded == 'true' ? '/vendor-home' : '/vendor-onboarding';
@@ -69,7 +129,26 @@ final appRouter = GoRouter(
       return '/customer-home';
     }
 
-    return null; // No redirect
+    // 3. Enforce Role-Based Access Control (RBAC)
+    if (role == 'VENDOR') {
+      // Redirect un-onboarded vendors to onboarding
+      final onboarded = storage.getString('onboarding_completed') == 'true';
+      if (!onboarded && path != '/vendor-onboarding') {
+        return '/vendor-onboarding';
+      }
+      
+      // Vendors should not access customer-only routes
+      if (_isCustomerRoute(path)) {
+        return '/vendor-home';
+      }
+    } else if (role == 'CUSTOMER') {
+      // Customers should not access vendor-only routes
+      if (_isVendorRoute(path)) {
+        return '/customer-home';
+      }
+    }
+
+    return null; // All good, proceed
   },
   routes: [
     GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
@@ -143,6 +222,10 @@ final appRouter = GoRouter(
       builder: (context, state) => const CustomerSettingsScreen(),
     ),
     GoRoute(
+      path: '/customer-profile',
+      builder: (context, state) => const CustomerProfileScreen(),
+    ),
+    GoRoute(
       path: '/home',
       builder: (context, state) => const EventRequestScreen(),
     ),
@@ -208,10 +291,41 @@ final appRouter = GoRouter(
       builder: (context, state) => const VendorHelpSupportScreen(),
     ),
     GoRoute(
+      path: '/vendor-portfolio',
+      builder: (context, state) => const VendorPortfolioScreen(),
+    ),
+    GoRoute(
       path: '/submit-review/:vendorId',
       builder: (context, state) {
         final id = state.pathParameters['vendorId']!;
         return SubmitReviewScreen(vendorId: id);
+      },
+    ),
+    GoRoute(
+      path: '/vendor-notifications',
+      builder: (context, state) => const VendorNotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/match-intake',
+      builder: (context, state) => const MatchIntakeFormScreen(),
+    ),
+    GoRoute(
+      path: '/ai-analyzing',
+      builder: (context, state) => const AiAnalyzingScreen(),
+    ),
+    GoRoute(
+      path: '/ai-results',
+      builder: (context, state) => const AiResultsScreen(),
+    ),
+    GoRoute(
+      path: '/customer-chats',
+      builder: (context, state) => const CustomerChatsScreen(),
+    ),
+    GoRoute(
+      path: '/customer-chat/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return CustomerChatDetailScreen(vendorId: id);
       },
     ),
   ],

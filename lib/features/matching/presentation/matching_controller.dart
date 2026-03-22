@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:eventbridge_ai/features/matching/data/matching_repository.dart';
-import 'package:eventbridge_ai/features/matching/models/event_request.dart';
-import 'package:eventbridge_ai/features/matching/models/match_vendor.dart';
+import 'package:eventbridge/features/matching/data/matching_repository.dart';
+import 'package:eventbridge/features/matching/models/event_request.dart';
+import 'package:eventbridge/features/matching/models/match_vendor.dart';
 
 class MatchingState {
   const MatchingState({
@@ -61,11 +61,11 @@ class MatchingController extends Notifier<MatchingState> {
     }
   }
 
-  MatchVendor? getVendorById(String id) {
+  Future<MatchVendor?> getVendorById(String id) async {
     for (final vendor in state.matches) {
       if (vendor.id == id) return vendor;
     }
-    return _repository.getVendorById(id);
+    return await _repository.getVendorById(id);
   }
 
   Future<void> sendInquiry(MatchVendor vendor) async {

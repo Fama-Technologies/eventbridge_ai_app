@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge_ai/core/network/api_service.dart';
-import 'package:eventbridge_ai/core/storage/storage_service.dart';
-import 'package:eventbridge_ai/core/widgets/app_toast.dart';
+import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:eventbridge_ai/core/services/upload_service.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
+import 'package:eventbridge/core/services/upload_service.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/core/services/notification_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:gap/gap.dart';
+
+const _kMapsApiKey = "AIzaSyBh-GVHVYhZ7irbZ5o8QAyzpZPsXuNUwLM";
 
 class VendorProfileSettingsScreen extends StatefulWidget {
   const VendorProfileSettingsScreen({super.key});
@@ -37,7 +44,16 @@ class _VendorProfileSettingsScreenState
   final _webCtrl = TextEditingController(text: 'www.yourwebsite.com');
 
   List<String> _serviceCategories = [];
-  String _price = '';
+  List<String> _eventCategories = [];
+  
+  double? _lat;
+  double? _lng;
+  
+  final _countryCtrl = TextEditingController();
+  final _expCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
+  String _currency = 'UGX';
+  String _priceUnit = 'Per Event';
 
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 22, minute: 0);
@@ -64,13 +80,28 @@ class _VendorProfileSettingsScreenState
           _location = profile['location'] ?? 'Location not provided';
           _locationCtrl.text = _location == 'Location not provided' ? '' : _location;
           _serviceCategories = List<String>.from(profile['serviceCategories'] ?? []).toSet().toList();
-          _price = profile['price'] ?? '';
+          _eventCategories = List<String>.from(profile['eventCategories'] ?? []).toSet().toList();
+          _priceCtrl.text = profile['price']?.toString() ?? '';
+          _countryCtrl.text = profile['country'] ?? '';
+          _expCtrl.text = profile['experience']?.toString() ?? '';
+          _currency = profile['currency'] ?? 'UGX';
+          _priceUnit = profile['priceUnit'] ?? 'Per Event';
           _webCtrl.text = profile['website'] ?? '';
-          _travelRadius = (profile['travelRadius'] ?? 50.0).toDouble();
+          _travelRadius = double.tryParse(profile['travelRadius']?.toString() ?? '50.0') ?? 50.0;
+          final latData = profile['latitude'];
+          final lngData = profile['longitude'];
+          _lat = latData != null ? double.tryParse(latData.toString()) : null;
+          _lng = lngData != null ? double.tryParse(lngData.toString()) : null;
 
           if (profile['galleryUrls'] != null) {
              _portfolioImages.clear();
-             _portfolioImages.addAll(List<String>.from(profile['galleryUrls']));
+             for (var item in profile['galleryUrls']) {
+               if (item is String) {
+                 _portfolioImages.add(item);
+               } else if (item is Map && item['url'] != null) {
+                 _portfolioImages.add(item['url'] as String);
+               }
+             }
           } 
 
 
@@ -92,8 +123,9 @@ class _VendorProfileSettingsScreenState
         });
       }
     } catch (e) {
+      debugPrint('Error loading profile data: $e');
       if (mounted) {
-        AppToast.show(context, message: 'Failed to load profile details', type: ToastType.error);
+        AppToast.show(context, message: 'Failed to load profile details: $e', type: ToastType.error);
       }
     } finally {
       if (mounted) {
@@ -114,13 +146,19 @@ class _VendorProfileSettingsScreenState
         userId: userId,
         businessName: _businessNameCtrl.text,
         description: _descriptionCtrl.text,
-        experience: '5', 
+        experience: _expCtrl.text, 
         location: _locationCtrl.text,
+        country: _countryCtrl.text,
         serviceCategories: _serviceCategories.toSet().toList(),
-        price: _price,
+        eventCategories: _eventCategories.toSet().toList(),
+        price: _priceCtrl.text,
+        currency: _currency,
+        priceUnit: _priceUnit,
         galleryUrls: _portfolioImages.toSet().toList(),
         website: _webCtrl.text,
         travelRadius: _travelRadius.toInt(),
+        latitude: _lat,
+        longitude: _lng,
         workingHours: {
           'start': '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
           'end': '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
@@ -187,6 +225,10 @@ class _VendorProfileSettingsScreenState
   void dispose() {
     _businessNameCtrl.dispose();
     _descriptionCtrl.dispose();
+    _locationCtrl.dispose();
+    _countryCtrl.dispose();
+    _expCtrl.dispose();
+    _priceCtrl.dispose();
     _instaCtrl.dispose();
     _tiktokCtrl.dispose();
     _fbCtrl.dispose();
@@ -253,6 +295,12 @@ class _VendorProfileSettingsScreenState
                     controller: _descriptionCtrl,
                     maxLines: 4,
                   ),
+                  const SizedBox(height: 24),
+                  _buildPremiumTextField(
+                    label: 'Years of Experience',
+                    controller: _expCtrl,
+                    icon: Icons.work_history_rounded,
+                  ),
                 ],
               ),
             ),
@@ -263,7 +311,7 @@ class _VendorProfileSettingsScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'Select keywords that describe your expertise to help our AI match you with the right clients.',
+              'Select keywords that describe your expertise to match you with the right clients.',
               style: GoogleFonts.roboto(
                 fontSize: 14,
                 color: const Color(0xFF64748B),
@@ -271,12 +319,30 @@ class _VendorProfileSettingsScreenState
               ),
             ),
             const SizedBox(height: 20),
-            _TagWrap(tags: _serviceCategories),
+            _TagWrap(tags: _serviceCategories, onAdd: () => _addCustomCategory(true)),
+            const SizedBox(height: 40),
+            _ProfileSectionHeader(
+              icon: Icons.celebration_rounded,
+              title: 'Event Categories',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select the types of events you cater to.',
+              style: GoogleFonts.roboto(
+                fontSize: 14,
+                color: const Color(0xFF64748B),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _TagWrap(tags: _eventCategories, onAdd: () => _addCustomCategory(false)),
             const SizedBox(height: 40),
             _ProfileSectionHeader(
               icon: Icons.image_rounded,
               title: 'Portfolio Gallery',
               trailing: '${_portfolioImages.length} / $_maxImages',
+              onActionTap: () => context.push('/vendor-portfolio'),
+              actionLabel: 'View Live',
             ),
             const SizedBox(height: 20),
             _PortfolioGrid(
@@ -300,8 +366,69 @@ class _VendorProfileSettingsScreenState
             const SizedBox(height: 16),
             _buildPremiumTextField(label: 'Website', controller: _webCtrl, icon: Icons.language_rounded),
             const SizedBox(height: 24),
-            _buildPremiumTextField(label: 'Business Location', controller: _locationCtrl, icon: Icons.location_on_rounded),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _buildPremiumTextField(label: 'Country', controller: _countryCtrl, icon: Icons.flag_rounded),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 3,
+                  child: _buildPremiumTextField(
+                    label: 'City/District Location', 
+                    controller: _locationCtrl, 
+                    icon: Icons.location_on_rounded,
+                    readOnly: true,
+                    onTap: _showLocationPicker,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _ServiceAreaCard(
+              radius: _travelRadius,
+              onChanged: (val) => setState(() => _travelRadius = val),
+            ),
             const SizedBox(height: 40),
+            _ProfileSectionHeader(
+              icon: Icons.payments_rounded,
+              title: 'Pricing & Currency',
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _buildPremiumDropdown(
+                    label: 'Currency',
+                    value: _currency,
+                    items: const ['UGX', 'USD', 'KES', 'TZS', 'RWF', 'GBP', 'EUR'],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _currency = val);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 3,
+                  child: _buildPremiumTextField(
+                    label: 'Starting Price',
+                    controller: _priceCtrl,
+                    icon: Icons.attach_money_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildPremiumDropdown(
+              label: 'Price Unit',
+              value: _priceUnit,
+              items: const ['Per Event', 'Per Plate', 'Per Hour', 'Per Day', 'Per Session', 'Flat Rate'],
+              onChanged: (val) {
+                if (val != null) setState(() => _priceUnit = val);
+              },
+            ),
             const SizedBox(height: 40),
             _ProfileSectionHeader(
               icon: Icons.calendar_month_rounded,
@@ -329,6 +456,8 @@ class _VendorProfileSettingsScreenState
     int maxLines = 1,
     TextEditingController? controller,
     IconData? icon,
+    bool readOnly = false,
+    VoidCallback? onTap,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,6 +486,8 @@ class _VendorProfileSettingsScreenState
             border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
           ),
           child: TextField(
+            readOnly: readOnly,
+            onTap: onTap,
             maxLines: maxLines,
             controller: controller ?? TextEditingController(text: initialValue ?? ''),
             style: GoogleFonts.roboto(
@@ -451,6 +582,154 @@ class _VendorProfileSettingsScreenState
     );
   }
 
+  Widget _buildPremiumDropdown({
+    required String label,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.roboto(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF475569),
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary01),
+              style: GoogleFonts.roboto(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1E293B),
+              ),
+              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addCustomCategory(bool isService) async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Add Custom ${isService ? 'Service' : 'Event'}',
+          style: GoogleFonts.roboto(fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'e.g. ${isService ? 'Drone Photography' : 'Cultural Ceremonies'}',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF97316),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && mounted) {
+      setState(() {
+        if (isService) {
+          if (!_serviceCategories.contains(result)) _serviceCategories.add(result);
+        } else {
+          if (!_eventCategories.contains(result)) _eventCategories.add(result);
+        }
+      });
+      _saveChanges();
+    }
+  }
+
+  Future<void> _showLocationPicker() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) AppToast.show(context, message: 'Location services are disabled.', type: ToastType.error);
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) AppToast.show(context, message: 'Location permissions are denied.', type: ToastType.error);
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) AppToast.show(context, message: 'Location permissions are permanently denied.', type: ToastType.error);
+      return;
+    }
+
+    Position? currentPos;
+    try {
+      currentPos = await Geolocator.getCurrentPosition();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _LocationPickerSheet(
+        initialLat: _lat ?? currentPos?.latitude ?? 0.3476,
+        initialLng: _lng ?? currentPos?.longitude ?? 32.5825,
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _lat = result['lat'];
+        _lng = result['lng'];
+        _locationCtrl.text = result['address'];
+      });
+      _saveChanges();
+    }
+  }
+
   Future<void> _pickTime(bool isStart) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -472,13 +751,17 @@ class _ProfileSectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? trailing;
+  final String? actionLabel;
   final VoidCallback? onTrailingPressed;
+  final VoidCallback? onActionTap;
 
   const _ProfileSectionHeader({
     required this.icon,
     required this.title,
     this.trailing,
+    this.actionLabel,
     this.onTrailingPressed,
+    this.onActionTap,
   });
 
   @override
@@ -497,27 +780,43 @@ class _ProfileSectionHeader extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.roboto(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF0F172A),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.roboto(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                if (trailing != null)
+                  Text(
+                    trailing!,
+                    style: GoogleFonts.roboto(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                  ),
+              ],
             ),
           ),
-          if (trailing != null)
+          if (actionLabel != null)
             TextButton(
-              onPressed: onTrailingPressed ?? () {},
+              onPressed: onActionTap,
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFF97316),
-                visualDensity: VisualDensity.compact,
+                foregroundColor: AppColors.primary01,
+                backgroundColor: AppColors.primary01.withOpacity(0.1),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: Text(
-                trailing!,
+                actionLabel!,
                 style: GoogleFonts.roboto(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
@@ -529,12 +828,15 @@ class _ProfileSectionHeader extends StatelessWidget {
 
 class _TagWrap extends StatelessWidget {
   final List<String> tags;
-  const _TagWrap({required this.tags});
+  final VoidCallback? onAdd;
+  const _TagWrap({required this.tags, this.onAdd});
 
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) {
-      return const SizedBox();
+      return Wrap(
+        children: [ _buildActionTag('+ Add Tag', onAdd) ],
+      );
     }
 
     return Wrap(
@@ -542,7 +844,7 @@ class _TagWrap extends StatelessWidget {
       runSpacing: 10,
       children: [
         ...tags.map((tag) => _buildAnimatedTag(tag, isSelected: true)),
-        _buildActionTag('+ Add Tag'),
+        _buildActionTag('+ Add Tag', onAdd),
       ],
     );
   }
@@ -587,20 +889,23 @@ class _TagWrap extends StatelessWidget {
     );
   }
 
-  Widget _buildActionTag(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: const Color(0xFFFFEDD5)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.roboto(
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-          color: const Color(0xFFF97316),
+  Widget _buildActionTag(String label, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: const Color(0xFFFFEDD5)),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.roboto(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFFF97316),
+          ),
         ),
       ),
     );
@@ -926,6 +1231,171 @@ class _AvailabilityCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LocationPickerSheet extends StatefulWidget {
+  final double initialLat;
+  final double initialLng;
+
+  const _LocationPickerSheet({required this.initialLat, required this.initialLng});
+
+  @override
+  State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
+}
+
+class _LocationPickerSheetState extends State<_LocationPickerSheet> {
+  late GoogleMapController _controller;
+  late LatLng _target;
+  bool _isDragging = false;
+  String _currentAddress = 'Move map to select location';
+
+  @override
+  void initState() {
+    super.initState();
+    _target = LatLng(widget.initialLat, widget.initialLng);
+    _updateAddress(_target);
+  }
+
+  Future<void> _updateAddress(LatLng pos) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        if (mounted) {
+          setState(() {
+            _currentAddress = [p.street, p.subLocality, p.locality, p.country]
+                .where((e) => e != null && e.isNotEmpty)
+                .join(', ');
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _currentAddress = 'Unknown location');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AppColors.darkNeutral02 : Colors.white;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Pin Primary Location',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                )
+              ],
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _target,
+                    zoom: 15,
+                  ),
+                  onMapCreated: (ctrl) => _controller = ctrl,
+                  onCameraMoveStarted: () => setState(() => _isDragging = true),
+                  onCameraMove: (pos) => _target = pos.target,
+                  onCameraIdle: () {
+                    setState(() => _isDragging = false);
+                    _updateAddress(_target);
+                  },
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  zoomControlsEnabled: false,
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Icon(
+                      Icons.location_pin,
+                      size: 40,
+                      color: _isDragging ? Colors.grey : AppColors.primary01,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: bg,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                )
+              ],
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined, color: AppColors.primary01),
+                      const Gap(10),
+                      Expanded(
+                        child: Text(
+                          _currentAddress,
+                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Gap(16),
+                  ElevatedButton(
+                    onPressed: _isDragging
+                        ? null
+                        : () {
+                            Navigator.pop(context, {
+                              'lat': _target.latitude,
+                              'lng': _target.longitude,
+                              'address': _currentAddress,
+                            });
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary01,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Confirm Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

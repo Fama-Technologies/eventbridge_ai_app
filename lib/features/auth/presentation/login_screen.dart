@@ -5,10 +5,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:eventbridge_ai/core/theme/app_colors.dart';
-import 'package:eventbridge_ai/core/widgets/app_toast.dart';
-import 'package:eventbridge_ai/features/auth/presentation/auth_provider.dart';
-import 'package:eventbridge_ai/features/auth/presentation/widgets/google_sign_in_button.dart';
+import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
+import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge/features/auth/presentation/widgets/google_sign_in_button.dart';
 import 'package:flutter/foundation.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -318,7 +318,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         if (!context.mounted) return;
                                         final role = repo.getUserRole();
                                         if (role == 'VENDOR') {
-                                          context.go('/vendor-home');
+                                          if (repo.isOnboardingCompleted()) {
+                                            context.go('/vendor-home');
+                                          } else {
+                                            context.go('/vendor-onboarding');
+                                          }
                                         } else {
                                           context.go('/customer-home');
                                         }
