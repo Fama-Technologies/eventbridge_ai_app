@@ -16,12 +16,22 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0' # You can change this to match your local version
+          flutter-version: '3.41.4'
           channel: 'stable'
           cache: true
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Install Cocoapods
+        run: |
+          cd ios
+          # If Podfile is missing, this might help regenerate it or at least fail gracefully
+          if [ ! -f "Podfile" ]; then
+            echo "Podfile missing, attempting to generate..."
+            flutter build ios --no-codesign --config-only
+          fi
+          pod install
 
       - name: Build iOS
         run: flutter build ios --release --no-codesign
