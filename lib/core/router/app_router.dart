@@ -36,6 +36,7 @@ import 'package:eventbridge/features/matching/presentation/ai_analyzing_screen.d
 import 'package:eventbridge/features/messaging/presentation/customer_chats_screen.dart';
 import 'package:eventbridge/features/messaging/presentation/customer_chat_detail_screen.dart';
 import 'package:eventbridge/features/matching/presentation/ai_results_screen.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_search_screen.dart';
 
 // Routes that don't require authentication
 const _publicRoutes = [
@@ -68,6 +69,7 @@ const _vendorOnlyRoutes = [
   '/vendor-help-support',
   '/vendor-portfolio',
   '/vendor-notifications',
+  '/vendor-search',
 ];
 
 // Routes reserved for Customers
@@ -304,6 +306,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/vendor-notifications',
       builder: (context, state) => const VendorNotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/vendor-search',
+      builder: (context, state) => const VendorSearchScreen(),
     ),
     GoRoute(
       path: '/match-intake',

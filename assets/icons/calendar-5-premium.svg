@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="cal_top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#77BCFF"/>
+      <stop offset="100%" stop-color="#2F80ED"/>
+    </linearGradient>
+    <linearGradient id="cal_body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EDF5FF"/>
+    </linearGradient>
+    <filter id="cal_shadow" x="-40%" y="-40%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#93A5C3" flood-opacity=".26"/>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="134" rx="36" ry="10" fill="#DEE6F2"/>
+  <g filter="url(#cal_shadow)">
+    <rect x="42" y="34" width="76" height="84" rx="18" fill="url(#cal_body)"/>
+    <path d="M42 52c0-10 8-18 18-18h40c10 0 18 8 18 18v17H42z" fill="url(#cal_top)"/>
+    <rect x="53" y="24" width="10" height="22" rx="5" fill="#2F80ED"/>
+    <rect x="97" y="24" width="10" height="22" rx="5" fill="#2F80ED"/>
+    <circle cx="58" cy="46" r="6" fill="#62B2FF"/>
+    <circle cx="102" cy="46" r="6" fill="#62B2FF"/>
+    <line x1="42" y1="69" x2="118" y2="69" stroke="#DBE8F8" stroke-width="2"/>
+    <text x="80" y="99" text-anchor="middle" font-family="Arial, sans-serif" font-size="40" font-weight="700" fill="#2F80ED">5</text>
+    <ellipse cx="68" cy="80" rx="16" ry="6" fill="#FFFFFF" opacity=".35"/>
+  </g>
+</svg>

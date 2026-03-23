@@ -8,6 +8,8 @@ import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'dart:ui';
 
 class VendorHomeScreen extends StatefulWidget {
@@ -22,10 +24,12 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
   List<Lead> _filteredLeads = [];
   bool _hasNotifications = true;
   String? _planName;
+  bool _isVerified = false;
   late AnimationController _meshController;
   bool _isLoadingLeads = true;
   int _totalLeadsCount = 0;
   int _profileViewsCount = 0;
+  int _bookingsCount = 0;
 
   @override
   void initState() {
@@ -42,6 +46,23 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
     _loadPlan();
     _fetchLeads();
     _fetchStats();
+    _fetchBookings();
+  }
+
+  Future<void> _fetchBookings() async {
+    try {
+      final userId = StorageService().getString('user_id');
+      if (userId == null) return;
+      final result = await ApiService.instance.getVendorBookings(userId);
+      if (mounted && result['success'] == true) {
+        final List bookings = result['bookings'] ?? [];
+        setState(() {
+          _bookingsCount = bookings.length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching bookings: $e');
+    }
   }
 
   Future<void> _fetchLeads() async {
@@ -115,7 +136,10 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
       if (result['success'] == true && result['profile'] != null) {
         final plan = result['profile']['subscriptionPlan'] ?? 'Basic';
         if (mounted) {
-          setState(() => _planName = plan);
+          setState(() {
+            _planName = plan;
+            _isVerified = result['profile']['isVerifiedBadge'] == true;
+          });
           storage.setString('vendor_plan', plan);
         }
       }
@@ -147,10 +171,10 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
       backgroundColor: AppColors.primary01, // Orange behind the curve
       body: Column(
         children: [
-          // ── STATIC ORANGE HEADER (like login) ──────────────
+          // ── STATIC ORANGE HEADER ──────────────────────────────
           _buildStaticHeader(isDark, userName, userImage),
 
-          // ── BODY with rounded top (like login bottom sheet) ──
+          // ── BODY with rounded top ──────────────────────────
           Expanded(
             child: Container(
               width: double.infinity,
@@ -159,81 +183,69 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  // ── STATIC SEARCH BAR (pinned, never scrolls) ──
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-                    child: _buildGlassSearchBar(),
-                  ),
-
-                  // ── SCROLLABLE CONTENT ──
-                  Expanded(
-                    child: CustomScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      slivers: [
-                        // ── Main Content Area ──────────────────────────
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          sliver: SliverList(
-                            delegate: SliverChildListDelegate([
-                              // ── Business Stats / Insights ──────────────────
-                              if (_searchController.text.isEmpty) ...[
-                                _buildSectionHeader(context, "Business Insights", isDark),
-                                const SizedBox(height: 16),
-                                _buildInsightsDashboard(isDark),
-                                const SizedBox(height: 32),
-
-                                // ── Quick Actions / Hub ───────────────────────
-                                _buildSectionHeader(context, "Business Hub", isDark),
-                                const SizedBox(height: 16),
-                                _buildBusinessHub(context, isDark),
-                                const SizedBox(height: 32),
-                              ],
-
-                              // ── Leads Section ─────────────────────────────
-                              _buildSectionHeader(
-                                context,
-                                _searchController.text.isEmpty ? "Recent Leads" : "Search Results",
-                                isDark,
-                                showViewAll: _searchController.text.isEmpty,
-                              ),
-                              const SizedBox(height: 16),
-                            ]),
-                          ),
-                        ),
-
-                        // ── Leads List ──────────────────────────────────
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          sliver: _filteredLeads.isEmpty
-                              ? SliverToBoxAdapter(
-                                  child: Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 40),
-                                      child: Text(
-                                        'No matching leads found',
-                                        style: GoogleFonts.roboto(color: Colors.grey),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : SliverList(
-                                  delegate: SliverChildBuilderDelegate(
-                                    (context, index) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(bottom: 16),
-                                        child: _buildPremiumLeadCard(context, _filteredLeads[index], isDark),
-                                      ).animate().fadeIn(delay: (index * 100).ms, duration: 400.ms).slideX(begin: 0.1, end: 0);
-                                    },
-                                    childCount: _filteredLeads.length,
-                                  ),
-                                ),
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-                      ],
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  // ── Relocated Search Bar ──────────────────────
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildRelocatedSearchBar(isDark),
                     ),
                   ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  // ── Main Content Area ──────────────────────────
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        // ── Business Stats / Insights ──────────────────
+                        if (_searchController.text.isEmpty) ...[
+                          _buildSectionHeader(context, "Business Insights", isDark),
+                          const SizedBox(height: 16),
+                          _buildInsightsDashboard(isDark),
+                          const SizedBox(height: 32),
+
+                          // ── Quick Actions / Hub ───────────────────────
+                          _buildSectionHeader(context, "Business Hub", isDark),
+                          const SizedBox(height: 16),
+                          _buildBusinessHub(context, isDark),
+                          const SizedBox(height: 32),
+                        ],
+
+                        // ── Leads Section ─────────────────────────────
+                        _buildSectionHeader(
+                          context,
+                          _searchController.text.isEmpty ? "Recent Leads" : "Search Results",
+                          isDark,
+                          showViewAll: _searchController.text.isEmpty,
+                        ),
+                        const SizedBox(height: 16),
+                      ]),
+                    ),
+                  ),
+
+                  // ── Leads List ──────────────────────────────────
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: _filteredLeads.isEmpty
+                        ? SliverToBoxAdapter(
+                            child: _buildEmptyLeadsState(isDark),
+                          )
+                        : SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _buildPremiumLeadCard(context, _filteredLeads[index], isDark),
+                                ).animate().fadeIn(delay: (index * 100).ms, duration: 400.ms).slideX(begin: 0.1, end: 0);
+                              },
+                              childCount: _filteredLeads.length,
+                            ),
+                          ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
             ),
@@ -243,70 +255,105 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
     );
   }
 
-  // ── STATIC HEADER (like login screen) ───────────────────────────────
   Widget _buildStaticHeader(bool isDark, String userName, String? userImage) {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
+        color: AppColors.primary01,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+          colors: [
+            Color(0xFFF97316),
+            Color(0xFFEA580C),
+            Color(0xFFFF5722),
+          ],
         ),
       ),
       child: Stack(
         children: [
-          // Dots/Pattern overlay
+          // Dynamic Mesh/Pattern overlay
           Positioned.fill(
             child: Opacity(
               opacity: 0.1,
-              child: GridView.count(
-                crossAxisCount: 12,
-                physics: const NeverScrollableScrollPhysics(),
-                children: List.generate(
-                  120,
-                  (i) => const Icon(Icons.circle, size: 4, color: Colors.white),
-                ),
+              child: CustomPaint(
+                painter: MeshPainter(),
               ),
             ),
           ),
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _getGreeting(),
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w400,
-                          ),
+                  Row(
+                    children: [
+                      _buildAvatar(userImage, userName),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  userName,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 24,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                if (_isVerified) ...[
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.verified_rounded, color: Colors.white, size: 18),
+                                ],
+                                const SizedBox(width: 12),
+                                _buildPlanBadge(),
+                              ],
+                            ),
+                            Text(
+                              "Photographer | $_bookingsCount bookings this month",
+                              style: GoogleFonts.outfit(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.8),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          userName,
-                          style: GoogleFonts.outfit(
-                            fontSize: 24,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      _buildNotificationBell(),
+                    ],
                   ),
-                  _buildNotificationBell(),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPlanBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDE68A), width: 1),
+      ),
+      child: Text(
+        _planName ?? "Free Plan",
+        style: GoogleFonts.outfit(
+          color: const Color(0xFFD97706),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -364,7 +411,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
               color: Colors.white24,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.notifications_rounded, color: Colors.white, size: 26),
+            child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 26),
           ),
           if (_hasNotifications)
             Positioned(
@@ -385,38 +432,48 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildGlassSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      height: 52,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search_rounded, color: Color(0xFFEA580C), size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: GoogleFonts.outfit(color: const Color(0xFF1F2937), fontSize: 15),
-              decoration: InputDecoration(
-                hintText: "Search leads, events...",
-                hintStyle: GoogleFonts.outfit(color: Colors.black38, fontSize: 15),
-                border: InputBorder.none,
+  Widget _buildRelocatedSearchBar(bool isDark) {
+    return GestureDetector(
+      onTap: () => context.push('/vendor-search'),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        height: 56,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkNeutral02 : Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, color: isDark ? Colors.white60 : Colors.black45, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Search leads, events...",
+                style: GoogleFonts.outfit(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-          ),
-          const Icon(Icons.tune_rounded, color: Color(0xFFEA580C), size: 22),
-        ],
+            Container(
+              height: 24,
+              width: 1,
+              color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            Icon(Icons.tune_rounded, color: AppColors.primary01, size: 24),
+          ],
+        ),
       ),
     );
   }
@@ -429,9 +486,11 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
           child: _buildInsightCard(
             "Total Leads",
             "$_totalLeadsCount",
-            Icons.leaderboard_rounded,
-            const Color(0xFF10B981),
+            null,
+            const Color(0xFFF59E0B),
             isDark,
+            "+ 12%",
+            iconWidget: const Icon(PhosphorIconsFill.chartBar, color: Color(0xFFF59E0B), size: 32),
           ),
         ),
         const SizedBox(width: 12),
@@ -439,56 +498,79 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
           child: _buildInsightCard(
             "Profile Views",
             "$_profileViewsCount",
-            Icons.visibility_rounded,
-            const Color(0xFFF59E0B),
+            null,
+            const Color(0xFF10B981),
             isDark,
+            "+ 8%",
+            iconWidget: const Icon(PhosphorIconsFill.chartLineUp, color: Color(0xFF10B981), size: 32),
           ),
         ),
       ],
     ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: 0.1, end: 0);
   }
 
-  Widget _buildInsightCard(String label, String value, IconData icon, Color accentColor, bool isDark) {
+  Widget _buildInsightCard(String label, String value, String? iconPath, Color accentColor, bool isDark, String trend, {Widget? iconWidget}) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkNeutral02 : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.04)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: accentColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: accentColor, size: 20),
+            child: iconWidget ?? (iconPath != null ? Image.asset(iconPath, width: 24, height: 24) : const SizedBox(width: 24, height: 24)),
           ),
-          const SizedBox(height: 16),
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              color: isDark ? Colors.white60 : Colors.black54,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.outfit(
-              fontSize: 24,
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.w700,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: isDark ? Colors.white60 : Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      value,
+                      style: GoogleFonts.outfit(
+                        fontSize: 22,
+                        color: isDark ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      trend,
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        color: const Color(0xFF10B981),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -503,36 +585,94 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
-          _buildHubTile(context, "Packages", Icons.inventory_2_outlined, const Color(0xFF6366F1), () => context.push('/vendor-packages'), isDark),
-          _buildHubTile(context, "Calendar", Icons.calendar_today_rounded, const Color(0xFF8B5CF6), () => context.push('/vendor-calendar'), isDark),
-          _buildHubTile(context, "Portfolio", Icons.photo_library_outlined, const Color(0xFFEC4899), () => context.push('/vendor-portfolio'), isDark),
+          _buildHubTile(
+            context,
+            "Packages",
+            'assets/icons/package-box-premium.svg',
+            const Color(0xFFEEF2FF),
+            () => context.push('/vendor-packages'),
+            isDark,
+            "Manage your services",
+            iconColor: const Color(0xFF4F46E5),
+          ),
+          _buildHubTile(
+            context,
+            "Calendar",
+            'assets/icons/calendar-5-premium.svg',
+            Colors.white,
+            () => context.push('/vendor-calendar'),
+            isDark,
+            "View bookings",
+            iconColor: Colors.blue,
+            hasBorder: true,
+          ),
+          _buildHubTile(
+            context,
+            "Portfolio",
+            'assets/icons/briefcase-premium.svg',
+            const Color(0xFFFFF1F2),
+            () => context.push('/vendor-portfolio'),
+            isDark,
+            "Show your work",
+            iconColor: const Color(0xFFE11D48),
+          ),
         ],
       ),
     ).animate().fadeIn(duration: 600.ms, delay: 400.ms).slideX(begin: 0.1, end: 0);
   }
 
-  Widget _buildHubTile(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap, bool isDark) {
+  Widget _buildHubTile(BuildContext context, String label, String iconPath, Color bgColor, VoidCallback onTap, bool isDark, String subtitle, {Color? iconColor, bool hasBorder = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(right: 12),
-        width: 100,
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        margin: const EdgeInsets.only(right: 16),
+        width: 120,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkNeutral02 : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.2)),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.04)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 36),
-            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(16),
+                border: hasBorder ? Border.all(color: const Color(0xFFE0E7FF), width: 1) : null,
+              ),
+              child: SvgPicture.asset(
+                iconPath,
+                width: 32,
+                height: 32,
+                colorFilter: iconColor != null ? ColorFilter.mode(iconColor, BlendMode.srcIn) : null,
+              ),
+            ),
+            const SizedBox(height: 12),
             Text(
               label,
               style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white54 : Colors.black45,
               ),
             ),
           ],
@@ -555,7 +695,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-              blurRadius: 20,
+              blurRadius: 24,
               offset: const Offset(0, 10),
             ),
           ],
@@ -565,21 +705,25 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             Row(
               children: [
                 Container(
-                  width: 56,
-                  height: 56,
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    image: DecorationImage(
-                      image: NetworkImage(lead.clientImageUrl),
-                      fit: BoxFit.cover,
-                    ),
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 8,
+                        blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
                     ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.network(
+                      lead.clientImageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _buildInitialsPlaceholder(lead.clientName),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -604,9 +748,9 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
                           ),
                           if (lead.isHighValue)
                             Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFEF3C7),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.star_rounded, color: Color(0xFFD97706), size: 14),
@@ -631,6 +775,8 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             Row(
               children: [
                 _buildCardBadge(Icons.location_on_outlined, lead.location, isDark),
+                const SizedBox(width: 12),
+                _buildCardBadge(Icons.access_time_rounded, lead.responseTime, isDark),
                 const Spacer(),
                 _buildMatchPill(lead.matchScore.toInt()),
               ],
@@ -639,6 +785,63 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
         ),
       ),
     );
+  }
+
+  Widget _buildEmptyLeadsState(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02 : Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.04)),
+      ),
+      child: Column(
+        children: [
+          SvgPicture.asset(
+            'assets/icons/megaphone-premium.svg',
+            width: 80,
+            height: 80,
+            colorFilter: const ColorFilter.mode(AppColors.primary01, BlendMode.srcIn),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            "No leads yet 👋",
+            style: GoogleFonts.outfit(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Start by sharing your profile or adding packages.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: isDark ? Colors.white60 : Colors.black54,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.push('/vendor-packages'),
+            icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+            label: Text(
+              "Create Package",
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary01,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 8,
+              shadowColor: AppColors.primary01.withOpacity(0.4),
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9));
   }
 
   Widget _buildMatchPill(int score) {
@@ -731,5 +934,41 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
   }
+}
+
+class MeshPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.3)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      path.moveTo(0, i * size.height / 8);
+      path.quadraticBezierTo(
+        size.width / 2,
+        (i + 1) * size.height / 8,
+        size.width,
+        i * size.height / 8,
+      );
+    }
+
+    canvas.drawPath(path, paint);
+
+    final dotPaint = Paint()
+      ..color = Colors.white.withOpacity(0.2)
+      ..style = PaintingStyle.fill;
+
+    for (var i = 0; i < 20; i++) {
+      final x = (i * 123) % size.width;
+      final y = (i * 321) % size.height;
+      canvas.drawCircle(Offset(x, y), 2.0, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 

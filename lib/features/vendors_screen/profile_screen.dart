@@ -21,6 +21,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   bool _isLoading = true;
   String? _planName;
   String? _joinedDate;
+  bool _isVerified = false;
 
   @override
   void initState() {
@@ -45,6 +46,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               final date = DateTime.parse(createdAt);
               _joinedDate = DateFormat('MMMM yyyy').format(date);
             }
+            _isVerified = profile['isVerifiedBadge'] == true;
             _isLoading = false;
           });
         }
@@ -407,8 +409,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                                   letterSpacing: -0.5,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+                              if (_isVerified) ...[
+                                const SizedBox(width: 8),
+                                const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 4),

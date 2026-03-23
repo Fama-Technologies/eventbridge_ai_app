@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="pb_top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9ED6FF"/>
+      <stop offset="55%" stop-color="#6FB8FF"/>
+      <stop offset="100%" stop-color="#4A98F0"/>
+    </linearGradient>
+    <linearGradient id="pb_front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60B1FF"/>
+      <stop offset="60%" stop-color="#348DF1"/>
+      <stop offset="100%" stop-color="#2277DA"/>
+    </linearGradient>
+    <linearGradient id="pb_left" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4D9CEE"/>
+      <stop offset="100%" stop-color="#2E79D7"/>
+    </linearGradient>
+    <linearGradient id="pb_right" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3A8FE8"/>
+      <stop offset="100%" stop-color="#1E66C2"/>
+    </linearGradient>
+    <linearGradient id="pb_ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF7E5"/>
+      <stop offset="100%" stop-color="#F2D8A4"/>
+    </linearGradient>
+    <linearGradient id="pb_handle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A5F3F4"/>
+      <stop offset="100%" stop-color="#58D7E6"/>
+    </linearGradient>
+    <filter id="pb_shadow" x="-40%" y="-40%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#91A4C6" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="134" rx="39" ry="11" fill="#DDE5F2"/>
+  <g filter="url(#pb_shadow)">
+    <path d="M40 58h80l-10 18H50z" fill="url(#pb_top)"/>
+    <path d="M40 58l-11 16 19 24V76z" fill="url(#pb_left)"/>
+    <path d="M120 58l11 16-19 24V76z" fill="url(#pb_right)"/>
+    <rect x="40" y="76" width="80" height="42" rx="13" fill="url(#pb_front)"/>
+    <rect x="72" y="58" width="16" height="60" rx="7" fill="url(#pb_ribbon)"/>
+    <path d="M57 42c0-9 7-16 16-16h14c9 0 16 7 16 16v10h-12V43c0-3-3-6-6-6h-10c-3 0-6 3-6 6v9H57z" fill="url(#pb_handle)"/>
+    <rect x="55" y="47" width="50" height="12" rx="6" fill="#87E8F0"/>
+    <path d="M42 62h76" stroke="#BFE5FF" stroke-width="2" opacity=".4"/>
+    <ellipse cx="67" cy="86" rx="14" ry="6" fill="#FFFFFF" opacity=".18"/>
+    <circle cx="54" cy="90" r="4" fill="#B3DFFF" opacity=".35"/>
+  </g>
+</svg>

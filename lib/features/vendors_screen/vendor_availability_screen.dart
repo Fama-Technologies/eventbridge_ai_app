@@ -10,6 +10,7 @@ import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/core/network/api_service.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:eventbridge/core/widgets/app_toast.dart';
+import 'package:eventbridge/core/services/notification_service.dart';
 
 // ─── Local Booking Model ─────────────────────────────────────────────────────
 class _BookingData {
@@ -106,6 +107,12 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
           }).whereType<_BookingData>().toList();
         }
       });
+
+      // Schedule 3-day-ahead reminders (5× per day) for upcoming bookings
+      final bookingDates = _bookings.map((b) => b.bookingDate).toList();
+      NotificationService().scheduleBookingReminders(bookingDates).catchError(
+        (e) => debugPrint('Failed to schedule reminders: $e'),
+      );
     } catch (e) {
       if (mounted) AppToast.show(context, message: 'Failed to load data: $e', type: ToastType.error);
     } finally {
@@ -158,8 +165,10 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-    final upcoming = _bookings
-        .where((b) => !b.bookingDate.isBefore(today))
+    // Include bookings from the last 7 days + all future bookings
+    final displayThreshold = today.subtract(const Duration(days: 7));
+    final displayBookings = _bookings
+        .where((b) => !b.bookingDate.isBefore(displayThreshold))
         .toList()
       ..sort((a, b) => a.bookingDate.compareTo(b.bookingDate));
 
@@ -174,16 +183,16 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
                 SliverToBoxAdapter(child: _buildCalendar(isDark)),
                 SliverToBoxAdapter(child: _buildSameDayToggle(isDark)),
                 SliverToBoxAdapter(child: _buildLegend(isDark)),
-                SliverToBoxAdapter(child: _buildUpcomingHeader(isDark, upcoming.length)),
-                if (upcoming.isEmpty)
+                SliverToBoxAdapter(child: _buildUpcomingHeader(isDark, displayBookings.length)),
+                if (displayBookings.isEmpty)
                   SliverToBoxAdapter(child: _buildEmptyBookings(isDark))
                 else
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, i) => _buildBookingCard(upcoming[i], isDark, i),
-                        childCount: upcoming.length,
+                        (context, i) => _buildBookingCard(displayBookings[i], isDark, i),
+                        childCount: displayBookings.length,
                       ),
                     ),
                   ),
@@ -421,25 +430,16 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
     final booked = _isBooked(day);
     final blocked = _isBlocked(day);
 
-    Widget content = Center(
-      child: Text(
-        '${day.day}',
-        style: GoogleFonts.outfit(
-          fontSize: 16,
-          fontWeight: (booked || isToday || isSelected || isRangeStart || isRangeEnd)
-              ? FontWeight.w900
-              : FontWeight.w600,
-          color: (booked || isSelected || isRangeStart || isRangeEnd)
-              ? Colors.white
-              : (isToday
-                  ? AppColors.primary01
-                  : (isDark ? Colors.white : const Color(0xFF1A1A24))),
-        ),
-      ),
-    );
+    // Color constants
+    const Color bookedColor  = Color(0xFF22C55E); // Green
+    const Color blockedColor = Color(0xFFEF4444); // Red
+    const Color todayColor   = Color(0xFFF97316); // Orange
+
 
     // Decorations
     BoxDecoration? decoration;
+    Color textColor = (isDark ? Colors.white : const Color(0xFF1A1A24));
+
     if (isSelected || isRangeStart || isRangeEnd) {
       decoration = BoxDecoration(
         color: AppColors.primary01,
@@ -452,23 +452,57 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
           ),
         ],
       );
+      textColor = Colors.white;
     } else if (booked) {
+      // ✅ Booked → Green
       decoration = BoxDecoration(
-        color: AppColors.primary01,
+        color: bookedColor,
         shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: bookedColor.withValues(alpha: 0.35),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
       );
+      textColor = Colors.white;
     } else if (isToday) {
+      // 🟠 Today → Orange outline
       decoration = BoxDecoration(
-        color: AppColors.primary01.withValues(alpha: 0.1),
+        color: todayColor.withValues(alpha: 0.12),
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primary01, width: 2),
+        border: Border.all(color: todayColor, width: 2),
       );
+      textColor = todayColor;
     } else if (blocked) {
+      // 🔴 Blocked → Red
       decoration = BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
+        color: blockedColor,
         shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: blockedColor.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
       );
+      textColor = Colors.white;
     }
+
+    Widget content = Center(
+      child: Text(
+        '${day.day}',
+        style: GoogleFonts.outfit(
+          fontSize: 16,
+          fontWeight: (booked || blocked || isToday || isSelected || isRangeStart || isRangeEnd)
+              ? FontWeight.w900
+              : FontWeight.w600,
+          color: textColor,
+        ),
+      ),
+    );
 
     // Range background
     Widget? rangeBg;
@@ -688,15 +722,14 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
   Widget _buildLegend(bool isDark) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-      child: Row(
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
         children: [
-          _legendDot(AppColors.primary01, 'Booked', isDark),
-          const SizedBox(width: 20),
-          _legendDot(
-              isDark ? Colors.white24 : const Color(0xFFE5E7EB), 'Blocked', isDark),
-          const SizedBox(width: 20),
-          _legendDot(AppColors.primary01.withValues(alpha: 0.15), 'Today', isDark,
-              border: AppColors.primary01),
+          _legendDot(const Color(0xFF22C55E), 'Booked', isDark),
+          _legendDot(const Color(0xFFEF4444), 'Blocked', isDark),
+          _legendDot(const Color(0xFFF97316).withValues(alpha: 0.15), 'Today', isDark,
+              border: const Color(0xFFF97316)),
         ],
       ),
     ).animate().fadeIn(delay: 200.ms);
@@ -808,7 +841,7 @@ class _VendorAvailabilityScreenState extends State<VendorAvailabilityScreen> {
       child: Row(
         children: [
           Text(
-            'Upcoming Bookings',
+            'Recent & Upcoming',
             style: GoogleFonts.outfit(
               fontSize: 22,
               fontWeight: FontWeight.w900,

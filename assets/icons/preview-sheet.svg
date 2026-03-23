@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300">
+<rect width="100%" height="100%" fill="#F5F7FB"/>
+<style>text{font-family:Arial,sans-serif;font-size:15px;fill:#334155}</style>
+<rect x="24" y="24" width="220" height="230" rx="24" fill="#FFFFFF" stroke="#E7EBF3"/>
+<svg x="54" y="38" width="160" height="160" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="pb_top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9ED6FF"/>
+      <stop offset="55%" stop-color="#6FB8FF"/>
+      <stop offset="100%" stop-color="#4A98F0"/>
+    </linearGradient>
+    <linearGradient id="pb_front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60B1FF"/>
+      <stop offset="60%" stop-color="#348DF1"/>
+      <stop offset="100%" stop-color="#2277DA"/>
+    </linearGradient>
+    <linearGradient id="pb_left" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4D9CEE"/>
+      <stop offset="100%" stop-color="#2E79D7"/>
+    </linearGradient>
+    <linearGradient id="pb_right" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3A8FE8"/>
+      <stop offset="100%" stop-color="#1E66C2"/>
+    </linearGradient>
+    <linearGradient id="pb_ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF7E5"/>
+      <stop offset="100%" stop-color="#F2D8A4"/>
+    </linearGradient>
+    <linearGradient id="pb_handle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A5F3F4"/>
+      <stop offset="100%" stop-color="#58D7E6"/>
+    </linearGradient>
+    <filter id="pb_shadow" x="-40%" y="-40%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#91A4C6" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="134" rx="39" ry="11" fill="#DDE5F2"/>
+  <g filter="url(#pb_shadow)">
+    <path d="M40 58h80l-10 18H50z" fill="url(#pb_top)"/>
+    <path d="M40 58l-11 16 19 24V76z" fill="url(#pb_left)"/>
+    <path d="M120 58l11 16-19 24V76z" fill="url(#pb_right)"/>
+    <rect x="40" y="76" width="80" height="42" rx="13" fill="url(#pb_front)"/>
+    <rect x="72" y="58" width="16" height="60" rx="7" fill="url(#pb_ribbon)"/>
+    <path d="M57 42c0-9 7-16 16-16h14c9 0 16 7 16 16v10h-12V43c0-3-3-6-6-6h-10c-3 0-6 3-6 6v9H57z" fill="url(#pb_handle)"/>
+    <rect x="55" y="47" width="50" height="12" rx="6" fill="#87E8F0"/>
+    <path d="M42 62h76" stroke="#BFE5FF" stroke-width="2" opacity=".4"/>
+    <ellipse cx="67" cy="86" rx="14" ry="6" fill="#FFFFFF" opacity=".18"/>
+    <circle cx="54" cy="90" r="4" fill="#B3DFFF" opacity=".35"/>
+  </g>
+</svg>
+<text x="134" y="220" text-anchor="middle">package-box-premium</text>
+<rect x="268" y="24" width="220" height="230" rx="24" fill="#FFFFFF" stroke="#E7EBF3"/>
+<svg x="298" y="38" width="160" height="160" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="cal_top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#77BCFF"/>
+      <stop offset="100%" stop-color="#2F80ED"/>
+    </linearGradient>
+    <linearGradient id="cal_body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EDF5FF"/>
+    </linearGradient>
+    <filter id="cal_shadow" x="-40%" y="-40%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#93A5C3" flood-opacity=".26"/>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="134" rx="36" ry="10" fill="#DEE6F2"/>
+  <g filter="url(#cal_shadow)">
+    <rect x="42" y="34" width="76" height="84" rx="18" fill="url(#cal_body)"/>
+    <path d="M42 52c0-10 8-18 18-18h40c10 0 18 8 18 18v17H42z" fill="url(#cal_top)"/>
+    <rect x="53" y="24" width="10" height="22" rx="5" fill="#2F80ED"/>
+    <rect x="97" y="24" width="10" height="22" rx="5" fill="#2F80ED"/>
+    <circle cx="58" cy="46" r="6" fill="#62B2FF"/>
+    <circle cx="102" cy="46" r="6" fill="#62B2FF"/>
+    <line x1="42" y1="69" x2="118" y2="69" stroke="#DBE8F8" stroke-width="2"/>
+    <text x="80" y="99" text-anchor="middle" font-family="Arial, sans-serif" font-size="40" font-weight="700" fill="#2F80ED">5</text>
+    <ellipse cx="68" cy="80" rx="16" ry="6" fill="#FFFFFF" opacity=".35"/>
+  </g>
+</svg>
+<text x="378" y="220" text-anchor="middle">calendar-5-premium</text>
+<rect x="512" y="24" width="220" height="230" rx="24" fill="#FFFFFF" stroke="#E7EBF3"/>
+<svg x="542" y="38" width="160" height="160" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="bc_front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF8A7C"/>
+      <stop offset="65%" stop-color="#F45E51"/>
+      <stop offset="100%" stop-color="#DB4A3E"/>
+    </linearGradient>
+    <linearGradient id="bc_top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF9A8E"/>
+      <stop offset="100%" stop-color="#FF7466"/>
+    </linearGradient>
+    <linearGradient id="bc_strap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF8E9"/>
+      <stop offset="100%" stop-color="#EFD6A6"/>
+    </linearGradient>
+    <linearGradient id="bc_buckle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFD970"/>
+      <stop offset="100%" stop-color="#EAB93B"/>
+    </linearGradient>
+    <filter id="bc_shadow" x="-40%" y="-40%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#B79290" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="134" rx="39" ry="10" fill="#E9D7D4"/>
+  <g filter="url(#bc_shadow)">
+    <path d="M56 48c0-10 8-18 18-18h12c10 0 18 8 18 18v12H92V50c0-4-3-7-7-7h-10c-4 0-7 3-7 7v10H56z" fill="url(#bc_strap)"/>
+    <rect x="34" y="56" width="92" height="60" rx="16" fill="url(#bc_front)"/>
+    <path d="M34 74h92v12H34z" fill="url(#bc_top)"/>
+    <rect x="70" y="56" width="20" height="60" rx="8" fill="url(#bc_strap)"/>
+    <rect x="72" y="74" width="16" height="12" rx="4" fill="url(#bc_buckle)"/>
+    <ellipse cx="58" cy="84" rx="16" ry="6" fill="#FFFFFF" opacity=".16"/>
+    <circle cx="48" cy="90" r="4" fill="#FFB0A9" opacity=".35"/>
+  </g>
+</svg>
+<text x="622" y="220" text-anchor="middle">briefcase-premium</text>
+<rect x="756" y="24" width="220" height="230" rx="24" fill="#FFFFFF" stroke="#E7EBF3"/>
+<svg x="786" y="38" width="160" height="160" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="mg_orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB55D"/>
+      <stop offset="60%" stop-color="#FF962E"/>
+      <stop offset="100%" stop-color="#F57D00"/>
+    </linearGradient>
+    <linearGradient id="mg_cream" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF9EF"/>
+      <stop offset="100%" stop-color="#FFE6BE"/>
+    </linearGradient>
+    <filter id="mg_shadow" x="-40%" y="-40%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#C0A082" flood-opacity=".26"/>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="134" rx="36" ry="10" fill="#EFE1D0"/>
+  <g filter="url(#mg_shadow)">
+    <path d="M53 62l43-22c7-4 16 1 16 10v29c0 9-9 14-16 10L53 67z" fill="url(#mg_orange)"/>
+    <path d="M46 60h11l39 20V47L57 54H46c-7 0-12 5-12 12v6c0 7 5 12 12 12h8" fill="url(#mg_cream)"/>
+    <path d="M46 60h10v24H46c-6 0-10-4-10-10v-4c0-6 4-10 10-10z" fill="#FF9B2F"/>
+    <path d="M58 83l9-1 8 20-10 5z" fill="#FF9527"/>
+    <path d="M117 55c7 3 12 10 12 17s-5 14-12 17" stroke="#FF8A17" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path d="M126 44c10 5 17 15 17 28s-7 23-17 28" stroke="#FFB861" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+    <ellipse cx="70" cy="58" rx="14" ry="6" fill="#FFFFFF" opacity=".16"/>
+  </g>
+</svg>
+<text x="866" y="220" text-anchor="middle">megaphone-premium</text>
+</svg>

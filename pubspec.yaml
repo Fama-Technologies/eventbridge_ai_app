@@ -98,6 +98,7 @@ dependencies:
   # Date & Utilities
   table_calendar: ^3.2.0
   intl: ^0.20.2
+  timezone: ^0.11.0
   timeago: ^3.7.1
   uuid: ^4.5.3
   dartz: ^0.10.1
@@ -142,11 +143,12 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/icons/Icon.svg
-    - assets/icons/icon1.svg
-    - assets/icons/icon.png
-    - assets/icons/apple.png
-    - assets/icons/google.png
+    - assets/icons/
+    - assets/icons/packages_3d.png
+    - assets/icons/calendar_3d.png
+    - assets/icons/portfolio_3d.png
+    - assets/icons/leads_3d.png
+    - assets/icons/views_3d.png
     - assets/onboarding/
     - assets/mock/api_mock.json
     - assets/images/

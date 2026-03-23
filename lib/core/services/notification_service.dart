@@ -1,5 +1,8 @@
+import 'dart:typed_data';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:eventbridge/core/network/api_service.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:eventbridge/core/router/app_router.dart';
@@ -11,13 +14,31 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  // Notification ID range reserved for booking reminders: 1000–1999
+  static const int _reminderBaseId = 1000;
+  static const int _reminderMaxCount = 200; // max slots (40 bookings × 5 times)
+
+  // The 5 reminder times (hour, minute) spread across the day
+  static const List<(int, int)> _reminderTimes = [
+    (8, 0),
+    (10, 0),
+    (12, 0),
+    (15, 0),
+    (18, 0),
+  ];
 
   Future<void> init() async {
     if (kIsWeb) {
       debugPrint('Notifications not supported on Web, skipping init.');
       return;
     }
+
+    // Initialize timezone database
+    tz_data.initializeTimeZones();
+
     // 1. Request Permissions
     NotificationSettings settings = await _fcm.requestPermission(
       alert: true,
@@ -33,7 +54,8 @@ class NotificationService {
     // 2. Setup Local Notifications (for foreground messages)
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings();
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings();
     const InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
@@ -91,7 +113,7 @@ class NotificationService {
   }
 
   Future<void> updateToken() async {
-    if (kIsWeb) return; // Cannot get FCM token on Web without SW and vapidKey
+    if (kIsWeb) return;
     try {
       String? token = await _fcm.getToken();
       if (token != null) {
@@ -107,7 +129,6 @@ class NotificationService {
     final userId = storage.getString('user_id');
     if (userId == null) return;
 
-    // Avoid redundant updates
     final savedToken = storage.getString('fcm_token');
     if (savedToken == token) return;
 
@@ -126,7 +147,8 @@ class NotificationService {
     final type = message.data['type'] ?? 'message';
     final payload = message.data['chat_id'] ?? message.data['lead_id'] ?? message.data['vendor_id'];
 
-    final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
       'high_importance_channel',
       'High Importance Notifications',
       importance: Importance.max,
@@ -148,6 +170,101 @@ class NotificationService {
       payload: payload != null ? '$type:$payload' : null,
     );
   }
+
+  // ─── Booking Reminder Notifications ──────────────────────────────────────────
+
+  /// Schedule 5 reminder notifications per booking that is exactly 3 days away.
+  /// Times: 08:00, 10:00, 12:00, 15:00, 18:00 on the reminder day.
+  /// Cancels all previously scheduled reminders before rescheduling.
+  Future<void> scheduleBookingReminders(List<DateTime> bookingDates) async {
+    if (kIsWeb) return;
+
+    // 1. Cancel all existing booking reminders in our reserved range
+    for (int i = _reminderBaseId; i < _reminderBaseId + _reminderMaxCount; i++) {
+      await _localNotifications.cancel(id: i);
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // 2. Determine the local timezone location
+    tz.Location location;
+    try {
+      final offsetMinutes = now.timeZoneOffset.inMinutes;
+      location = tz.timeZoneDatabase.locations.values.firstWhere(
+        (loc) => loc.currentTimeZone.offset == offsetMinutes * 60 * 1000,
+        orElse: () => tz.UTC,
+      );
+    } catch (_) {
+      location = tz.UTC;
+    }
+
+    int idCounter = _reminderBaseId;
+
+    for (final bookingDate in bookingDates) {
+      // Normalize booking date to midnight
+      final bookingDay = DateTime(bookingDate.year, bookingDate.month, bookingDate.day);
+      
+      // Calculate the day the reminder should fire (3 days BEFORE the booking)
+      final reminderDay = bookingDay.subtract(const Duration(days: 3));
+      
+      // If the reminder day is in the past, we skip it
+      if (reminderDay.isBefore(today)) continue;
+
+      for (final (hour, minute) in _reminderTimes) {
+        if (idCounter >= _reminderBaseId + _reminderMaxCount) {
+          debugPrint('⚠️ Warning: Booking reminder limit reached. Some reminders may not be scheduled.');
+          break;
+        }
+
+        final scheduledTime = tz.TZDateTime(
+          location,
+          reminderDay.year,
+          reminderDay.month,
+          reminderDay.day,
+          hour,
+          minute,
+        );
+
+        // Skip if this time has already passed (critical for reminders scheduled for TODAY)
+        if (scheduledTime.isBefore(tz.TZDateTime.now(location))) continue;
+
+        final bookingLabel = '${bookingDate.day}/${bookingDate.month}/${bookingDate.year}';
+
+        await _localNotifications.zonedSchedule(
+          id: idCounter,
+          title: '📅 Upcoming Booking Reminder',
+          body: 'You have a booking on $bookingLabel — just 3 days away! Make sure you\'re prepared.',
+          scheduledDate: scheduledTime,
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              'high_importance_channel',
+              'High Importance Notifications',
+              importance: Importance.max,
+              priority: Priority.high,
+              enableVibration: true,
+              vibrationPattern: Int64List.fromList([0, 500, 200, 500]),
+              playSound: true,
+              styleInformation: const BigTextStyleInformation(''),
+            ),
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: 'reminder:availability',
+        );
+
+        idCounter++;
+      }
+    }
+
+    debugPrint('✅ Booking reminders scheduled: ${idCounter - _reminderBaseId} notifications across ${bookingDates.length} bookings');
+  }
+
+  // ─── Navigation ───────────────────────────────────────────────────────────────
 
   void _handleNavigation(String payload, {String? type}) {
     String navType = type ?? 'message';
@@ -172,6 +289,11 @@ class NotificationService {
       case 'vendor':
         appRouter.push('/vendor-public/$id');
         break;
+      case 'reminder':
+      case 'availability':
+        final role = StorageService().getString('user_role');
+        appRouter.push(role == 'VENDOR' ? '/vendor-availability' : '/customer-home');
+        break;
       case 'settings':
         final role = StorageService().getString('user_role');
         appRouter.push(role == 'VENDOR' ? '/vendor-settings' : '/customer-settings');
@@ -179,13 +301,14 @@ class NotificationService {
     }
   }
 
-  // Helper for triggering local-only notifications (e.g. settings updated)
+  // ─── Local-only Notifications ─────────────────────────────────────────────────
+
   Future<void> showLocalOnlyNotification({
     required String title,
     required String body,
     String? payload,
   }) async {
-    if (kIsWeb) return; // flutter_local_notifications not fully supported on web
+    if (kIsWeb) return;
 
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'high_importance_channel',
@@ -211,7 +334,5 @@ class NotificationService {
 // Background Message Handler
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // If you're going to use other Firebase services in the background, such as Firestore,
-  // make sure you call `Firebase.initializeApp()` before using other Firebase services.
   debugPrint("Handling a background message: ${message.messageId}");
 }
