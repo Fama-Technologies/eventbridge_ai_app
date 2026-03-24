@@ -270,7 +270,8 @@ final appRouter = GoRouter(
       path: '/vendor-chat/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return VendorChatScreen(leadId: id);
+        final phone = state.uri.queryParameters['phone'];
+        return VendorChatScreen(leadId: id, phone: phone);
       },
     ),
     GoRoute(

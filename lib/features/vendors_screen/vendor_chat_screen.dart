@@ -18,7 +18,8 @@ import 'dart:async';
 
 class VendorChatScreen extends StatefulWidget {
   final String leadId;
-  const VendorChatScreen({super.key, required this.leadId});
+  final String? phone;
+  const VendorChatScreen({super.key, required this.leadId, this.phone});
 
   @override
   State<VendorChatScreen> createState() => _VendorChatScreenState();
@@ -898,8 +899,83 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
   }
 
   Future<void> _launchSMS() async {
-    final lead = MockLeadRepository.getById(widget.leadId);
-    final String phoneNumber = lead?.phoneNumber ?? "";
+    String? phoneNumber = widget.phone;
+    
+    // Fallback to searching chats if phone wasn't passed directly
+    if (phoneNumber == null || phoneNumber.isEmpty) {
+      final userId = StorageService().getString('user_id');
+      if (userId != null) {
+        try {
+          final result = await ApiService.instance.getVendorChats(userId);
+          if (result['success'] == true) {
+            final chats = result['chats'] as List;
+            final thisChat = chats.firstWhere((c) => c['id'].toString() == widget.leadId, orElse: () => null);
+            phoneNumber = thisChat?['clientPhone'];
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (phoneNumber == null || phoneNumber.isEmpty) {
+      _showPhoneNumberRequiredDialog();
+      return;
+    }
+
+    final String message = "Hi! I'd like to chat with you about your event on EventBridge. Please install the app to get started: https://eventbridge.app/install";
+    final Uri uri = Uri.parse('sms:$phoneNumber?body=${Uri.encodeComponent(message)}');
+    
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch SMS app')));
+      }
+    }
+  }
+
+  void _showPhoneNumberRequiredDialog() {
+    final TextEditingController phoneController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Phone Number Required'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('We need the client\'s phone number to send the SMS invitation.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                hintText: '+256...',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final number = phoneController.text.trim();
+              if (number.isNotEmpty) {
+                Navigator.pop(context);
+                _sendSMSWithNumber(number);
+              }
+            },
+            child: const Text('SEND'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendSMSWithNumber(String phoneNumber) async {
     final String message = "Hi! I'd like to chat with you about your event on EventBridge. Please install the app to get started: https://eventbridge.app/install";
     final Uri uri = Uri.parse('sms:$phoneNumber?body=${Uri.encodeComponent(message)}');
     

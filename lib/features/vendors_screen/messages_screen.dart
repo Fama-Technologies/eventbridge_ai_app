@@ -351,7 +351,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     final String timeStr = lastTime != null ? '${lastTime.hour}:${lastTime.minute.toString().padLeft(2, '0')}' : '';
 
     return InkWell(
-      onTap: () => context.push('/vendor-chat/${chat['id']}'),
+      onTap: () => context.push('/vendor-chat/${chat['id']}?phone=${chat['clientPhone'] ?? ''}'),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(

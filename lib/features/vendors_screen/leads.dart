@@ -542,7 +542,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
                       const SizedBox(width: 12),
                       _buildQuickAction(
                         'Message',
-                        () => context.push('/vendor-chat/${lead.id}'),
+                        () => context.push('/vendor-chat/${lead.id}?phone=${lead.phoneNumber ?? ''}'),
                         true,
                         isDark,
                       ),
