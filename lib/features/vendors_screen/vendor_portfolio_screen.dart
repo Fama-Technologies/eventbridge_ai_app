@@ -770,18 +770,6 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Visual Project ${index + 1}',
-                              style: GoogleFonts.outfit(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
                           ],
                         ),
                       ),

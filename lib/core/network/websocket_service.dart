@@ -31,6 +31,7 @@ class WebSocketService {
     try {
       _channel = WebSocketChannel.connect(Uri.parse(url));
       _isConnected = true;
+      _reconnectAttempts = 0; // Reset on successful attempt
 
       _channel!.stream.listen(
         (message) {
@@ -55,8 +56,16 @@ class WebSocketService {
     }
   }
 
+  int _reconnectAttempts = 0;
   void _reconnect() {
-    Future.delayed(const Duration(seconds: 5), () {
+    if (_isConnected) return;
+    
+    _reconnectAttempts++;
+    // Exponential backoff: 2s, 4s, 8s, 16s... max 30s
+    final delay = (2 * _reconnectAttempts).clamp(2, 30);
+    
+    debugPrint('WebSocket Reconnecting in $delay seconds (Attempt $_reconnectAttempts)');
+    Future.delayed(Duration(seconds: delay), () {
       if (!_isConnected) connect();
     });
   }

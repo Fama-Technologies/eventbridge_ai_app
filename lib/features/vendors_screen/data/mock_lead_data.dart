@@ -21,6 +21,7 @@ class MockLeadRepository {
           'https://ui-avatars.com/api/?name=Sarah+Johnson&background=f0e4d7&color=1a1a24',
       isHighValue: true,
       lastActive: '2h ago',
+      phoneNumber: '+256700000001',
     ),
     Lead(
       id: '2',
@@ -41,6 +42,7 @@ class MockLeadRepository {
           'https://ui-avatars.com/api/?name=Michael+Chen&background=dcfce7&color=166534',
       isHighValue: true,
       lastActive: '1h ago',
+      phoneNumber: '+256700000002',
     ),
   ];
 

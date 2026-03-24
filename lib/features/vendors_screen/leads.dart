@@ -42,11 +42,19 @@ class _LeadsScreenState extends State<LeadsScreen> {
       final userId = StorageService().getString('user_id');
       if (userId == null) return;
 
-      final result = await ApiService.instance.getVendorLeads(userId);
-      if (mounted && result['success'] == true) {
-        final List<dynamic> leadsData = result['leads'] ?? [];
-        setState(() {
-          _allLeads = leadsData.map((json) => Lead(
+      final results = await Future.wait([
+        ApiService.instance.getVendorLeads(userId),
+        ApiService.instance.getVendorBookings(userId),
+      ]);
+
+      final leadsResult = results[0];
+      final bookingsResult = results[1];
+
+      if (mounted) {
+        List<Lead> leads = [];
+        if (leadsResult['success'] == true) {
+          final List<dynamic> leadsData = leadsResult['leads'] ?? [];
+          leads = leadsData.map((json) => Lead(
             id: json['id'].toString(),
             title: json['title'] ?? 'Lead',
             date: json['date'] ?? 'TBD',
@@ -60,11 +68,48 @@ class _LeadsScreenState extends State<LeadsScreen> {
             clientMessage: json['clientMessage'] ?? '',
             venueName: json['venueName'] ?? '',
             venueAddress: json['venueAddress'] ?? '',
-            clientImageUrl: json['clientImageUrl'] ?? 'https://via.placeholder.com/150',
+            clientImageUrl: json['clientImageUrl'] ?? 'https://ui-avatars.com/api/?name=${json['clientName'] ?? 'Client'}&background=random',
             isHighValue: json['isHighValue'] ?? false,
             lastActive: json['lastActive'] ?? 'Active now',
             isAccepted: json['isAccepted'] ?? false,
+            phoneNumber: json['phoneNumber']?.toString(),
           )).toList();
+        }
+
+        // Merge actual bookings into the accepted leads list if appropriate
+        if (bookingsResult['success'] == true) {
+          final List<dynamic> bookingsData = bookingsResult['bookings'] ?? [];
+          for (var b in bookingsData) {
+            // Check if this booking is already in leads (it should be if it was a lead first)
+            // But if it's a direct booking, we might want to add it as a Lead object for display
+            final bookingId = b['id'].toString();
+            if (!leads.any((l) => l.id == bookingId)) {
+              leads.add(Lead(
+                id: bookingId,
+                title: b['eventType'] ?? 'Booking',
+                date: b['bookingDate']?.toString().split(' ')[0] ?? 'TBD',
+                time: 'Confirmed',
+                location: 'TBD',
+                matchScore: 100,
+                budget: double.tryParse(b['totalPrice']?.toString() ?? '0.0') ?? 0.0,
+                guests: 0,
+                responseTime: 'Confirmed',
+                clientName: b['clientName'] ?? 'Client',
+                clientMessage: b['notes'] ?? '',
+                clientImageUrl: 'https://ui-avatars.com/api/?name=${b['clientName'] ?? 'Client'}&background=random',
+                isHighValue: false,
+                lastActive: 'Confirmed',
+                venueName: '',
+                venueAddress: '',
+                isAccepted: true,
+                phoneNumber: b['clientPhone']?.toString(),
+              ));
+            }
+          }
+        }
+
+        setState(() {
+          _allLeads = leads;
           _isLoading = false;
         });
       }
@@ -127,7 +172,11 @@ class _LeadsScreenState extends State<LeadsScreen> {
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    return _buildPremiumLeadCard(context, filteredLeads[index], isDark, index);
+                    final lead = filteredLeads[index];
+                    if (_selectedSegment == 1) {
+                      return _buildActiveBookingCard(context, lead, isDark, index);
+                    }
+                    return _buildPremiumLeadCard(context, lead, isDark, index);
                   },
                   childCount: filteredLeads.length,
                 ),
@@ -472,9 +521,11 @@ class _LeadsScreenState extends State<LeadsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildMetric(Icons.calendar_today_rounded, lead.date, isDark),
-                      _buildMetric(Icons.people_alt_rounded, '${lead.guests} Guests', isDark),
-                      _buildMetric(Icons.payments_rounded, 'USh 2.4M', isDark), // Placeholder budget
+                      Flexible(child: _buildMetric(Icons.calendar_today_rounded, lead.date, isDark)),
+                      const SizedBox(width: 8),
+                      Flexible(child: _buildMetric(Icons.people_alt_rounded, '${lead.guests} Guests', isDark)),
+                      const SizedBox(width: 8),
+                      Flexible(child: _buildMetric(Icons.payments_rounded, 'UGX ${lead.budget.toInt()}', isDark)), // Updated currency symbol
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -504,6 +555,170 @@ class _LeadsScreenState extends State<LeadsScreen> {
         ),
       ),
     ).animate().fadeIn(duration: const Duration(milliseconds: 600), delay: Duration(milliseconds: (index * 100))).moveY(begin: 20, end: 0, curve: Curves.easeOutQuart);
+  }
+
+  Widget _buildActiveBookingCard(BuildContext context, Lead lead, bool isDark, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02 : Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: AppColors.primary01.withValues(alpha: 0.2), // Subtle accent for bookings
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.push('/active-booking-details/${lead.id}'),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _buildClientAvatar(lead),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lead.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.check_circle_rounded, color: Colors.green, size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Confirmed Booking',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary01.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Active',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary01,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildBookingStat(Icons.event_available_rounded, lead.date, 'Date', isDark),
+                        _buildBookingStat(Icons.payments_rounded, 'UGX ${lead.budget.toInt()}', 'Total', isDark),
+                        _buildBookingStat(Icons.person_pin_circle_rounded, lead.location, 'Venue', isDark),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickAction(
+                          'Message Client',
+                          () => context.push('/vendor-chat/${lead.id}'),
+                          true,
+                          isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _buildQuickAction(
+                        'Details',
+                        () => context.push('/active-booking-details/${lead.id}'),
+                        false,
+                        isDark,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ).animate().fadeIn(duration: const Duration(milliseconds: 600), delay: Duration(milliseconds: (index * 100))).moveY(begin: 20, end: 0, curve: Curves.easeOutQuart);
+  }
+
+  Widget _buildBookingStat(IconData icon, String value, String label, bool isDark) {
+    return Flexible(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 12, color: isDark ? Colors.white38 : Colors.black38),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : const Color(0xFF1A1A24),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildClientAvatar(Lead lead) {

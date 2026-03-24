@@ -13,6 +13,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:dio/dio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 
 class VendorChatScreen extends StatefulWidget {
@@ -256,9 +257,67 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
 
     if (lead == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Lead Not Found')),
-        body: const Center(
-          child: Text('The requested chat could not be found.'),
+        backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? Colors.white : Colors.black),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary01.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.person_add_rounded, size: 64, color: AppColors.primary01),
+                ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+                const SizedBox(height: 32),
+                Text(
+                  'User Not Found',
+                  style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.black),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'This user hasn\'t joined EventBridge yet. Would you like to send them an invite to install the app?',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(fontSize: 16, color: isDark ? Colors.white60 : Colors.black54, height: 1.5),
+                ),
+                const SizedBox(height: 40),
+                GestureDetector(
+                  onTap: () => _showInviteConfirmation(context),
+                  child: Container(
+                    height: 64,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary01,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [BoxShadow(color: AppColors.primary01.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Send Invite Reminder',
+                        style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => context.pop(),
+                  child: Text('Cancel', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white38 : Colors.black38)),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -786,5 +845,70 @@ class _VendorChatScreenState extends State<VendorChatScreen> {
         ],
       ),
     );
+  }
+
+  void _showInviteConfirmation(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkNeutral01 : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            Text('Ready to Proceed?', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
+            Text(
+              'We will open your SMS app with a pre-filled message for the client to install the Event Management app.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(fontSize: 15, color: Colors.black54),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('Cancel', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: Colors.black38)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _launchSMS();
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary01, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 16)),
+                    child: Text('PROCEED', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchSMS() async {
+    final lead = MockLeadRepository.getById(widget.leadId);
+    final String phoneNumber = lead?.phoneNumber ?? "";
+    final String message = "Hi! I'd like to chat with you about your event on EventBridge. Please install the app to get started: https://eventbridge.app/install";
+    final Uri uri = Uri.parse('sms:$phoneNumber?body=${Uri.encodeComponent(message)}');
+    
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch SMS app')));
+      }
+    }
   }
 }

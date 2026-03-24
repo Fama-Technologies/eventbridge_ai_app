@@ -30,6 +30,7 @@ import 'package:eventbridge/features/vendors_screen/vendor_personal_information_
 import 'package:eventbridge/features/vendors_screen/vendor_help_support_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_portfolio_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_notifications_screen.dart';
+import 'package:eventbridge/features/vendors_screen/active_booking_details_screen.dart';
 import 'package:eventbridge/features/matching/presentation/submit_review_screen.dart';
 import 'package:eventbridge/features/matching/presentation/match_intake_form_screen.dart';
 import 'package:eventbridge/features/matching/presentation/ai_analyzing_screen.dart';
@@ -70,6 +71,7 @@ const _vendorOnlyRoutes = [
   '/vendor-portfolio',
   '/vendor-notifications',
   '/vendor-search',
+  '/active-booking-details',
 ];
 
 // Routes reserved for Customers
@@ -255,6 +257,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return LeadDetailsScreen(leadId: id);
+      },
+    ),
+    GoRoute(
+      path: '/active-booking-details/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return ActiveBookingDetailsScreen(bookingId: id);
       },
     ),
     GoRoute(

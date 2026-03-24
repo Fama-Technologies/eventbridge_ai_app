@@ -16,6 +16,7 @@ class Lead {
   final bool isHighValue;
   final String lastActive;
   final bool isAccepted;
+  final String? phoneNumber;
 
   Lead({
     required this.id,
@@ -35,5 +36,6 @@ class Lead {
     this.isHighValue = false,
     required this.lastActive,
     this.isAccepted = false,
+    this.phoneNumber,
   });
 }
