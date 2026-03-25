@@ -25,12 +25,9 @@ jobs:
 
       - name: Install Cocoapods
         run: |
+          # Ensure iOS config files matches the runner's environment
+          flutter build ios --no-codesign --config-only
           cd ios
-          # If Podfile is missing, this might help regenerate it or at least fail gracefully
-          if [ ! -f "Podfile" ]; then
-            echo "Podfile missing, attempting to generate..."
-            flutter build ios --no-codesign --config-only
-          fi
           pod install
 
       - name: Build iOS
