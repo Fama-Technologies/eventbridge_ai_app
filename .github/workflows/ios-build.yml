@@ -25,6 +25,8 @@ jobs:
 
       - name: Install Cocoapods
         run: |
+          # Handle potential path length issues on macOS runner
+          git config --global core.longpaths true
           # Ensure iOS config files matches the runner's environment
           flutter build ios --no-codesign --config-only
           # Clear cache and ensure a clean reinstall to fix persistent git tag errors
