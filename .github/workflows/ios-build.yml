@@ -27,7 +27,11 @@ jobs:
         run: |
           # Ensure iOS config files matches the runner's environment
           flutter build ios --no-codesign --config-only
+          # Clear cache and ensure a clean reinstall to fix persistent git tag errors
+          pod cache clean --all
           cd ios
+          rm -rf Pods
+          rm -rf Podfile.lock
           pod install --repo-update
 
       - name: Build iOS
