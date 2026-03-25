@@ -12,6 +12,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -25,8 +27,10 @@ jobs:
 
       - name: Install Cocoapods
         run: |
-          # Handle potential path length issues on macOS runner
+          # Handle potential git reference issues on macOS runner
           git config --global core.longpaths true
+          # Update core gems to ensure latest bugfixes in CocoaPods
+          sudo gem install cocoapods ffi
           # Ensure iOS config files matches the runner's environment
           flutter build ios --no-codesign --config-only
           # Clear cache and ensure a clean reinstall to fix persistent git tag errors
@@ -34,7 +38,7 @@ jobs:
           cd ios
           rm -rf Pods
           rm -rf Podfile.lock
-          pod install --repo-update
+          GIT_TERMINAL_PROMPT=0 pod install --repo-update
 
       - name: Build iOS
         run: flutter build ios --release --no-codesign

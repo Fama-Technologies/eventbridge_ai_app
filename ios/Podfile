@@ -34,7 +34,7 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  pod 'libwebp', '1.4.0'
+  pod 'libwebp', :git => 'https://github.com/webmproject/libwebp.git', :tag => 'v1.4.0'
   target 'RunnerTests' do
     inherit! :search_paths
   end
