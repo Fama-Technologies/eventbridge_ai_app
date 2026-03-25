@@ -7,6 +7,7 @@ import 'package:eventbridge/features/vendors_screen/data/mock_lead_data.dart';
 import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge/core/widgets/app_toast.dart';
+import 'package:eventbridge/core/widgets/plan_upgrade_overlay.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -24,6 +25,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
   List<Lead> _filteredLeads = [];
   bool _hasNotifications = true;
   String? _planName;
+  String? _serviceCategory;
   bool _isVerified = false;
   late AnimationController _meshController;
   bool _isLoadingLeads = true;
@@ -88,7 +90,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             clientMessage: json['clientMessage'] ?? '',
             venueName: json['venueName'] ?? '',
             venueAddress: json['venueAddress'] ?? '',
-            clientImageUrl: json['clientImageUrl'] ?? 'https://via.placeholder.com/150',
+            clientImageUrl: json['clientImageUrl'] ?? 'https://ui-avatars.com/api/?name=${json['clientName'] ?? 'Client'}&background=random',
             isHighValue: json['isHighValue'] ?? false,
             lastActive: json['lastActive'] ?? 'Active now',
             isAccepted: json['isAccepted'] ?? false,
@@ -136,14 +138,31 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
       if (result['success'] == true && result['profile'] != null) {
         final plan = result['profile']['subscriptionPlan'] ?? 'Basic';
         if (mounted) {
+          final List<dynamic> categories = result['profile']['serviceCategories'] ?? [];
           setState(() {
             _planName = plan;
+            _serviceCategory = categories.isNotEmpty ? categories.first.toString() : 'Vendor';
             _isVerified = result['profile']['isVerifiedBadge'] == true;
           });
           storage.setString('vendor_plan', plan);
+          if (categories.isNotEmpty) {
+            storage.setString('vendor_category', categories.first.toString());
+          }
         }
       }
     } catch (_) {}
+  }
+
+  bool _isRestricted() {
+    return _planName?.toLowerCase() == 'free';
+  }
+
+  void _showUpgradeOverlay() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.8),
+      builder: (context) => const PlanUpgradeOverlay(),
+    );
   }
 
   @override
@@ -187,11 +206,15 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  // ── Relocated Search Bar ──────────────────────
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    sliver: SliverToBoxAdapter(
-                      child: _buildRelocatedSearchBar(isDark),
+                  // ── Sticky Search Bar ──────────────────────
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _StickySearchBarDelegate(
+                      child: Container(
+                        color: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                        child: _buildRelocatedSearchBar(isDark),
+                      ),
                     ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -316,7 +339,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
                               ],
                             ),
                             Text(
-                              "Photographer | $_bookingsCount bookings this month",
+                              "${_serviceCategory ?? 'Vendor'} | $_bookingsCount bookings this month",
                               style: GoogleFonts.outfit(
                                 fontSize: 13,
                                 color: Colors.white.withOpacity(0.8),
@@ -340,6 +363,20 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
   }
 
   Widget _buildPlanBadge() {
+    // Map internal status to display names
+    String displayPlan = "Free Plan";
+    if (_planName != null) {
+      if (_planName!.toLowerCase() == 'pro') {
+        displayPlan = "Basic Vendor";
+      } else if (_planName!.toLowerCase() == 'business_pro') {
+        displayPlan = "Premium Vendor";
+      } else if (_planName!.toLowerCase() == 'free_trial') {
+        displayPlan = "Free Trial";
+      } else {
+        displayPlan = _planName!;
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -348,7 +385,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
         border: Border.all(color: const Color(0xFFFDE68A), width: 1),
       ),
       child: Text(
-        _planName ?? "Free Plan",
+        displayPlan,
         style: GoogleFonts.outfit(
           color: const Color(0xFFD97706),
           fontSize: 11,
@@ -401,7 +438,13 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
 
   Widget _buildNotificationBell() {
     return GestureDetector(
-      onTap: () => context.push('/vendor-notifications'),
+      onTap: () {
+        if (_isRestricted()) {
+          _showUpgradeOverlay();
+          return;
+        }
+        context.push('/vendor-notifications');
+      },
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -434,7 +477,13 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
 
   Widget _buildRelocatedSearchBar(bool isDark) {
     return GestureDetector(
-      onTap: () => context.push('/vendor-search'),
+      onTap: () {
+        if (_isRestricted()) {
+          _showUpgradeOverlay();
+          return;
+        }
+        context.push('/vendor-search');
+      },
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -489,7 +538,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             null,
             const Color(0xFFF59E0B),
             isDark,
-            "+ 12%",
+            "", // Remove static "+ 12%"
             iconWidget: const Icon(PhosphorIconsFill.chartBar, color: Color(0xFFF59E0B), size: 32),
           ),
         ),
@@ -501,7 +550,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             null,
             const Color(0xFF10B981),
             isDark,
-            "+ 8%",
+            "", // Remove static "+ 8%"
             iconWidget: const Icon(PhosphorIconsFill.chartLineUp, color: Color(0xFF10B981), size: 32),
           ),
         ),
@@ -590,7 +639,13 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             "Packages",
             'assets/icons/package-box-premium.svg',
             const Color(0xFFEEF2FF),
-            () => context.push('/vendor-packages'),
+            () {
+              if (_isRestricted()) {
+                _showUpgradeOverlay();
+                return;
+              }
+              context.push('/vendor-packages');
+            },
             isDark,
             "Manage your services",
             iconColor: const Color(0xFF4F46E5),
@@ -600,7 +655,13 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             "Calendar",
             'assets/icons/calendar-5-premium.svg',
             Colors.white,
-            () => context.push('/vendor-calendar'),
+            () {
+              if (_isRestricted()) {
+                _showUpgradeOverlay();
+                return;
+              }
+              context.push('/vendor-calendar');
+            },
             isDark,
             "View bookings",
             iconColor: Colors.blue,
@@ -611,7 +672,13 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
             "Portfolio",
             'assets/icons/briefcase-premium.svg',
             const Color(0xFFFFF1F2),
-            () => context.push('/vendor-portfolio'),
+            () {
+              if (_isRestricted()) {
+                _showUpgradeOverlay();
+                return;
+              }
+              context.push('/vendor-portfolio');
+            },
             isDark,
             "Show your work",
             iconColor: const Color(0xFFE11D48),
@@ -683,7 +750,13 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
 
   Widget _buildPremiumLeadCard(BuildContext context, Lead lead, bool isDark) {
     return GestureDetector(
-      onTap: () => context.push('/lead-details/${lead.id}'),
+      onTap: () {
+        if (_isRestricted()) {
+          _showUpgradeOverlay();
+          return;
+        }
+        context.push('/lead-details/${lead.id}');
+      },
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -934,6 +1007,24 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
   }
+}
+
+class _StickySearchBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  _StickySearchBarDelegate({required this.child});
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  double get maxExtent => 76; // Height (56 + 10 top + 10 bottom)
+  @override
+  double get minExtent => 76;
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => true;
 }
 
 class MeshPainter extends CustomPainter {

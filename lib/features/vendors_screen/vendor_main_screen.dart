@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/widgets/plan_upgrade_overlay.dart';
 import 'package:eventbridge/features/vendors_screen/home.dart';
 import 'package:eventbridge/features/vendors_screen/leads.dart';
 import 'package:eventbridge/features/vendors_screen/messages_screen.dart';
@@ -16,6 +18,19 @@ class VendorMainScreen extends StatefulWidget {
 
 class _VendorMainScreenState extends State<VendorMainScreen> {
   int _selectedIndex = 0;
+
+  bool _isRestricted() {
+    final plan = StorageService().getString('vendor_plan');
+    return plan?.toLowerCase() == 'free';
+  }
+
+  void _showUpgradeOverlay() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.8),
+      builder: (context) => const PlanUpgradeOverlay(),
+    );
+  }
   final List<Widget> _screens = [
     const VendorHomeScreen(),
     const LeadsScreen(),
@@ -98,7 +113,13 @@ class _VendorMainScreenState extends State<VendorMainScreen> {
         : const Color(0xFFEF9B63);
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () {
+        if (index != 0 && _isRestricted()) {
+          _showUpgradeOverlay();
+          return;
+        }
+        setState(() => _selectedIndex = index);
+      },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),

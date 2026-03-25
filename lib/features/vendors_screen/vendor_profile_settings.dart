@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
@@ -27,11 +28,16 @@ class _VendorProfileSettingsScreenState
     extends State<VendorProfileSettingsScreen> {
   bool _isLoading = true;
   double _travelRadius = 50.0;
-  final String _vendorPlan = 'business_pro';
+  String _vendorPlan = 'Basic'; // Use Basic as default
 
-  final List<String> _portfolioImages = [];
+  final List<dynamic> _portfolioImages = [];
 
-  int get _maxImages => _vendorPlan == 'business_pro' ? 20 : 12;
+  int get _maxImages {
+    final plan = _vendorPlan.toLowerCase();
+    if (plan.contains('pro_max') || plan.contains('pro max')) return 30;
+    if (plan.contains('pro')) return 20;
+    return 12; // Default for Basic/Free
+  }
 
   final _businessNameCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
@@ -75,6 +81,7 @@ class _VendorProfileSettingsScreenState
       if (result['success'] == true && result['profile'] != null) {
         final profile = result['profile'];
         setState(() {
+          _vendorPlan = profile['subscriptionPlan'] ?? 'Basic';
           _businessNameCtrl.text = profile['businessName'] ?? '';
           _descriptionCtrl.text = profile['description'] ?? '';
           _location = profile['location'] ?? 'Location not provided';
@@ -96,11 +103,7 @@ class _VendorProfileSettingsScreenState
           if (profile['galleryUrls'] != null) {
              _portfolioImages.clear();
              for (var item in profile['galleryUrls']) {
-               if (item is String) {
-                 _portfolioImages.add(item);
-               } else if (item is Map && item['url'] != null) {
-                 _portfolioImages.add(item['url'] as String);
-               }
+               _portfolioImages.add(_getDisplayUrl(item));
              }
           } 
 
@@ -913,7 +916,7 @@ class _TagWrap extends StatelessWidget {
 }
 
 class _PortfolioGrid extends StatelessWidget {
-  final List<String> images;
+  final List<dynamic> images;
   final int maxImages;
   final VoidCallback onAdd;
   final Function(int) onRemove;
@@ -942,7 +945,7 @@ class _PortfolioGrid extends StatelessWidget {
           }
           return Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: _buildImageCard(images[index], index),
+            child: _buildImageCard(_getDisplayUrl(images[index]), index),
           );
         },
       ),
@@ -1402,3 +1405,25 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
 
 
 
+
+String _getDisplayUrl(dynamic item) {
+  if (item == null) return '';
+  if (item is String) {
+    if (item.startsWith('{') && item.endsWith('}')) {
+      try {
+        final decoded = json.decode(item);
+        return _getDisplayUrl(decoded);
+      } catch (_) {
+        return item;
+      }
+    }
+    return item;
+  }
+  if (item is Map) {
+    final urlValue = item['url'];
+    if (urlValue != null) {
+      return _getDisplayUrl(urlValue);
+    }
+  }
+  return item.toString();
+}

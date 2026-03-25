@@ -49,15 +49,17 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         children: [
           _buildBackgroundAura(),
           ListView(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 120), // Bottom padding for floating nav
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
             children: [
               _buildHeroCard(),
+              const SizedBox(height: 24),
+              _buildQuickActions(),
               const SizedBox(height: 32),
-              _buildSectionHeader('Recommended for You', 'AI RANKED', 'View History', () => context.push('/matches')),
+              _buildSectionHeader('Recommended for you', null, '', () {}),
               const SizedBox(height: 16),
               _buildRecommendedList(),
               const SizedBox(height: 32),
-              _buildSectionHeader('AI Features & Pro Vendors', null, 'See All', () => context.push('/matches')),
+              _buildSectionHeader('AI Features & Pro Vendors', null, '', () {}),
               const SizedBox(height: 16),
               _buildAIFeaturesList(),
               const SizedBox(height: 32),
@@ -75,24 +77,24 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       backgroundColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
-      toolbarHeight: 80,
+      toolbarHeight: 90,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Good Evening,',
+            _getGreeting(),
             style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary01.withValues(alpha: 0.6),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black54,
             ),
           ),
           Text(
-            name,
+            '$name',
             style: GoogleFonts.outfit(
               fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: AppColors.primary01,
+              fontWeight: FontWeight.w800,
+              color: Colors.black,
               letterSpacing: -0.5,
               height: 1.1,
             ),
@@ -101,50 +103,24 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       ),
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 20),
-          child: GestureDetector(
-            onTap: () {}, // Future toggle theme or notifications
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+          padding: const EdgeInsets.only(right: 20, top: 10),
+          child: Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              image: const DecorationImage(
+                image: NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop'),
+                fit: BoxFit.cover,
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(Icons.notifications_none_rounded, color: AppColors.primary01, size: 24),
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary01, // Using theme primary for the badge
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary01.withValues(alpha: 0.4),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                    ).animate(onPlay: (controller) => controller.repeat())
-                     .shimmer(duration: 2.seconds, color: Colors.white.withValues(alpha: 0.5))
-                     .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.1, 1.1), duration: 1.seconds, curve: Curves.easeInOut),
-                  ),
-                ],
-              ),
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
           ),
         ),
@@ -152,134 +128,153 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    final user = ref.read(authStateChangesProvider).value;
+    final firstName = user?.displayName?.split(' ').first ?? 'Friend';
+    
+    String greeting;
+    if (hour < 12) greeting = 'Good morning,';
+    else if (hour < 17) greeting = 'Good afternoon,';
+    else greeting = 'Good evening,';
+    
+    return '$greeting $firstName';
+  }
+
   Widget _buildHeroCard() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      height: 220,
       decoration: BoxDecoration(
-        color: AppColors.primary01, // Orange
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary01.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: const Color(0xFFFDF4F0), // Soft cream/peach
+        borderRadius: BorderRadius.circular(32),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'MY EVENT PLANNER',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white.withValues(alpha: 0.8),
-                      letterSpacing: 1.2,
-                    ),
+          // Text Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Plan your next\nevent faster',
+                  style: GoogleFonts.outfit(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black,
+                    height: 1.1,
+                    letterSpacing: -0.5,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Active Projects',
-                    style: GoogleFonts.outfit(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.visibility_rounded, color: Colors.white, size: 20),
-              )
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: 180,
+                  child: Text(
+                    'AI helps you find the\nbest vendors instantly',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      color: Colors.black54,
+                      height: 1.3,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
                   onTap: () => context.push('/match-intake'),
                   child: Container(
-                    height: 54,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      color: AppColors.primary01,
+                      borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 10,
+                          color: AppColors.primary01.withValues(alpha: 0.3),
+                          blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.auto_awesome_rounded, color: AppColors.primary01, size: 20),
-                        const SizedBox(width: 8),
                         Text(
-                          'Find\nVendors',
-                          textAlign: TextAlign.center,
+                          'Find Vendors',
                           style: GoogleFonts.outfit(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.primary01,
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => context.push('/matches'),
-                  child: Container(
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.history_rounded, color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'View Past\nMatches',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
                             color: Colors.white,
-                            height: 1.1,
                           ),
                         ),
+                        const SizedBox(width: 10),
+                        const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
                       ],
                     ),
                   ),
                 ),
+              ],
+            ),
+          ),
+          // Illustration Placeholder
+          Positioned(
+            right: 0,
+            bottom: 0,
+            top: 20,
+            child: Container(
+              width: 190,
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(topRight: Radius.circular(32), bottomRight: Radius.circular(32)),
+                image: DecorationImage(
+                  image: NetworkImage('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400&auto=format&fit=crop'),
+                  fit: BoxFit.cover,
+                  alignment: Alignment(-0.2, 0),
+                ),
               ),
-            ],
-          )
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _buildActionCard('Find\nVendors', Icons.search_rounded, const Color(0xFFFEF2EC), AppColors.primary01, () => context.push('/match-intake')),
+        _buildActionCard('Past\nMatches', Icons.access_time_rounded, const Color(0xFFF8F9FA), Colors.black45, () => context.push('/matches')),
+        _buildActionCard('Saved\nVendors', Icons.favorite_border_rounded, const Color(0xFFF8F9FA), Colors.black45, () {}),
+      ],
+    );
+  }
+
+  Widget _buildActionCard(String title, IconData icon, Color bgColor, Color iconColor, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: (MediaQuery.of(context).size.width - 60) / 3,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: iconColor, size: 32),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+                height: 1.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -287,50 +282,16 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   Widget _buildSectionHeader(String title, String? subtitle, String actionText, VoidCallback onAction) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.primary01,
-              ),
-            ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.auto_awesome, color: AppColors.primary01, size: 12),
-                  const SizedBox(width: 4),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary01,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ]
-          ],
-        ),
-        GestureDetector(
-          onTap: onAction,
-          child: Text(
-            actionText,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary01,
-            ),
+        Text(
+          title,
+          style: GoogleFonts.outfit(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
           ),
         ),
+        const Icon(Icons.more_horiz_rounded, color: Colors.black26),
       ],
     );
   }
@@ -386,15 +347,15 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     return GestureDetector(
       onTap: () => context.push('/vendor-public/$id'),
       child: Container(
-        width: 180,
+        width: 240,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(32),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 25,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -405,9 +366,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             Stack(
               children: [
                 Container(
-                  height: 140,
+                  height: 160,
                   decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                     image: DecorationImage(
                       image: NetworkImage(imageUrl),
                       fit: BoxFit.cover,
@@ -415,70 +376,92 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   ),
                 ),
                 Positioned(
-                  top: 12,
-                  left: 12,
+                  top: 14,
+                  left: 14,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.star_rounded, color: AppColors.primary01, size: 10),
+                        const Icon(Icons.star_rounded, color: AppColors.primary01, size: 12),
                         const SizedBox(width: 4),
                         Text(
-                          'TOP MATCH',
+                          'Top Match',
                           style: GoogleFonts.outfit(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: AppColors.primary01,
-                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
                     ),
+                  ),
+                ),
+                Positioned(
+                  top: 14,
+                  right: 14,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.favorite_border_rounded, color: Colors.black45, size: 18),
                   ),
                 )
               ],
             ),
             // Details Section
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    category,
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary01,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
                   Text(
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 16,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary01,
+                      color: Colors.black,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  Text(
+                    category,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black45,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFFFB800), size: 14),
+                      const Icon(Icons.star_rounded, color: Color(0xFFFFB800), size: 18),
                       const SizedBox(width: 4),
                       Text(
                         rating,
                         style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Row(
+                        children: List.generate(4, (i) => const Icon(Icons.star_rounded, color: Color(0xFFFFB800), size: 14)),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '5 mi away',
+                        style: GoogleFonts.outfit(
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF6B7280),
+                          color: Colors.black38,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -504,15 +487,19 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             onTap: () => context.push('/match-intake'),
             child: Container(
               width: 280,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: const Color(0xFF4338CA), // Deep Indigo/Purple
-                borderRadius: BorderRadius.circular(28),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFC0B1FF), Color(0xFF9E8BFF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(36),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF4338CA).withValues(alpha: 0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
+                    color: const Color(0xFFC0B1FF).withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
@@ -520,135 +507,88 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white.withValues(alpha: 0.25),
+                      shape: BoxShape.circle,
                     ),
-                    child: Text(
-                      'NEW FEATURE',
-                      style: GoogleFonts.outfit(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                    child: const Icon(Icons.auto_awesome_mosaic_rounded, color: Colors.white, size: 28),
                   ),
                   const Spacer(),
                   Text(
-                    'AI Smart Matching',
+                    'AI Smart\nMatching',
                     style: GoogleFonts.outfit(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
                       color: Colors.white,
+                      height: 1.1,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Instantly find vendors that match your unique style and budget constraints.',
+                    'Let AI find the best vendors\nfor your unique events',
                     style: GoogleFonts.outfit(
                       fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.8),
-                      height: 1.4,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Text(
-                        'Try Now',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                    ],
-                  )
                 ],
               ),
             ),
           ),
           const SizedBox(width: 16),
-          // Dark Pro Card (Show a generic pro vendor tip or just hide if no data)
-          FutureBuilder<List<dynamic>>(
-            future: _recommendedVendorsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.hasData && snapshot.data!.length > 1) {
-                final v = snapshot.data![1];
-                return GestureDetector(
-                  onTap: () => context.push('/vendor-public/${v['id']}'),
-                  child: Container(
-                    width: 220,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary01,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'PRO HIGHLY RATED',
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          v['name'] ?? 'Elite Vendor',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          v['business_overview'] ?? 'Premium quality services.',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            color: Colors.white.withValues(alpha: 0.6),
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Text(
-                              'View Profile',
-                              style: GoogleFonts.outfit(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
+          // Dark Blue Card
+          Container(
+            width: 280,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2D3E6E), Color(0xFF1B2647)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(36),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1B2647).withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
+                  child: const Icon(Icons.star_outline_rounded, color: Colors.white, size: 28),
+                ),
+                const Spacer(),
+                Text(
+                  'Great\nServices',
+                  style: GoogleFonts.outfit(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Browse our top-rated\npro vendors instantly',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.8),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

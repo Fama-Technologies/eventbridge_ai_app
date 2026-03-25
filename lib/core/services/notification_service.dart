@@ -48,7 +48,9 @@ class NotificationService {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('User granted notification permission');
+      debugPrint('🔔 [NotificationService] User granted notification permission');
+    } else {
+      debugPrint('🔕 [NotificationService] User denied notification permission: ${settings.authorizationStatus}');
     }
 
     // 2. Setup Local Notifications (for foreground messages)
@@ -133,13 +135,16 @@ class NotificationService {
     if (savedToken == token) return;
 
     try {
+      debugPrint('🚀 [NotificationService] Syncing FCM Token for userId: $userId');
       final success = await ApiService.instance.updateFcmToken(userId, token);
       if (success) {
         await storage.setString('fcm_token', token);
-        debugPrint('FCM Token synced successfully');
+        debugPrint('✅ [NotificationService] FCM Token synced successfully: $token');
+      } else {
+        debugPrint('❌ [NotificationService] Backend failed to update FCM token');
       }
     } catch (e) {
-      debugPrint('Error syncing FCM token: $e');
+      debugPrint('🚨 [NotificationService] Error syncing FCM token: $e');
     }
   }
 

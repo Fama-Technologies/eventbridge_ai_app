@@ -443,11 +443,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> upgradePlanPesapal(String userId, String plan) async {
+  Future<Map<String, dynamic>> upgradePlanPesapal(String userId, String plan, {String currency = 'USD'}) async {
     try {
       final response = await _dio.post(
         '/api/vendor/upgrade-pesapal',
-        data: {'userId': userId, 'plan': plan},
+        data: {
+          'userId': userId,
+          'plan': plan,
+          'currency': currency,
+        },
       );
       return response.data;
     } on DioException catch (e) {

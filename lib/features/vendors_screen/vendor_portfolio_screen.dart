@@ -44,7 +44,15 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
         setState(() {
           _businessName = profile['businessName'] ?? 'My Business';
           if (profile['galleryUrls'] != null) {
-            _portfolioImages = List<dynamic>.from(profile['galleryUrls']);
+            _portfolioImages = (profile['galleryUrls'] as List).map((item) {
+              final url = _getDisplayUrl(item);
+              // Handle nested category if exists, otherwise fallback
+              String category = 'Other';
+              if (item is Map) {
+                category = item['category']?.toString() ?? 'Other';
+              }
+              return {'url': url, 'category': category};
+            }).toList();
           }
           _isLoading = false;
         });
@@ -448,15 +456,24 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
 
   String _getDisplayUrl(dynamic item) {
     if (item == null) return '';
-    if (item is Map) return item['url']?.toString() ?? '';
-    final str = item.toString();
-    if (str.startsWith('{') && str.endsWith('}')) {
-      try {
-        final decoded = json.decode(str);
-        if (decoded is Map) return decoded['url']?.toString() ?? '';
-      } catch (_) {}
+    if (item is String) {
+      if (item.startsWith('{') && item.endsWith('}')) {
+        try {
+          final decoded = json.decode(item);
+          return _getDisplayUrl(decoded);
+        } catch (_) {
+          return item;
+        }
+      }
+      return item;
     }
-    return str;
+    if (item is Map) {
+      final urlValue = item['url'];
+      if (urlValue != null) {
+        return _getDisplayUrl(urlValue);
+      }
+    }
+    return item.toString();
   }
 
   Widget _buildSliverAppBar(ThemeData theme, bool isDark) {
