@@ -164,7 +164,11 @@ class SharedLeadState extends Notifier<List<Lead>> {
       final userId = StorageService().getString('user_id');
       if (userId == null) return false;
 
-      debugPrint('[LeadState] Creating booking for lead $leadId');
+      // Find the lead to get customerId
+      final lead = getById(leadId);
+      final customerId = lead?.customerId;
+
+      debugPrint('[LeadState] Creating booking for lead $leadId (customer: $customerId)');
       final result = await ApiService.instance.createVendorBooking(
         userId: userId,
         bookingDate: bookingDate.toIso8601String(),
@@ -172,11 +176,19 @@ class SharedLeadState extends Notifier<List<Lead>> {
         eventType: eventType,
         totalPrice: price,
         notes: notes,
+        leadId: leadId,
+        clientId: customerId,
       );
 
       if (result['success'] == true) {
         debugPrint('[LeadState] Booking created, updating status to booked');
-        return await updateLeadStatus(leadId, 'booked');
+        // Backend now handles updating lead status to 'booked' automatically,
+        // but we update local state to reflect it immediately.
+        state = state.map((l) {
+          if (l.id == leadId) return l.copyWith(status: 'booked', isAccepted: true);
+          return l;
+        }).toList();
+        return true;
       }
       return false;
     } catch (e) {

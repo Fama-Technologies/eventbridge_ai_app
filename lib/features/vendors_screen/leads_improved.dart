@@ -130,9 +130,13 @@ class _LeadsScreenImprovedState extends ConsumerState<LeadsScreenImproved> {
     final allLeads = ref.watch(sharedLeadStateProvider);
 
     // Filter leads by segment
-    var filteredLeads = allLeads
-        .where((l) => _selectedSegment == 0 ? !l.isAccepted : l.isAccepted)
-        .toList();
+    var filteredLeads = allLeads.where((l) {
+      final isBooked = l.isAccepted ||
+          l.status == 'booked' ||
+          l.status == 'confirmed' ||
+          l.status == 'CONFIRMED';
+      return _selectedSegment == 0 ? !isBooked : isBooked;
+    }).toList();
 
     // Search filter
     if (_searchQuery.isNotEmpty) {
