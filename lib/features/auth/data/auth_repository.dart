@@ -1,11 +1,13 @@
 import 'package:eventbridge/core/network/api_service.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:eventbridge/core/services/notification_service.dart';
+import 'package:eventbridge/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 
-class AuthRepository {
+class AuthRepository implements IAuthRepository {
   final _storage = StorageService();
   final _firebaseAuth = firebase_auth.FirebaseAuth.instance;
   final _googleSignIn = gsi.GoogleSignIn.instance;
@@ -18,60 +20,170 @@ class AuthRepository {
     });
   }
 
-  Future<void> _handleGoogleSignInResult(gsi.GoogleSignInAccount account) async {
+  String get _firebaseCustomTokenUrl =>
+      'https://createfirebasecustomtoken-zo3ysx4pmq-uc.a.run.app';
+
+  Future<void> _signInToFirebaseMessagingUser({
+    required Map<String, dynamic> user,
+    String? fallbackEmail,
+    String? fallbackRole,
+  }) async {
+    final userId = user['id']?.toString() ?? '';
+    if (userId.isEmpty) return;
+
+    if (_firebaseAuth.currentUser?.uid == userId) {
+      debugPrint(
+        'Firebase messaging auth already aligned for backend user $userId.',
+      );
+      return;
+    }
+
+    if (_firebaseAuth.currentUser != null) {
+      debugPrint(
+        'Switching Firebase messaging auth from ${_firebaseAuth.currentUser?.uid} to backend user $userId.',
+      );
+      await _firebaseAuth.signOut();
+    }
+
+    final backendToken = await _storage.getToken();
+    final email =
+        user['email']?.toString() ??
+        fallbackEmail ??
+        '$userId@eventbridge.local';
+    final role = user['accountType']?.toString() ?? fallbackRole ?? 'CUSTOMER';
+    final name =
+        user['firstName']?.toString() ?? _storage.getString('user_name') ?? '';
+
     try {
-      final googleAuth = await account.authentication;
+      final response = await Dio().post(
+        _firebaseCustomTokenUrl,
+        data: {'userId': userId, 'email': email, 'name': name, 'role': role},
+        options: Options(
+          headers: {
+            if (backendToken != null && backendToken.isNotEmpty)
+              'Authorization': 'Bearer $backendToken',
+          },
+        ),
+      );
+
+      final customToken = response.data['customToken']?.toString();
+      if (customToken == null || customToken.isEmpty) {
+        throw Exception('[Auth] Firebase custom token missing: ${response.data}');
+      }
+
+      await _firebaseAuth.signInWithCustomToken(customToken);
+      debugPrint('Firebase messaging auth restored for backend user $userId.');
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final msg = e.response?.data?.toString();
+      throw Exception(
+        '[Auth] Custom token request failed ($status): ${msg ?? e.message}',
+      );
+    } catch (e) {
+      throw Exception('[Auth] Failed to sign in to Firebase: $e');
+    }
+  }
+
+  Future<void> restoreFirebaseMessagingAuthIfNeeded() async {
+    final token = await _storage.getToken();
+    final userId = _storage.getString('user_id');
+    if (token == null ||
+        token.isEmpty ||
+        userId == null ||
+        userId.isEmpty ||
+        _firebaseAuth.currentUser?.uid == userId) {
+      return;
+    }
+
+    final email =
+        _storage.getString('user_email') ?? '$userId@eventbridge.local';
+    final name = _storage.getString('user_name') ?? '';
+    final role = _storage.getString('user_role') ?? 'CUSTOMER';
+
+    try {
+      await _signInToFirebaseMessagingUser(
+        user: {
+          'id': userId,
+          'email': email,
+          'firstName': name,
+          'accountType': role,
+        },
+        fallbackEmail: email,
+        fallbackRole: role,
+      );
+      await NotificationService().updateToken();
+    } catch (e) {
+      debugPrint('[Auth] CRITICAL: restoreFirebaseMessagingAuthIfNeeded failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _handleGoogleSignInResult(
+    gsi.GoogleSignInAccount account,
+  ) async {
+    try {
+      final googleAuth = account.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null) return;
 
       final role = getUserRole() ?? 'CUSTOMER';
       final api = ApiService.instance;
-      final result = await api.googleAuth(
-        idToken: idToken,
-        accountType: role,
-      );
+      final result = await api.googleAuth(idToken: idToken, accountType: role);
 
       final token = result['token'] as String;
       final user = result['user'] as Map<String, dynamic>;
 
       await _storage.saveToken(token);
       await _storage.setString('user_id', user['id']?.toString() ?? '');
-      await _storage.setString('user_role', user['accountType'] ?? role.toUpperCase());
+      await _storage.setString(
+        'user_role',
+        user['accountType'] ?? role.toUpperCase(),
+      );
       await _storage.setString('user_name', user['firstName'] ?? '');
       await _storage.setString('user_email', user['email'] ?? '');
       if (user['image'] != null) {
         await _storage.setString('user_image', user['image']);
       }
-      
-      
+
       // Save vendor onboarding status
       final accountType = user['accountType'] ?? role.toUpperCase();
-      final onboardingCompleted = user['onboardingCompleted'] ?? (accountType == 'VENDOR' ? false : true);
-      await _storage.setString('onboarding_completed', onboardingCompleted.toString());
+      final onboardingCompleted =
+          user['onboardingCompleted'] ??
+          (accountType == 'VENDOR' ? false : true);
+      await _storage.setString(
+        'onboarding_completed',
+        onboardingCompleted.toString(),
+      );
+
+      await _signInToFirebaseMessagingUser(
+        user: user,
+        fallbackRole: role.toUpperCase(),
+      );
 
       // Sync FCM Token
       await NotificationService().updateToken();
     } catch (e) {
-      // In a real app, you might want to expose this error via a stream
-      print('Error in background Google Sign-In: $e');
+      debugPrint('Error in background Google Sign-In: $e');
     }
   }
 
   // Stream of auth state changes
+  @override
   Stream<firebase_auth.User?> get authStateChanges =>
       _firebaseAuth.authStateChanges();
 
   // Current user
   firebase_auth.User? get currentUser => _firebaseAuth.currentUser;
 
+  @override
   Future<void> login(String email, String password) async {
     try {
       final api = ApiService.instance;
       final result = await api.login(email, password);
-      
+
       final token = result['token'] as String;
       final user = result['user'] as Map<String, dynamic>;
-      
+
       await _storage.saveToken(token);
       await _storage.setString('user_id', user['id']?.toString() ?? '');
       await _storage.setString('user_role', user['accountType'] ?? 'CUSTOMER');
@@ -82,12 +194,19 @@ class AuthRepository {
       }
       // Save vendor onboarding status
       final accountType = user['accountType'] ?? 'CUSTOMER';
-      final onboardingCompleted = user['onboardingCompleted'] ?? (accountType == 'VENDOR' ? false : true);
-      await _storage.setString('onboarding_completed', onboardingCompleted.toString());
-      
+      final onboardingCompleted =
+          user['onboardingCompleted'] ??
+          (accountType == 'VENDOR' ? false : true);
+      await _storage.setString(
+        'onboarding_completed',
+        onboardingCompleted.toString(),
+      );
+
       // Save vendor verification status
       final verificationStatus = user['verificationStatus'] ?? 'not_submitted';
       await _storage.setString('verification_status', verificationStatus);
+
+      await _signInToFirebaseMessagingUser(user: user);
 
       // Sync FCM Token
       await NotificationService().updateToken();
@@ -96,6 +215,7 @@ class AuthRepository {
     }
   }
 
+  @override
   Future<void> signup(
     String fullName,
     String email,
@@ -110,13 +230,16 @@ class AuthRepository {
         password: password,
         role: role,
       );
-      
+
       final token = result['token'] as String;
       final user = result['user'] as Map<String, dynamic>;
-      
+
       await _storage.saveToken(token);
       await _storage.setString('user_id', user['id']?.toString() ?? '');
-      await _storage.setString('user_role', user['accountType'] ?? role.toUpperCase());
+      await _storage.setString(
+        'user_role',
+        user['accountType'] ?? role.toUpperCase(),
+      );
       await _storage.setString('user_name', user['firstName'] ?? '');
       await _storage.setString('user_email', user['email'] ?? '');
       if (user['image'] != null) {
@@ -129,6 +252,12 @@ class AuthRepository {
         await _storage.setString('onboarding_completed', 'true');
       }
 
+      await _signInToFirebaseMessagingUser(
+        user: user,
+        fallbackEmail: email,
+        fallbackRole: role.toUpperCase(),
+      );
+
       // Sync FCM Token
       await NotificationService().updateToken();
     } catch (e) {
@@ -136,6 +265,7 @@ class AuthRepository {
     }
   }
 
+  @override
   Future<void> continueWithGoogle({String role = 'CUSTOMER'}) async {
     try {
       // Save role so it's available to our listener
@@ -149,9 +279,8 @@ class AuthRepository {
       }
 
       final googleUser = await _googleSignIn.authenticate();
-      if (googleUser == null) return;
-      
-      final googleAuth = await googleUser.authentication;
+
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
@@ -159,31 +288,41 @@ class AuthRepository {
       }
 
       final api = ApiService.instance;
-      final result = await api.googleAuth(
-        idToken: idToken,
-        accountType: role,
-      );
+      final result = await api.googleAuth(idToken: idToken, accountType: role);
 
       final token = result['token'] as String;
       final user = result['user'] as Map<String, dynamic>;
 
       await _storage.saveToken(token);
       await _storage.setString('user_id', user['id']?.toString() ?? '');
-      await _storage.setString('user_role', user['accountType'] ?? role.toUpperCase());
+      await _storage.setString(
+        'user_role',
+        user['accountType'] ?? role.toUpperCase(),
+      );
       await _storage.setString('user_name', user['firstName'] ?? '');
       await _storage.setString('user_email', user['email'] ?? '');
       if (user['image'] != null) {
         await _storage.setString('user_image', user['image']);
       }
-      
+
       // Save vendor onboarding status
       final accountType = user['accountType'] ?? role.toUpperCase();
-      final onboardingCompleted = user['onboardingCompleted'] ?? (accountType == 'VENDOR' ? false : true);
-      await _storage.setString('onboarding_completed', onboardingCompleted.toString());
-      
+      final onboardingCompleted =
+          user['onboardingCompleted'] ??
+          (accountType == 'VENDOR' ? false : true);
+      await _storage.setString(
+        'onboarding_completed',
+        onboardingCompleted.toString(),
+      );
+
       // Save vendor verification status
       final verificationStatus = user['verificationStatus'] ?? 'not_submitted';
       await _storage.setString('verification_status', verificationStatus);
+
+      await _signInToFirebaseMessagingUser(
+        user: user,
+        fallbackRole: role.toUpperCase(),
+      );
 
       // Sync FCM Token
       await NotificationService().updateToken();
@@ -192,13 +331,14 @@ class AuthRepository {
     }
   }
 
+  @override
   Future<void> logout() async {
     try {
       await _firebaseAuth.signOut();
     } catch (e) {
       debugPrint('Firebase signout error: $e');
     }
-    
+
     try {
       if (kIsWeb) {
         await _googleSignIn.disconnect();
@@ -208,7 +348,7 @@ class AuthRepository {
     } catch (e) {
       debugPrint('Google signout error: $e');
     }
-    
+
     await _storage.deleteToken();
     await _storage.remove('user_id');
     await _storage.remove('user_role');
@@ -224,6 +364,7 @@ class AuthRepository {
     return token != null && token.isNotEmpty;
   }
 
+  @override
   Future<void> saveUserRole(String role) async {
     await _storage.setString('user_role', role);
   }

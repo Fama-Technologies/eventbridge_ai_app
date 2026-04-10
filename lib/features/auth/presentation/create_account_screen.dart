@@ -24,6 +24,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
   final _passCtrl = TextEditingController();
   bool _isPasswordVisible = false;
   bool _stayLoggedIn = false;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -306,7 +307,31 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
                       _buildSocialButton(
                         'Continue with Google',
                         'assets/icons/google.png',
-                        () {},
+                        _isGoogleLoading ? null : () async {
+                          setState(() => _isGoogleLoading = true);
+                          try {
+                            await ref
+                                .read(authControllerProvider.notifier)
+                                .continueWithGoogle(role: 'CUSTOMER');
+                            if (!context.mounted) return;
+                            if (ref.read(authControllerProvider).hasValue) {
+                              context.go('/customer-home');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              AppToast.show(
+                                context,
+                                message: e.toString().replaceAll('Exception: ', ''),
+                                type: ToastType.error,
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _isGoogleLoading = false);
+                            }
+                          }
+                        },
+                        isLoading: _isGoogleLoading,
                       ),
                       delay: 460,
                     ),
@@ -493,7 +518,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
     );
   }
 
-  Widget _buildSocialButton(String label, String iconPath, VoidCallback onTap) {
+  Widget _buildSocialButton(String label, String iconPath, VoidCallback? onTap, {bool isLoading = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       width: double.infinity,
@@ -511,24 +536,33 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
               ? const Color(0xFF222222)
               : AppColors.backgroundLight,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (iconPath.endsWith('.svg'))
-              SvgPicture.asset(iconPath, height: 24)
-            else
-              Image.asset(iconPath, height: 24),
-            const gap.Gap(12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : AppColors.darkNeutral01,
+        child: isLoading
+            ? const SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(
+                  color: AppColors.primary01,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (iconPath.endsWith('.svg'))
+                    SvgPicture.asset(iconPath, height: 24)
+                  else
+                    Image.asset(iconPath, height: 24),
+                  const gap.Gap(12),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.darkNeutral01,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

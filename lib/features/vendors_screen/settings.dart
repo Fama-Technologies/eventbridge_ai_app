@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge/features/vendors_screen/vendor_profile_settings.dart';
-import 'package:eventbridge/features/vendors_screen/vendor_personal_information_screen.dart';
+
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:eventbridge/features/auth/data/auth_repository.dart';
@@ -12,8 +11,11 @@ import 'package:eventbridge/core/services/upload_service.dart';
 import 'package:eventbridge/core/network/api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:eventbridge/core/services/notification_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+
 import 'dart:io';
+import 'dart:ui';
 
 class VendorSettingsScreen extends StatefulWidget {
   const VendorSettingsScreen({super.key});
@@ -26,10 +28,10 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
   String _userName = 'Vendor';
   String? _userImage;
   bool _isUpdatingAvatar = false;
-  bool _isLoadingData = true;
   String? _planName;
   String? _joinedDate;
   bool _isVerifiedBadge = false;
+  bool _isLoadingData = true;
 
   @override
   void initState() {
@@ -62,7 +64,10 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
         if (mounted) {
           setState(() {
             _planName = profile['subscriptionPlan'] ?? 'Basic';
-            storage.setString('vendor_plan', _planName!); // Persist for other screens
+            storage.setString(
+              'vendor_plan',
+              _planName!,
+            ); // Persist for other screens
             final createdAt = profile['createdAt'];
             if (createdAt != null) {
               final date = DateTime.parse(createdAt);
@@ -100,11 +105,12 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
 
       final file = File(pickedFile.path);
       final bytes = await file.readAsBytes();
-      
+
       final uploadService = UploadService.instance;
       final avatarUrl = await uploadService.uploadFile(
         bytes: bytes,
-        fileName: 'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        fileName:
+            'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
         contentType: 'image/jpeg',
         folder: 'avatars/$userId',
       );
@@ -118,14 +124,22 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
 
       // Persist locally
       await storage.setString('user_image', avatarUrl);
-      
+
       if (mounted) {
         setState(() => _userImage = avatarUrl);
-        AppToast.show(context, message: 'Profile picture updated!', type: ToastType.success);
+        AppToast.show(
+          context,
+          message: 'Profile picture updated!',
+          type: ToastType.success,
+        );
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, message: 'Failed to update avatar', type: ToastType.error);
+        AppToast.show(
+          context,
+          message: 'Failed to update avatar',
+          type: ToastType.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -139,9 +153,12 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? AppColors.darkNeutral01 : const Color(0xFFF7F7F8);
     final cardColor = isDark ? AppColors.darkNeutral02 : Colors.white;
-    final textPrimary = isDark ? AppColors.shadesWhite : const Color(0xFF1E293B);
-    final textSecondary = isDark ? AppColors.darkNeutral04 : const Color(0xFF64748B);
-    final borderColor = isDark ? AppColors.darkNeutral03 : const Color(0xFFF1F5F9);
+    final textPrimary = isDark
+        ? AppColors.shadesWhite
+        : const Color(0xFF1E293B);
+    final textSecondary = isDark
+        ? AppColors.darkNeutral04
+        : const Color(0xFF64748B);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -150,7 +167,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 28),
+          icon: const Icon(
+            Icons.chevron_left_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -207,7 +228,14 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
                     child: GridView.count(
                       crossAxisCount: 10,
                       physics: const NeverScrollableScrollPhysics(),
-                      children: List.generate(40, (i) => const Icon(Icons.circle, size: 4, color: Colors.white)),
+                      children: List.generate(
+                        40,
+                        (i) => const Icon(
+                          Icons.circle,
+                          size: 4,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -215,12 +243,16 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
                 Positioned.fill(
                   top: 40, // Account for app bar height roughly
                   child: Center(
-                    child: _buildProfileHeader(isDark, textPrimary, textSecondary),
+                    child: _buildProfileHeader(
+                      isDark,
+                      textPrimary,
+                      textSecondary,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16), 
+            const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -259,7 +291,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
     );
   }
 
-  Widget _buildProfileHeader(bool isDark, Color textPrimary, Color textSecondary) {
+  Widget _buildProfileHeader(
+    bool isDark,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -275,16 +311,26 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: Icon(
-                      Icons.king_bed_rounded, // Using king_bed as a simple crown representation or custom icon
-                      color: const Color(0xFFFFD700),
-                      size: 28,
-                    ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                     .scale(duration: 1.seconds, begin: const Offset(1, 1), end: const Offset(1.1, 1.1))
-                     .shimmer(delay: 2.seconds),
+                    child:
+                        Icon(
+                              Icons
+                                  .king_bed_rounded, // Using king_bed as a simple crown representation or custom icon
+                              color: const Color(0xFFFFD700),
+                              size: 28,
+                            )
+                            .animate(
+                              onPlay: (controller) =>
+                                  controller.repeat(reverse: true),
+                            )
+                            .scale(
+                              duration: 1.seconds,
+                              begin: const Offset(1, 1),
+                              end: const Offset(1.1, 1.1),
+                            )
+                            .shimmer(delay: 2.seconds),
                   ),
                 ),
-              
+
               Container(
                 width: 100,
                 height: 100,
@@ -292,36 +338,48 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
                   shape: BoxShape.circle,
                   color: Colors.white.withOpacity(0.2),
                   border: Border.all(
-                    color: _planName?.toLowerCase() == 'business_pro' 
-                        ? const Color(0xFFFFD700) 
+                    color: _planName?.toLowerCase() == 'business_pro'
+                        ? const Color(0xFFFFD700)
                         : Colors.white.withOpacity(0.5),
                     width: 3,
                   ),
                 ),
                 child: ClipOval(
-                  child: _isUpdatingAvatar 
-                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : (_userImage != null && _userImage!.isNotEmpty
-                        ? Image.network(
-                            _userImage!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildInitialsPlaceholder(isHeader: true),
-                          )
-                        : _buildInitialsPlaceholder(isHeader: true)),
+                  child: _isUpdatingAvatar
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : (_userImage != null && _userImage!.isNotEmpty
+                            ? Image.network(
+                                _userImage!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildInitialsPlaceholder(isHeader: true),
+                              )
+                            : _buildInitialsPlaceholder(isHeader: true)),
                 ),
               ),
-              
+
               // Free Plan White Bubble Badge (Exterior Tab Look)
               if (_planName?.toLowerCase() != 'business_pro')
                 Positioned(
                   left: 92, // Positioned tangent to the 100px avatar edge
                   top: 38,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFEA580C), width: 2), 
+                      border: Border.all(
+                        color: const Color(0xFFEA580C),
+                        width: 2,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.15),
@@ -351,7 +409,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFEA580C), size: 16),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFFEA580C),
+                    size: 16,
+                  ),
                 ),
               ),
             ],
@@ -400,7 +462,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.upgrade_rounded, color: Colors.white, size: 14),
+                const Icon(
+                  Icons.upgrade_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   _planName == null || _planName == 'free_trial'
@@ -444,7 +510,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
     );
   }
 
-  Widget _buildAccountSection(Color cardColor, Color textPrimary, Color textSecondary) {
+  Widget _buildAccountSection(
+    Color cardColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
@@ -471,9 +541,14 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             title: 'Location',
             textPrimary: textPrimary,
             textSecondary: textSecondary,
-            onTap: () {
-              context.push('/vendor-profile-settings');
-            },
+            onTap: () => _showLocationPicker(context),
+          ),
+          _buildListItem(
+            icon: Icons.photo_library_outlined,
+            title: 'My Portfolio',
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            onTap: () => context.push('/vendor-portfolio'),
           ),
           _buildListItem(
             icon: Icons.vpn_key_outlined,
@@ -490,7 +565,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
     );
   }
 
-  Widget _buildOthersSection(Color cardColor, Color textPrimary, Color textSecondary) {
+  Widget _buildOthersSection(
+    Color cardColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
@@ -504,7 +583,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             onTap: () {
-              AppToast.show(context, message: 'My Items coming soon!', type: ToastType.info);
+              AppToast.show(
+                context,
+                message: 'My Items coming soon!',
+                type: ToastType.info,
+              );
             },
           ),
           _buildListItem(
@@ -513,7 +596,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             onTap: () {
-              AppToast.show(context, message: 'Preferences coming soon!', type: ToastType.info);
+              AppToast.show(
+                context,
+                message: 'Preferences coming soon!',
+                type: ToastType.info,
+              );
             },
           ),
           _buildListItem(
@@ -522,7 +609,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             onTap: () {
-              AppToast.show(context, message: 'Language coming soon!', type: ToastType.info);
+              AppToast.show(
+                context,
+                message: 'Language coming soon!',
+                type: ToastType.info,
+              );
             },
           ),
           _buildListItem(
@@ -531,7 +622,11 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             onTap: () {
-              AppToast.show(context, message: 'Reviews coming soon!', type: ToastType.info);
+              AppToast.show(
+                context,
+                message: 'Reviews coming soon!',
+                type: ToastType.info,
+              );
             },
           ),
           _buildListItem(
@@ -564,12 +659,20 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Delete Account?'),
-                  content: const Text('This will permanently delete your account and all data. This action cannot be undone.'),
+                  content: const Text(
+                    'This will permanently delete your account and all data. This action cannot be undone.',
+                  ),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(color: Color(0xFFEF4444)),
+                      ),
                     ),
                   ],
                 ),
@@ -581,7 +684,12 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
                     await ApiService.instance.deleteAccount(userId);
                   } catch (e) {
                     if (mounted) {
-                      AppToast.show(context, message: 'Failed to delete account: ${e.toString().replaceAll("Exception: ", "")}', type: ToastType.error);
+                      AppToast.show(
+                        context,
+                        message:
+                            'Failed to delete account: ${e.toString().replaceAll("Exception: ", "")}',
+                        type: ToastType.error,
+                      );
                     }
                     return;
                   }
@@ -596,6 +704,48 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
     );
   }
 
+  void _showLocationPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => LocationPickerSheet(
+        onLocationSelected: (lat, lng, address) async {
+          final userId = StorageService().getString('user_id');
+          if (userId == null) return;
+
+          try {
+            await ApiService.instance.submitVendorOnboarding(
+              userId: userId,
+              businessName:
+                  StorageService().getString('business_name') ?? 'Vendor',
+              latitude: lat,
+              longitude: lng,
+              location: address,
+            );
+
+            if (mounted) {
+              StorageService().setString('vendor_location', address);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Location saved successfully')),
+              );
+              Navigator.pop(context);
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to save location: $e'),
+                  backgroundColor: const Color(0xFFDC2626),
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
   Widget _buildListItem({
     required IconData icon,
     required String title,
@@ -606,7 +756,9 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: isLast ? const BorderRadius.vertical(bottom: Radius.circular(16)) : null,
+      borderRadius: isLast
+          ? const BorderRadius.vertical(bottom: Radius.circular(16))
+          : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
@@ -628,5 +780,422 @@ class _VendorSettingsScreenState extends State<VendorSettingsScreen> {
         ),
       ),
     );
+  }
+}
+
+// Location Picker Bottom Sheet Widget
+class LocationPickerSheet extends StatefulWidget {
+  final Function(double, double, String) onLocationSelected;
+
+  const LocationPickerSheet({
+    super.key,
+    required this.onLocationSelected,
+  });
+
+  @override
+  State<LocationPickerSheet> createState() => _LocationPickerSheetState();
+}
+
+class _LocationPickerSheetState extends State<LocationPickerSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  bool _isBusinessMode = true;
+  double? _lat;
+  double? _lng;
+  String? _address;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark
+              ? AppColors.backgroundDark.withValues(alpha: 0.95)
+              : Colors.white.withValues(alpha: 0.98),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+          border: Border(
+            top: BorderSide(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.04),
+              width: 1,
+            ),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 16, bottom: 16),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Set Your Location',
+                    style: GoogleFonts.outfit(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Help clients find you',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.6)
+                          : const Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Tab buttons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildTabButton(
+                      label: 'Business Address',
+                      isActive: _isBusinessMode,
+                      isDark: isDark,
+                      onTap: () =>
+                          setState(() => _isBusinessMode = true),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTabButton(
+                      label: 'Current Location',
+                      isActive: !_isBusinessMode,
+                      isDark: isDark,
+                      onTap: () =>
+                          setState(() => _isBusinessMode = false),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Content
+            if (_isLoading)
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      _isBusinessMode
+                          ? 'Searching location...'
+                          : 'Getting your location...',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.7)
+                            : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+              )
+            else if (_address != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary01.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary01.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle_rounded,
+                          color: AppColors.primary01, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _address!,
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: GestureDetector(
+                  onTap: _isBusinessMode
+                      ? _selectBusinessAddress
+                      : _getCurrentLocation,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.darkNeutral02.withValues(alpha: 0.3)
+                          : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primary01.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _isBusinessMode
+                            ? 'Search for your business address'
+                            : 'Detect my current location',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary01,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 32),
+
+            // Save button
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  24, 0, 24, MediaQuery.of(context).padding.bottom + 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed:
+                      (_lat == null || _lng == null || _address == null)
+                          ? null
+                          : () {
+                            widget.onLocationSelected(_lat!, _lng!, _address!);
+                          },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary01,
+                    disabledBackgroundColor:
+                        AppColors.primary01.withValues(alpha: 0.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(
+                    'Save Location',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabButton({
+    required String label,
+    required bool isActive,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.primary01.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive
+                ? AppColors.primary01.withValues(alpha: 0.3)
+                : isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.1),
+            width: 1.5,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isActive
+                  ? AppColors.primary01
+                  : isDark
+                      ? Colors.white.withValues(alpha: 0.6)
+                      : const Color(0xFF6B7280),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectBusinessAddress() async {
+    // Use Google Places API similar to vendor onboarding
+    // For now, show a simple dialog
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search Address'),
+        content: TextField(
+          decoration: const InputDecoration(
+            hintText: 'Enter business address',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) {},
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, {'lat': 0.3476, 'lng': 32.5825, 'address': 'Kampala, Uganda'}),
+            child: const Text('Select'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _lat = result['lat'];
+        _lng = result['lng'];
+        _address = result['address'];
+        _errorMessage = null;
+      });
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Request permission
+      final permission = await Geolocator.requestPermission();
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        setState(() {
+          _errorMessage =
+              'Location permission denied. Enable in phone settings.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Get current position
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Reverse geocode to get address
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      final place = placemarks.isNotEmpty ? placemarks.first : null;
+      final address = place != null
+          ? '${place.locality}, ${place.country}'
+          : 'Unknown location';
+
+      setState(() {
+        _lat = position.latitude;
+        _lng = position.longitude;
+        _address = address;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to get location: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 }

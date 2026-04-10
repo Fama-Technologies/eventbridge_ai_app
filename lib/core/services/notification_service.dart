@@ -1,4 +1,6 @@
-import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -7,15 +9,30 @@ import 'package:eventbridge/core/network/api_service.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:eventbridge/core/router/app_router.dart';
 import 'package:flutter/foundation.dart';
+import 'package:eventbridge/features/shared/widgets/top_notification.dart';
+import 'package:eventbridge/core/network/websocket_service.dart';
+import 'package:flutter/material.dart';
+import 'package:eventbridge/features/vendors_screen/widgets/lead_details_bottom_sheet.dart';
+import 'package:eventbridge/firebase_options.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
+  /// Hook registered by the auth layer at startup. When Firebase Auth uid
+  /// diverges from backend user_id during FCM token sync, NotificationService
+  /// calls this to re-run the custom-token restore flow without taking a
+  /// direct dependency on AuthRepository (which would be a circular import).
+  static Future<void> Function()? firebaseAuthRestoreHook;
+
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
+
+  // Guard against re-entrant restore loops: updateToken → _saveTokenToFirestore
+  // → firebaseAuthRestoreHook → restoreFirebaseMessagingAuthIfNeeded → updateToken…
+  bool _isRestoringAuth = false;
 
   // Notification ID range reserved for booking reminders: 1000–1999
   static const int _reminderBaseId = 1000;
@@ -48,9 +65,13 @@ class NotificationService {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('🔔 [NotificationService] User granted notification permission');
+      debugPrint(
+        '🔔 [NotificationService] User granted notification permission',
+      );
     } else {
-      debugPrint('🔕 [NotificationService] User denied notification permission: ${settings.authorizationStatus}');
+      debugPrint(
+        '🔕 [NotificationService] User denied notification permission: ${settings.authorizationStatus}',
+      );
     }
 
     // 2. Setup Local Notifications (for foreground messages)
@@ -58,10 +79,11 @@ class NotificationService {
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings();
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsIOS,
+        );
     await _localNotifications.initialize(
       settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
@@ -84,16 +106,45 @@ class NotificationService {
     );
 
     await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
 
     // 3. Handle Foreground Messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Got message in foreground');
-      debugPrint('Message data: ${message.data}');
+      debugPrint('Got message in foreground: ${message.data}');
 
-      if (message.notification != null) {
-        _showLocalNotification(message);
+      final chatId = message.data['chat_id']?.toString();
+      if (chatId != null && WebSocketService.activeChatId == chatId) {
+        debugPrint(
+          'Suppressing foreground notification: User is already in the active chat.',
+        );
+        return;
+      }
+
+      final overlayContext = rootNavigatorKey.currentContext;
+      if (overlayContext != null && overlayContext.mounted) {
+        final title =
+            message.notification?.title ??
+            message.data['sender_name'] ??
+            'New Message';
+        final body =
+            message.notification?.body ?? message.data['text'] ?? 'Tap to view';
+
+        TopNotificationOverlay.show(
+          context: overlayContext,
+          title: title,
+          message: body,
+          onTap: () {
+            _handleNavigation(chatId ?? '', type: message.data['type']);
+          },
+        );
+      } else {
+        // Fallback to local notification if context is missing
+        if (message.notification != null) {
+          _showLocalNotification(message);
+        }
       }
     });
 
@@ -101,7 +152,10 @@ class NotificationService {
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       debugPrint('Notification clicked! ${message.data}');
       final type = message.data['type'];
-      final id = message.data['chat_id'] ?? message.data['lead_id'] ?? message.data['vendor_id'];
+      final id =
+          message.data['chat_id'] ??
+          message.data['lead_id'] ??
+          message.data['vendor_id'];
       if (id != null) {
         _handleNavigation(id, type: type);
       }
@@ -112,6 +166,9 @@ class NotificationService {
 
     // 6. Listen for token refreshes
     _fcm.onTokenRefresh.listen((token) => _saveTokenToBackend(token));
+    
+    // Diagnostic
+    debugPrint('🔔 [NotificationService] Initialized. Checking push capability...');
   }
 
   Future<void> updateToken() async {
@@ -119,10 +176,13 @@ class NotificationService {
     try {
       String? token = await _fcm.getToken();
       if (token != null) {
+        debugPrint('✅ [NotificationService] FCM Token retrieved: $token');
         _saveTokenToBackend(token);
+      } else {
+        debugPrint('⚠️ [NotificationService] FCM Token is NULL - push will not work.');
       }
     } catch (e) {
-      debugPrint('Failed to get FCM token: $e');
+      debugPrint('❌ [NotificationService] Failed to get FCM token: $e');
     }
   }
 
@@ -132,40 +192,134 @@ class NotificationService {
     if (userId == null) return;
 
     final savedToken = storage.getString('fcm_token');
-    if (savedToken == token) return;
+    final tokenUnchanged = savedToken == token;
 
     try {
-      debugPrint('🚀 [NotificationService] Syncing FCM Token for userId: $userId');
-      final success = await ApiService.instance.updateFcmToken(userId, token);
-      if (success) {
+      if (!tokenUnchanged) {
+        debugPrint(
+          '🚀 [NotificationService] Syncing FCM Token for userId: $userId',
+        );
+        final success = await ApiService.instance.updateFcmToken(userId, token);
+        if (!success) {
+          debugPrint(
+            '❌ [NotificationService] Backend failed to update FCM token',
+          );
+          return;
+        }
+
         await storage.setString('fcm_token', token);
-        debugPrint('✅ [NotificationService] FCM Token synced successfully: $token');
-      } else {
-        debugPrint('❌ [NotificationService] Backend failed to update FCM token');
+        debugPrint(
+          '✅ [NotificationService] FCM Token synced successfully: $token',
+        );
       }
+
+      await _saveTokenToFirestore(userId, token);
     } catch (e) {
       debugPrint('🚨 [NotificationService] Error syncing FCM token: $e');
     }
   }
 
+  Future<void> _saveTokenToFirestore(String userId, String token) async {
+    var currentFirebaseUser =
+        firebase_auth.FirebaseAuth.instance.currentUser;
+
+    // If Firebase Auth is not aligned with the backend user_id, the
+    // Firestore security rule on `notificationTokens/{uid}` will reject
+    // the write AND the Cloud Function `onMessageCreate` won't find a
+    // token for this user — so pushes silently stop firing. Try to
+    // restore the custom-token session once before giving up.
+    if (currentFirebaseUser == null || currentFirebaseUser.uid != userId) {
+      // Prevent infinite loop: restore calls updateToken which calls us again
+      if (_isRestoringAuth) {
+        debugPrint(
+          '⚠️ [NotificationService] Skipping nested restore attempt — '
+          'already restoring auth.',
+        );
+        return;
+      }
+
+      debugPrint(
+        '⚠️ [NotificationService] Firebase uid (${currentFirebaseUser?.uid}) '
+        '!= backend user_id ($userId). Attempting custom-token restore...',
+      );
+      final restore = firebaseAuthRestoreHook;
+      if (restore == null) {
+        debugPrint(
+          '🚨 [NotificationService] No firebaseAuthRestoreHook registered — '
+          'auth layer must set NotificationService.firebaseAuthRestoreHook '
+          'at startup.',
+        );
+      } else {
+        _isRestoringAuth = true;
+        try {
+          await restore();
+        } catch (e) {
+          debugPrint(
+            '🚨 [NotificationService] firebaseAuthRestoreHook threw: $e',
+          );
+        } finally {
+          _isRestoringAuth = false;
+        }
+      }
+      currentFirebaseUser =
+          firebase_auth.FirebaseAuth.instance.currentUser;
+      if (currentFirebaseUser == null ||
+          currentFirebaseUser.uid != userId) {
+        debugPrint(
+          '🚨 [NotificationService] Firebase Auth still not aligned with '
+          'backend user $userId after restore attempt. Skipping '
+          'notificationTokens/$userId write — push notifications will NOT '
+          'be delivered to this user until login/restart fixes the uid.',
+        );
+        return;
+      }
+      debugPrint(
+        '✅ [NotificationService] Firebase Auth aligned after restore.',
+      );
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('notificationTokens')
+          .doc(userId)
+          .set({
+            'userId': userId,
+            'token': token,
+            'updatedAt': FieldValue.serverTimestamp(),
+            'platform': defaultTargetPlatform.name,
+          }, SetOptions(merge: true));
+      debugPrint(
+        '✅ [NotificationService] FCM token written to notificationTokens/$userId',
+      );
+    } catch (e) {
+      debugPrint(
+        '🚨 [NotificationService] Failed to write notificationTokens/$userId: $e',
+      );
+    }
+  }
+
   Future<void> _showLocalNotification(RemoteMessage message) async {
     final type = message.data['type'] ?? 'message';
-    final payload = message.data['chat_id'] ?? message.data['lead_id'] ?? message.data['vendor_id'];
+    final payload =
+        message.data['chat_id'] ??
+        message.data['lead_id'] ??
+        message.data['vendor_id'];
 
     final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'high_importance_channel',
-      'High Importance Notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      enableVibration: true,
-      vibrationPattern: Int64List.fromList([0, 500, 200, 500]),
-      playSound: true,
-      ticker: 'ticker',
+          'high_importance_channel',
+          'High Importance Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+          showWhen: true,
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList([0, 500, 200, 500]),
+          playSound: true,
+          ticker: 'ticker',
+        );
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
     );
-    final NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
 
     await _localNotifications.show(
       id: message.hashCode,
@@ -185,7 +339,11 @@ class NotificationService {
     if (kIsWeb) return;
 
     // 1. Cancel all existing booking reminders in our reserved range
-    for (int i = _reminderBaseId; i < _reminderBaseId + _reminderMaxCount; i++) {
+    for (
+      int i = _reminderBaseId;
+      i < _reminderBaseId + _reminderMaxCount;
+      i++
+    ) {
       await _localNotifications.cancel(id: i);
     }
 
@@ -195,9 +353,8 @@ class NotificationService {
     // 2. Determine the local timezone location
     tz.Location location;
     try {
-      final offsetMinutes = now.timeZoneOffset.inMinutes;
       location = tz.timeZoneDatabase.locations.values.firstWhere(
-        (loc) => loc.currentTimeZone.offset == offsetMinutes * 60 * 1000,
+        (loc) => loc.currentTimeZone.offset == now.timeZoneOffset,
         orElse: () => tz.UTC,
       );
     } catch (_) {
@@ -208,17 +365,23 @@ class NotificationService {
 
     for (final bookingDate in bookingDates) {
       // Normalize booking date to midnight
-      final bookingDay = DateTime(bookingDate.year, bookingDate.month, bookingDate.day);
-      
+      final bookingDay = DateTime(
+        bookingDate.year,
+        bookingDate.month,
+        bookingDate.day,
+      );
+
       // Calculate the day the reminder should fire (3 days BEFORE the booking)
       final reminderDay = bookingDay.subtract(const Duration(days: 3));
-      
+
       // If the reminder day is in the past, we skip it
       if (reminderDay.isBefore(today)) continue;
 
       for (final (hour, minute) in _reminderTimes) {
         if (idCounter >= _reminderBaseId + _reminderMaxCount) {
-          debugPrint('⚠️ Warning: Booking reminder limit reached. Some reminders may not be scheduled.');
+          debugPrint(
+            '⚠️ Warning: Booking reminder limit reached. Some reminders may not be scheduled.',
+          );
           break;
         }
 
@@ -234,12 +397,14 @@ class NotificationService {
         // Skip if this time has already passed (critical for reminders scheduled for TODAY)
         if (scheduledTime.isBefore(tz.TZDateTime.now(location))) continue;
 
-        final bookingLabel = '${bookingDate.day}/${bookingDate.month}/${bookingDate.year}';
+        final bookingLabel =
+            '${bookingDate.day}/${bookingDate.month}/${bookingDate.year}';
 
         await _localNotifications.zonedSchedule(
           id: idCounter,
           title: '📅 Upcoming Booking Reminder',
-          body: 'You have a booking on $bookingLabel — just 3 days away! Make sure you\'re prepared.',
+          body:
+              'You have a booking on $bookingLabel — just 3 days away! Make sure you\'re prepared.',
           scheduledDate: scheduledTime,
           notificationDetails: NotificationDetails(
             android: AndroidNotificationDetails(
@@ -266,7 +431,9 @@ class NotificationService {
       }
     }
 
-    debugPrint('✅ Booking reminders scheduled: ${idCounter - _reminderBaseId} notifications across ${bookingDates.length} bookings');
+    debugPrint(
+      '✅ Booking reminders scheduled: ${idCounter - _reminderBaseId} notifications across ${bookingDates.length} bookings',
+    );
   }
 
   // ─── Navigation ───────────────────────────────────────────────────────────────
@@ -281,27 +448,42 @@ class NotificationService {
       id = parts[1];
     }
 
-    debugPrint('Navigating to $navType with ID: $id');
+    final role = StorageService().getString('user_role');
+    debugPrint('Navigating to $navType with ID: $id (Role: $role)');
 
     switch (navType) {
       case 'message':
       case 'chat':
-        appRouter.push('/customer-chat/$id');
+        if (role == 'VENDOR') {
+          appRouter.push('/vendor-chat/$id');
+        } else {
+          appRouter.push('/customer-chat/$id');
+        }
         break;
       case 'lead':
-        appRouter.push('/lead-details/$id');
+        final context = rootNavigatorKey.currentContext;
+        if (context != null) {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => LeadDetailsBottomSheet(leadId: id),
+          );
+        }
         break;
       case 'vendor':
         appRouter.push('/vendor-public/$id');
         break;
       case 'reminder':
       case 'availability':
-        final role = StorageService().getString('user_role');
-        appRouter.push(role == 'VENDOR' ? '/vendor-availability' : '/customer-home');
+        appRouter.push(
+          role == 'VENDOR' ? '/vendor-availability' : '/customer-home',
+        );
         break;
       case 'settings':
-        final role = StorageService().getString('user_role');
-        appRouter.push(role == 'VENDOR' ? '/vendor-settings' : '/customer-settings');
+        appRouter.push(
+          role == 'VENDOR' ? '/vendor-settings' : '/customer-settings',
+        );
         break;
     }
   }
@@ -315,16 +497,19 @@ class NotificationService {
   }) async {
     if (kIsWeb) return;
 
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'high_importance_channel',
-      'High Importance Notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-      enableVibration: true,
-      vibrationPattern: Int64List.fromList([0, 500, 200, 500]),
-      playSound: true,
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'high_importance_channel',
+          'High Importance Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList([0, 500, 200, 500]),
+          playSound: true,
+        );
+    final NotificationDetails details = NotificationDetails(
+      android: androidDetails,
     );
-    final NotificationDetails details = NotificationDetails(android: androidDetails);
 
     await _localNotifications.show(
       id: DateTime.now().millisecond,
@@ -339,5 +524,52 @@ class NotificationService {
 // Background Message Handler
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint("Handling a background message: ${message.messageId}");
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'high_importance_channel',
+    'High Importance Notifications',
+    description: 'This channel is used for important notifications.',
+    importance: Importance.max,
+    enableVibration: true,
+    playSound: true,
+  );
+
+  final localNotifications = FlutterLocalNotificationsPlugin();
+  await localNotifications
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(channel);
+
+  final title =
+      message.notification?.title ??
+      message.data['sender_name']?.toString() ??
+      'New Message';
+  final body =
+      message.notification?.body ??
+      message.data['text']?.toString() ??
+      'Tap to view';
+  final payloadId =
+      message.data['chat_id'] ??
+      message.data['lead_id'] ??
+      message.data['vendor_id'];
+  final type = message.data['type']?.toString() ?? 'chat';
+
+  const androidDetails = AndroidNotificationDetails(
+    'high_importance_channel',
+    'High Importance Notifications',
+    importance: Importance.max,
+    priority: Priority.high,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  await localNotifications.show(
+    id: message.hashCode,
+    title: title,
+    body: body,
+    notificationDetails: const NotificationDetails(android: androidDetails),
+    payload: payloadId != null ? '$type:$payloadId' : null,
+  );
 }

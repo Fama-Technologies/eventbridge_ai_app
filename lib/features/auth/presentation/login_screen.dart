@@ -22,7 +22,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  bool _stayLoggedIn = false;
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
@@ -42,7 +41,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           curve: Curves.easeOutCubic,
         );
   }
-
 
   @override
   void dispose() {
@@ -94,259 +92,309 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
             // ── Animated White Bottom Sheet ──
             Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(28, 40, 28, 32),
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildEntranceAnimation(
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Welcome back!',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w800,
-                                    color: Theme.of(context).textTheme.titleLarge?.color ?? Colors.black,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const gap.Gap(8),
-                                Text(
-                                  'Log in to continue',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.darkNeutral06,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            delayMs: 100,
-                          ),
-                          const gap.Gap(40),
-
-                          // Inputs
-                          _buildEntranceAnimation(
-                            _buildGlovoTextField(
-                              hint: 'Email address',
-                              icon: Icons.email_outlined,
-                              controller: _emailCtrl,
-                              keyboardType: TextInputType.emailAddress,
-                              validator: (v) =>
-                                  v == null || !v.contains('@')
-                                      ? 'Enter a valid email'
-                                      : null,
-                            ),
-                            delayMs: 200,
-                          ),
-                          const gap.Gap(16),
-
-                          _buildEntranceAnimation(
-                            _buildGlovoTextField(
-                              hint: 'Password',
-                              icon: Icons.lock_outline_rounded,
-                              controller: _passCtrl,
-                              isPassword: true,
-                              validator: (v) =>
-                                  v == null || v.length < 6
-                                      ? 'Password too short'
-                                      : null,
-                            ),
-                            delayMs: 280,
-                          ),
-                          const gap.Gap(32),
-
-                          _buildEntranceAnimation(
-                            ElevatedButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () async {
-                                      if (_formKey.currentState!.validate()) {
-                                        setState(() => _isLoading = true);
-                                        try {
-                                          final repo = ref.read(authRepositoryProvider);
-                                          await repo.login(
-                                            _emailCtrl.text.trim(),
-                                            _passCtrl.text,
-                                          );
-                                          if (!context.mounted) return;
-                                          // Role-based redirect
-                                          final role = repo.getUserRole();
-                                          if (role == 'VENDOR') {
-                                            if (repo.isOnboardingCompleted()) {
-                                              context.go('/vendor-home');
-                                            } else {
-                                              context.go('/vendor-onboarding');
-                                            }
-                                          } else {
-                                            context.go('/customer-home');
-                                          }
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            AppToast.show(
-                                              context,
-                                              message: e.toString().replaceAll('Exception: ', ''),
-                                              type: ToastType.error,
-                                            );
-                                          }
-                                        } finally {
-                                          if (mounted) setState(() => _isLoading = false);
-                                        }
-                                      }
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary01,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(56),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 22,
-                                      width: 22,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.5,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Log in',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                            delayMs: 360,
-                          ),
-                          const gap.Gap(24),
-
-                          // Sign up redirect
-                          _buildEntranceAnimation(
-                            Center(
-                              child: GestureDetector(
-                                onTap: () => _showRoleSelectionSheet(context),
-                                child: RichText(
-                                  text: TextSpan(
-                                    text: "Don't have an account? ",
-                                    style: TextStyle(
-                                      color: AppColors.darkNeutral06,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: "Sign up here",
-                                        style: TextStyle(
-                                          color: AppColors.primary01,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            delayMs: 440,
-                          ),
-                          const gap.Gap(24),
-
-                          // Divider
-                          _buildEntranceAnimation(
-                            Row(
-                              children: [
-                                Expanded(child: Divider(color: Colors.grey.shade300)),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text(
-                                    'OR',
-                                    style: TextStyle(
-                                      color: AppColors.darkNeutral06,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(child: Divider(color: Colors.grey.shade300)),
-                              ],
-                            ),
-                            delayMs: 520,
-                          ),
-                          const gap.Gap(24),
-
-                          // Social Button
-                          _buildEntranceAnimation(
-                            kIsWeb
-                                ? Column(
-                                    children: [
-                                      SizedBox(
-                                        height: 56,
-                                        width: double.infinity,
-                                        child: buildGoogleSignInButton(),
-                                      ),
-                                      const gap.Gap(8),
-                                      const Text(
-                                        'Use the button above to continue with Google',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
-                                  )
-                                : _buildSocialButton(
-                                    'Continue with Google',
-                                    'assets/icons/google.png',
-                                    () async {
-                                      try {
-                                        final repo = ref.read(authRepositoryProvider);
-                                        await repo.continueWithGoogle(role: 'CUSTOMER');
-                                        if (!context.mounted) return;
-                                        final role = repo.getUserRole();
-                                        if (role == 'VENDOR') {
-                                          if (repo.isOnboardingCompleted()) {
-                                            context.go('/vendor-home');
-                                          } else {
-                                            context.go('/vendor-onboarding');
-                                          }
-                                        } else {
-                                          context.go('/customer-home');
-                                        }
-                                      } catch (e) {
-                                        if (context.mounted) {
-                                          AppToast.show(
-                                            context,
-                                            message: e.toString().replaceAll('Exception: ', ''),
-                                            type: ToastType.error,
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                            delayMs: 600,
-                          ),
-                          const gap.Gap(32),
-
-                        ],
+              child:
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(32),
                       ),
                     ),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(28, 40, 28, 32),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildEntranceAnimation(
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Welcome back!',
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w800,
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.titleLarge?.color ??
+                                            Colors.black,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const gap.Gap(8),
+                                    Text(
+                                      'Log in to continue',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.darkNeutral06,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                delayMs: 100,
+                              ),
+                              const gap.Gap(40),
+
+                              // Inputs
+                              _buildEntranceAnimation(
+                                _buildGlovoTextField(
+                                  hint: 'Email address',
+                                  icon: Icons.email_outlined,
+                                  controller: _emailCtrl,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (v) =>
+                                      v == null || !v.contains('@')
+                                      ? 'Enter a valid email'
+                                      : null,
+                                ),
+                                delayMs: 200,
+                              ),
+                              const gap.Gap(16),
+
+                              _buildEntranceAnimation(
+                                _buildGlovoTextField(
+                                  hint: 'Password',
+                                  icon: Icons.lock_outline_rounded,
+                                  controller: _passCtrl,
+                                  isPassword: true,
+                                  validator: (v) => v == null || v.length < 6
+                                      ? 'Password too short'
+                                      : null,
+                                ),
+                                delayMs: 280,
+                              ),
+                              const gap.Gap(32),
+
+                              _buildEntranceAnimation(
+                                ElevatedButton(
+                                  onPressed: _isLoading
+                                      ? null
+                                      : () async {
+                                          if (_formKey.currentState!
+                                              .validate()) {
+                                            setState(() => _isLoading = true);
+                                            try {
+                                              final repo = ref.read(
+                                                authRepositoryProvider,
+                                              );
+                                              await repo.login(
+                                                _emailCtrl.text.trim(),
+                                                _passCtrl.text,
+                                              );
+                                              if (!context.mounted) return;
+                                              // Role-based redirect
+                                              final role = repo.getUserRole();
+                                              if (role == 'VENDOR') {
+                                                if (repo
+                                                    .isOnboardingCompleted()) {
+                                                  context.go('/vendor-home');
+                                                } else {
+                                                  context.go(
+                                                    '/vendor-onboarding',
+                                                  );
+                                                }
+                                              } else {
+                                                context.go('/customer-home');
+                                              }
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                AppToast.show(
+                                                  context,
+                                                  message: e
+                                                      .toString()
+                                                      .replaceAll(
+                                                        'Exception: ',
+                                                        '',
+                                                      ),
+                                                  type: ToastType.error,
+                                                );
+                                              }
+                                            } finally {
+                                              if (mounted)
+                                                setState(
+                                                  () => _isLoading = false,
+                                                );
+                                            }
+                                          }
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary01,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size.fromHeight(56),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 22,
+                                          width: 22,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2.5,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Log in',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                                delayMs: 360,
+                              ),
+                              const gap.Gap(24),
+
+                              // Sign up redirect
+                              _buildEntranceAnimation(
+                                Center(
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        _showRoleSelectionSheet(context),
+                                    child: RichText(
+                                      text: TextSpan(
+                                        text: "Don't have an account? ",
+                                        style: TextStyle(
+                                          color: AppColors.darkNeutral06,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: "Sign up here",
+                                            style: TextStyle(
+                                              color: AppColors.primary01,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                delayMs: 440,
+                              ),
+                              const gap.Gap(24),
+
+                              // Divider
+                              _buildEntranceAnimation(
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      child: Text(
+                                        'OR',
+                                        style: TextStyle(
+                                          color: AppColors.darkNeutral06,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Divider(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                delayMs: 520,
+                              ),
+                              const gap.Gap(24),
+
+                              // Social Button
+                              _buildEntranceAnimation(
+                                kIsWeb
+                                    ? Column(
+                                        children: [
+                                          SizedBox(
+                                            height: 56,
+                                            width: double.infinity,
+                                            child: buildGoogleSignInButton(),
+                                          ),
+                                          const gap.Gap(8),
+                                          const Text(
+                                            'Use the button above to continue with Google',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    : _buildSocialButton(
+                                        'Continue with Google',
+                                        'assets/icons/google.png',
+                                        () async {
+                                          try {
+                                            final repo = ref.read(
+                                              authRepositoryProvider,
+                                            );
+                                            await repo.continueWithGoogle(
+                                              role: 'CUSTOMER',
+                                            );
+                                            if (!context.mounted) return;
+                                            final role = repo.getUserRole();
+                                            if (role == 'VENDOR') {
+                                              if (repo
+                                                  .isOnboardingCompleted()) {
+                                                context.go('/vendor-home');
+                                              } else {
+                                                context.go(
+                                                  '/vendor-onboarding',
+                                                );
+                                              }
+                                            } else {
+                                              context.go('/customer-home');
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              AppToast.show(
+                                                context,
+                                                message: e
+                                                    .toString()
+                                                    .replaceAll(
+                                                      'Exception: ',
+                                                      '',
+                                                    ),
+                                                type: ToastType.error,
+                                              );
+                                            }
+                                          }
+                                        },
+                                      ),
+                                delayMs: 600,
+                              ),
+                              const gap.Gap(32),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ).animate().slideY(
+                    begin: 1.0,
+                    duration: 600.ms,
+                    curve: Curves.easeOutCirc,
                   ),
-                ),
-              ).animate().slideY(begin: 1.0, duration: 600.ms, curve: Curves.easeOutCirc),
             ),
           ],
         ),
@@ -362,7 +410,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final sheetBg = isDark ? AppColors.darkNeutral02 : Colors.white;
-        final handleColor = isDark ? AppColors.darkNeutral03 : Colors.grey.shade300;
+        final handleColor = isDark
+            ? AppColors.darkNeutral03
+            : Colors.grey.shade300;
 
         return Container(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
@@ -384,52 +434,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
               ),
-            const gap.Gap(24),
-            Text(
-              'Join EventBridge',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: isDark ? Colors.white : Colors.black,
+              const gap.Gap(24),
+              Text(
+                'Join EventBridge',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
-            ),
-            const gap.Gap(8),
-            const Text(
-              'Select how you want to join our community',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                color: AppColors.darkNeutral06,
-                fontWeight: FontWeight.w500,
+              const gap.Gap(8),
+              const Text(
+                'Select how you want to join our community',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.darkNeutral06,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            const gap.Gap(32),
-            _buildRoleTile(
-              context,
-              title: 'I am a Customer',
-              subtitle: 'Find and book the best vendors',
-              icon: Icons.person_outline_rounded,
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/create-account');
-              },
-            ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1),
-            const gap.Gap(16),
-            _buildRoleTile(
-              context,
-              title: 'I am a Vendor',
-              subtitle: 'Grow your business with us',
-              icon: Icons.storefront_outlined,
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/vendor-signup');
-              },
-            ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.1),
-          ],
-        ),
-      );
-    },
+              const gap.Gap(32),
+              _buildRoleTile(
+                context,
+                title: 'I am a Customer',
+                subtitle: 'Find and book the best vendors',
+                icon: Icons.person_outline_rounded,
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/create-account');
+                },
+              ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1),
+              const gap.Gap(16),
+              _buildRoleTile(
+                context,
+                title: 'I am a Vendor',
+                subtitle: 'Grow your business with us',
+                icon: Icons.storefront_outlined,
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/vendor-signup');
+                },
+              ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.1),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -441,7 +491,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? AppColors.darkNeutral03.withValues(alpha: 0.4) : Colors.grey.shade50.withValues(alpha: 0.5);
+    final cardBg = isDark
+        ? AppColors.darkNeutral03.withValues(alpha: 0.4)
+        : Colors.grey.shade50.withValues(alpha: 0.5);
     final borderColor = isDark ? AppColors.darkNeutral03 : Colors.grey.shade100;
 
     return InkWell(
@@ -489,22 +541,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios_rounded, 
-                 size: 16, 
-                 color: Colors.grey.shade400),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppColors.shadesWhite,
       ),
     );
   }
@@ -528,7 +571,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       style: TextStyle(color: textColor),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: AppColors.darkNeutral04, fontWeight: FontWeight.w400),
+        hintStyle: TextStyle(
+          color: AppColors.darkNeutral04,
+          fontWeight: FontWeight.w400,
+        ),
         prefixIcon: Icon(icon, color: AppColors.darkNeutral04),
         suffixIcon: isPassword
             ? IconButton(
@@ -544,8 +590,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               )
             : null,
         filled: true,
-        fillColor: Theme.of(context).brightness == Brightness.dark 
-            ? AppColors.darkNeutral02 
+        fillColor: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.darkNeutral02
             : Colors.white,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
@@ -554,17 +600,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? const Color(0xFF333333) 
-                : Colors.grey.shade200
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF333333)
+                : Colors.grey.shade200,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? const Color(0xFF333333) 
-                : Colors.grey.shade200
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF333333)
+                : Colors.grey.shade200,
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -615,4 +661,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 }
-

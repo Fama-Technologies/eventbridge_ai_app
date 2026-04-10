@@ -4,7 +4,6 @@ import 'package:gap/gap.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
 import 'package:eventbridge/features/auth/presentation/widgets/google_sign_in_button.dart';
@@ -154,7 +153,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           context.go('/customer-home');
                         }
                       } catch (e) {
-                         // show toast
+                        // show toast
                       }
                     }
                   },
@@ -219,30 +218,44 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     return SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: authState.isLoading ? () {} : () async {
-                          await ref.read(authControllerProvider.notifier).continueWithGoogle(role: _isVendor ? 'VENDOR' : 'CUSTOMER');
-                          if (!context.mounted) return;
-                          
-                          if (ref.read(authControllerProvider).hasError) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(ref.read(authControllerProvider).error.toString().replaceAll('Exception: ', '')),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          } else {
-                            if (_isVendor) {
-                               final repo = ref.read(authRepositoryProvider);
-                               if (repo.isOnboardingCompleted()) {
-                                 context.go('/vendor-home');
-                               } else {
-                                 context.go('/vendor-onboarding');
-                               }
-                            } else {
-                               context.go('/customer-home');
-                            }
-                          }
-                        },
+                        onPressed: authState.isLoading
+                            ? () {}
+                            : () async {
+                                await ref
+                                    .read(authControllerProvider.notifier)
+                                    .continueWithGoogle(
+                                      role: _isVendor ? 'VENDOR' : 'CUSTOMER',
+                                    );
+                                if (!context.mounted) return;
+
+                                if (ref.read(authControllerProvider).hasError) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ref
+                                            .read(authControllerProvider)
+                                            .error
+                                            .toString()
+                                            .replaceAll('Exception: ', ''),
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                } else {
+                                  if (_isVendor) {
+                                    final repo = ref.read(
+                                      authRepositoryProvider,
+                                    );
+                                    if (repo.isOnboardingCompleted()) {
+                                      context.go('/vendor-home');
+                                    } else {
+                                      context.go('/vendor-onboarding');
+                                    }
+                                  } else {
+                                    context.go('/customer-home');
+                                  }
+                                }
+                              },
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -257,7 +270,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             Image.asset('assets/icons/google.png', height: 24),
                             const Gap(12),
                             Text(
-                              authState.isLoading ? 'Connecting...' : 'Continue with Google',
+                              authState.isLoading
+                                  ? 'Connecting...'
+                                  : 'Continue with Google',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -268,7 +283,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         ),
                       ),
                     );
-                  }
+                  },
                 ).animate().scale(delay: 700.ms, curve: Curves.elasticOut),
 
                 const Gap(32),
@@ -305,7 +320,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       child: GestureDetector(
         onTap: () {
           setState(() => _isVendor = title == 'Vendor');
-          ref.read(authControllerProvider.notifier).saveUserRole(_isVendor ? 'VENDOR' : 'CUSTOMER');
+          ref
+              .read(authControllerProvider.notifier)
+              .saveUserRole(_isVendor ? 'VENDOR' : 'CUSTOMER');
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -405,7 +422,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   }
 
   Widget _buildEntranceAnimation(Widget child, {required int delayMs}) {
-    return child.animate().fadeIn(delay: delayMs.ms).slideY(
+    return child
+        .animate()
+        .fadeIn(delay: delayMs.ms)
+        .slideY(
           begin: 0.1,
           end: 0,
           delay: delayMs.ms,

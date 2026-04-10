@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:eventbridge/features/auth/data/auth_repository.dart';
+import 'package:eventbridge/features/auth/presentation/auth_di.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 part 'auth_provider.g.dart';
@@ -11,7 +12,7 @@ AuthRepository authRepository(Ref ref) {
 
 @riverpod
 Stream<firebase_auth.User?> authStateChanges(Ref ref) {
-  return ref.watch(authRepositoryProvider).authStateChanges;
+  return ref.watch(authRepositoryContractProvider).authStateChanges;
 }
 
 @riverpod
@@ -24,14 +25,14 @@ class AuthController extends _$AuthController {
   Future<void> login(String email, String password) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).login(email, password),
+      () => ref.read(loginUseCaseProvider)(email, password),
     );
   }
 
   Future<void> logout() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).logout(),
+      () => ref.read(logoutUseCaseProvider)(),
     );
   }
 
@@ -43,20 +44,23 @@ class AuthController extends _$AuthController {
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref
-          .read(authRepositoryProvider)
-          .signup(fullName, email, password, role: role),
+      () => ref.read(signupUseCaseProvider)(
+        fullName,
+        email,
+        password,
+        role: role,
+          ),
     );
   }
 
   Future<void> continueWithGoogle({String role = 'CUSTOMER'}) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).continueWithGoogle(role: role),
+      () => ref.read(continueWithGoogleUseCaseProvider)(role: role),
     );
   }
 
   Future<void> saveUserRole(String role) async {
-    await ref.read(authRepositoryProvider).saveUserRole(role);
+    await ref.read(saveUserRoleUseCaseProvider)(role);
   }
 }

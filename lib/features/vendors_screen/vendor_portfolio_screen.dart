@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +11,7 @@ import 'package:eventbridge/core/widgets/app_toast.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:eventbridge/core/services/upload_service.dart';
+import 'package:eventbridge/features/matching/models/match_vendor.dart';
 
 class VendorPortfolioScreen extends StatefulWidget {
   const VendorPortfolioScreen({super.key});
@@ -23,7 +24,7 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
   bool _isLoading = true;
   bool _isUploading = false;
   String _businessName = 'My Business';
-  List<dynamic> _portfolioImages = []; // Can be String (URL) or Map<String, dynamic> {url, category}
+  List<VendorProject> _projects = [];
   String _activeCategory = 'All';
   final List<String> _categories = ['All', 'Weddings', 'Corporate', 'Parties', 'Other'];
 
@@ -41,19 +42,10 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
       final result = await ApiService.instance.getVendorProfile(userId);
       if (result['success'] == true && result['profile'] != null) {
         final profile = result['profile'];
+        final matchVendor = MatchVendor.fromJson(profile);
         setState(() {
-          _businessName = profile['businessName'] ?? 'My Business';
-          if (profile['galleryUrls'] != null) {
-            _portfolioImages = (profile['galleryUrls'] as List).map((item) {
-              final url = _getDisplayUrl(item);
-              // Handle nested category if exists, otherwise fallback
-              String category = 'Other';
-              if (item is Map) {
-                category = item['category']?.toString() ?? 'Other';
-              }
-              return {'url': url, 'category': category};
-            }).toList();
-          }
+          _businessName = matchVendor.name.isNotEmpty ? matchVendor.name : 'My Business';
+          _projects = matchVendor.projects;
           _isLoading = false;
         });
       }
@@ -182,11 +174,20 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
     );
 
     if (selectedCategory != null) {
+      // Prompt for project name or use category as name
+      // For simplicity, we just use the category as the project name, and append the image
       setState(() {
         if (index != null) {
-          _portfolioImages[index] = {'url': imageUrl, 'category': selectedCategory};
+          final p = _projects[index];
+          _projects[index] = VendorProject(id: p.id, title: selectedCategory!, thumbnail: p.thumbnail, images: p.images);
         } else {
-          _portfolioImages.insert(0, {'url': imageUrl, 'category': selectedCategory});
+          final existingIdx = _projects.indexWhere((p) => p.title == selectedCategory);
+          if (existingIdx != -1) {
+             final p = _projects[existingIdx];
+             _projects[existingIdx] = VendorProject(id: p.id, title: p.title, thumbnail: p.thumbnail, images: [...p.images, imageUrl]);
+          } else {
+             _projects.insert(0, VendorProject(id: DateTime.now().millisecondsSinceEpoch.toString(), title: selectedCategory!, thumbnail: imageUrl, images: [imageUrl]));
+          }
         }
       });
       await _saveChanges();
@@ -234,7 +235,7 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
       final result = await ApiService.instance.submitVendorOnboarding(
         userId: userId,
         businessName: _businessName,
-        galleryUrls: _portfolioImages,
+        projects: _projects.map((p) => p.toJson()).toList(),
       );
 
       if (mounted && result['success'] == true) {
@@ -341,28 +342,27 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
 
     if (confirmed == true) {
       setState(() {
-        _portfolioImages.removeAt(index);
+        _projects.removeAt(index);
       });
       await _saveChanges();
     }
   }
 
   void _editTag(int index) async {
-    final item = _portfolioImages[index];
-    final imageUrl = (item is Map) ? item['url'] : item.toString();
-    await _showCategoryDialog(imageUrl, index: index);
+    final p = _projects[index];
+    await _showCategoryDialog(p.thumbnail, index: index);
   }
 
-  void _openImageDetail(String url, int index) {
+  void _openProjectDetail(VendorProject project, int index) {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
         pageBuilder: (context, animation, _) => FadeTransition(
           opacity: animation,
           child: _ImageDetailView(
-            url: url, 
+            project: project, 
             index: index, 
-            allImages: _portfolioImages,
+            totalProjects: _projects.length,
             onDelete: () {
               Navigator.pop(context);
               _deleteImage(index);
@@ -454,27 +454,6 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
     );
   }
 
-  String _getDisplayUrl(dynamic item) {
-    if (item == null) return '';
-    if (item is String) {
-      if (item.startsWith('{') && item.endsWith('}')) {
-        try {
-          final decoded = json.decode(item);
-          return _getDisplayUrl(decoded);
-        } catch (_) {
-          return item;
-        }
-      }
-      return item;
-    }
-    if (item is Map) {
-      final urlValue = item['url'];
-      if (urlValue != null) {
-        return _getDisplayUrl(urlValue);
-      }
-    }
-    return item.toString();
-  }
 
   Widget _buildSliverAppBar(ThemeData theme, bool isDark) {
     return SliverAppBar(
@@ -497,9 +476,9 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
           fit: StackFit.expand,
           children: [
             // Featured Image or Gradient
-            if (_portfolioImages.isNotEmpty)
+            if (_projects.isNotEmpty)
               Image.network(
-                _getDisplayUrl(_portfolioImages.first),
+                _projects.first.thumbnail,
                 fit: BoxFit.cover,
               )
             else
@@ -677,15 +656,12 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
   }
 
   Widget _buildPortfolioGrid(ThemeData theme, bool isDark) {
-    // Filter images based on active category
-    final filteredImages = _activeCategory == 'All'
-        ? _portfolioImages
-        : _portfolioImages.where((item) {
-            final category = (item is Map) ? item['category'] : null;
-            return category == _activeCategory;
-          }).toList();
+    // Filter projects based on active category (which corresponds to title logic in our implementation)
+    final filteredProjects = _activeCategory == 'All'
+        ? _projects
+        : _projects.where((p) => p.title == _activeCategory).toList();
 
-    if (filteredImages.isEmpty) {
+    if (filteredProjects.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
@@ -722,12 +698,10 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
       ),
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          final item = filteredImages[index];
-          final imageUrl = _getDisplayUrl(item);
-          final tag = (item is Map) ? item['category'] : 'Project';
+          final project = filteredProjects[index];
           
           return GestureDetector(
-            onTap: () => _openImageDetail(imageUrl, index),
+            onTap: () => _openProjectDetail(project, index),
             child: Hero(
               tag: 'portfolio_$index',
               child: Container(
@@ -746,7 +720,7 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey.withOpacity(0.1))),
+                      Image.network(project.thumbnail, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey.withOpacity(0.1))),
                       // Dynamic Gradient overlay
                       Positioned.fill(
                         child: Container(
@@ -778,13 +752,22 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                tag.toUpperCase(),
+                                project.title.toUpperCase(),
                                 style: GoogleFonts.outfit(
                                   color: Colors.white,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1,
                                 ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${project.images.length} Image(s)',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -797,26 +780,33 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
             ),
           ).animate(delay: (index * 80).ms).fadeIn(duration: 400.ms).scale(begin: const Offset(0.95, 0.95));
         },
-        childCount: filteredImages.length,
+        childCount: filteredProjects.length,
       ),
     );
   }
 }
 
-class _ImageDetailView extends StatelessWidget {
-  final String url;
+class _ImageDetailView extends StatefulWidget {
+  final VendorProject project;
   final int index;
-  final List<dynamic> allImages;
+  final int totalProjects;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
 
   const _ImageDetailView({
-    required this.url, 
+    required this.project, 
     required this.index, 
-    required this.allImages,
+    required this.totalProjects,
     required this.onDelete,
     required this.onEdit,
   });
+
+  @override
+  State<_ImageDetailView> createState() => _ImageDetailViewState();
+}
+
+class _ImageDetailViewState extends State<_ImageDetailView> {
+  int _currentImageIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -827,8 +817,14 @@ class _ImageDetailView extends StatelessWidget {
         children: [
           Center(
             child: Hero(
-              tag: 'portfolio_$index',
-              child: Image.network(url, fit: BoxFit.contain),
+              tag: 'portfolio_${widget.index}',
+              child: PageView.builder(
+                itemCount: widget.project.images.length,
+                onPageChanged: (idx) => setState(() => _currentImageIndex = idx),
+                itemBuilder: (context, idx) {
+                  return Image.network(widget.project.images[idx], fit: BoxFit.contain);
+                },
+              ),
             ),
           ),
           Positioned(
@@ -846,14 +842,14 @@ class _ImageDetailView extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 28),
-                      onPressed: onEdit,
-                      tooltip: 'Edit Tag',
+                      onPressed: widget.onEdit,
+                      tooltip: 'Edit Category',
                     ),
                     const SizedBox(width: 12),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 28),
-                      onPressed: onDelete,
-                      tooltip: 'Delete Image',
+                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 28),
+                      onPressed: widget.onDelete,
+                      tooltip: 'Delete Project',
                     ),
                   ],
                 ),
@@ -873,7 +869,7 @@ class _ImageDetailView extends StatelessWidget {
                   border: Border.all(color: Colors.white.withOpacity(0.2)),
                 ),
                 child: Text(
-                  'Project Image ${index + 1} of ${allImages.length}',
+                  '${widget.project.title} - Image ${_currentImageIndex + 1} of ${widget.project.images.length}',
                   style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600),
                 ),
               ),

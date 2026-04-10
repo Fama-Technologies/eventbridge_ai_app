@@ -42,6 +42,35 @@ class AppColors {
   static const Color backgroundLight = Color(0xFFFFFFFF);
   static const Color backgroundDark = Color(0xFF141414); // Even deeper dark
 
+  // Soft Design Colors from Mockup
+  static const Color softPeach = Color(0xFFFEF4F0); // Hero section background
+  static const Color warmCream = Color(0xFFFDF8F5); // Light peachy cream
+  static const Color softYellow = Color(0xFFFFF8E1); // New Customer card
+  static const Color lightYellow = Color(0xFFFFEB3B); // Yellow accent
+  static const Color softPurple = Color(0xFFF3E5F5); // AI Features light
+  static const Color mediumPurple = Color(0xFFBA68C8); // AI Features medium
+  static const Color lightGray = Color(0xFFF8F9FA); // Neutral card backgrounds
+  static const Color cardWhite = Color(0xFFFFFFFF); // Pure white for cards
+  static const Color softOrange = Color(0xFFFFE0B2); // Light orange variation
+
+  // Status and notification colors
+  static const Color notificationBadge = Color(0xFFFF5722); // Notification dot
+  static const Color successGreen = Color(0xFF4CAF50); // Success states
+  static const Color warningAmber = Color(0xFFFFC107); // Warning states
+
   // Legacy aliases (if needed)
   static const Color primary = primary01;
+
+  // WhatsApp Theme Colors
+  static const waChatBg = Color(0xFFEFEAE2);
+  static const waChatBgDark = Color(0xFF0B141A);
+  static const waOutgoing = Color(0xFFD9FDD3);
+  static const waOutgoingDark = Color(0xFF005C4B);
+  static const waIncoming = Color(0xFFFFFFFF);
+  static const waIncomingDark = Color(0xFF1F2C33);
+  static const waTickBlue = Color(0xFF53BDEB);
+  static const waTickGray = Color(0xFF8696A0);
+  static const waGreen = Color(0xFF25D366);
+  static const waHeader = Color(0xFF008069);
+  static const waHeaderDark = Color(0xFF1F2C33);
 }

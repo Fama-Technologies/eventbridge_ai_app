@@ -75,7 +75,7 @@ class MatchResultsScreen extends ConsumerWidget {
                               onViewProfile: () =>
                                   context.push('/vendor-public/${vendor.id}'),
                               onInquiry: () async {
-                                await ctrl.sendInquiry(vendor);
+                                await ctrl.sendInquiry(vendor: vendor);
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -536,7 +536,7 @@ class _VendorMatchCard extends StatelessWidget {
                               ),
                               if (vendor.portfolio.length > 4)
                                 Container(
-                                  color: Colors.black.withOpacity(0.5),
+                                  color: Colors.black.withValues(alpha: 0.5),
                                   child: Center(
                                     child: Text(
                                       '+${vendor.portfolio.length - 4}',

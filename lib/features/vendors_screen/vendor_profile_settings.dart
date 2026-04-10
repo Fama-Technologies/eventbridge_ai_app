@@ -8,7 +8,7 @@ import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:eventbridge/core/services/upload_service.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
-import 'package:eventbridge/core/services/notification_service.dart';
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -51,10 +51,10 @@ class _VendorProfileSettingsScreenState
 
   List<String> _serviceCategories = [];
   List<String> _eventCategories = [];
-  
+
   double? _lat;
   double? _lng;
-  
+
   final _countryCtrl = TextEditingController();
   final _expCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
@@ -85,39 +85,52 @@ class _VendorProfileSettingsScreenState
           _businessNameCtrl.text = profile['businessName'] ?? '';
           _descriptionCtrl.text = profile['description'] ?? '';
           _location = profile['location'] ?? 'Location not provided';
-          _locationCtrl.text = _location == 'Location not provided' ? '' : _location;
-          _serviceCategories = List<String>.from(profile['serviceCategories'] ?? []).toSet().toList();
-          _eventCategories = List<String>.from(profile['eventCategories'] ?? []).toSet().toList();
+          _locationCtrl.text = _location == 'Location not provided'
+              ? ''
+              : _location;
+          _serviceCategories = List<String>.from(
+            profile['serviceCategories'] ?? [],
+          ).toSet().toList();
+          _eventCategories = List<String>.from(
+            profile['eventCategories'] ?? [],
+          ).toSet().toList();
           _priceCtrl.text = profile['price']?.toString() ?? '';
           _countryCtrl.text = profile['country'] ?? '';
           _expCtrl.text = profile['experience']?.toString() ?? '';
           _currency = profile['currency'] ?? 'UGX';
           _priceUnit = profile['priceUnit'] ?? 'Per Event';
           _webCtrl.text = profile['website'] ?? '';
-          _travelRadius = double.tryParse(profile['travelRadius']?.toString() ?? '50.0') ?? 50.0;
+          _travelRadius =
+              double.tryParse(profile['travelRadius']?.toString() ?? '50.0') ??
+              50.0;
           final latData = profile['latitude'];
           final lngData = profile['longitude'];
           _lat = latData != null ? double.tryParse(latData.toString()) : null;
           _lng = lngData != null ? double.tryParse(lngData.toString()) : null;
 
           if (profile['galleryUrls'] != null) {
-             _portfolioImages.clear();
-             for (var item in profile['galleryUrls']) {
-               _portfolioImages.add(_getDisplayUrl(item));
-             }
-          } 
-
+            _portfolioImages.clear();
+            for (var item in profile['galleryUrls']) {
+              _portfolioImages.add(_getDisplayUrl(item));
+            }
+          }
 
           if (profile['workingHours'] != null) {
             try {
               final wh = profile['workingHours'];
               if (wh['start'] != null) {
                 final parts = wh['start'].split(':');
-                _startTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+                _startTime = TimeOfDay(
+                  hour: int.parse(parts[0]),
+                  minute: int.parse(parts[1]),
+                );
               }
               if (wh['end'] != null) {
                 final parts = wh['end'].split(':');
-                _endTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+                _endTime = TimeOfDay(
+                  hour: int.parse(parts[0]),
+                  minute: int.parse(parts[1]),
+                );
               }
             } catch (e) {
               debugPrint('Error parsing working hours: $e');
@@ -128,7 +141,11 @@ class _VendorProfileSettingsScreenState
     } catch (e) {
       debugPrint('Error loading profile data: $e');
       if (mounted) {
-        AppToast.show(context, message: 'Failed to load profile details: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          message: 'Failed to load profile details: $e',
+          type: ToastType.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -140,16 +157,16 @@ class _VendorProfileSettingsScreenState
   Future<void> _saveChanges() async {
     try {
       setState(() => _isLoading = true);
-      
+
       final userId = StorageService().getString('user_id');
-      
+
       if (userId == null) return;
 
       final result = await ApiService.instance.submitVendorOnboarding(
         userId: userId,
         businessName: _businessNameCtrl.text,
         description: _descriptionCtrl.text,
-        experience: _expCtrl.text, 
+        experience: _expCtrl.text,
         location: _locationCtrl.text,
         country: _countryCtrl.text,
         serviceCategories: _serviceCategories.toSet().toList(),
@@ -163,23 +180,37 @@ class _VendorProfileSettingsScreenState
         latitude: _lat,
         longitude: _lng,
         workingHours: {
-          'start': '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
-          'end': '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
+          'start':
+              '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+          'end':
+              '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
         },
       );
 
       if (mounted) {
         if (result['success'] == true) {
-          AppToast.show(context, message: 'Profile updated successfully!', type: ToastType.success);
+          AppToast.show(
+            context,
+            message: 'Profile updated successfully!',
+            type: ToastType.success,
+          );
           // Reload to be safe
           _loadProfileData();
         } else {
-          AppToast.show(context, message: result['message'] ?? 'Failed to update profile', type: ToastType.error);
+          AppToast.show(
+            context,
+            message: result['message'] ?? 'Failed to update profile',
+            type: ToastType.error,
+          );
         }
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, message: 'An error occurred during save', type: ToastType.error);
+        AppToast.show(
+          context,
+          message: 'An error occurred during save',
+          type: ToastType.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -199,8 +230,9 @@ class _VendorProfileSettingsScreenState
       setState(() => _isLoading = true);
       try {
         final bytes = await image.readAsBytes();
-        final fileName = 'portfolio_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        
+        final fileName =
+            'portfolio_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
         final url = await UploadService.instance.uploadFile(
           bytes: bytes,
           fileName: fileName,
@@ -211,12 +243,16 @@ class _VendorProfileSettingsScreenState
         setState(() {
           _portfolioImages.add(url);
         });
-        
+
         // Auto-save the profile with the new image
         await _saveChanges();
       } catch (e) {
         if (mounted) {
-          AppToast.show(context, message: 'Upload failed: $e', type: ToastType.error);
+          AppToast.show(
+            context,
+            message: 'Upload failed: $e',
+            type: ToastType.error,
+          );
         }
       } finally {
         setState(() => _isLoading = false);
@@ -259,197 +295,236 @@ class _VendorProfileSettingsScreenState
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: AppColors.primary01))
-        : SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(32),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary01),
+            )
+          : SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(32),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 30,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _ProfileSectionHeader(
+                          icon: Icons.store_rounded,
+                          title: 'Business Identity',
+                        ),
+                        const SizedBox(height: 24),
+                        _buildPremiumTextField(
+                          label: 'Business Name',
+                          controller: _businessNameCtrl,
+                        ),
+                        const SizedBox(height: 24),
+                        _buildPremiumTextField(
+                          label: 'Business Description',
+                          initialValue: '',
+                          controller: _descriptionCtrl,
+                          maxLines: 4,
+                        ),
+                        const SizedBox(height: 24),
+                        _buildPremiumTextField(
+                          label: 'Years of Experience',
+                          controller: _expCtrl,
+                          icon: Icons.work_history_rounded,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                   _ProfileSectionHeader(
-                    icon: Icons.store_rounded,
-                    title: 'Business Identity',
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Service Categories',
                   ),
-                  const SizedBox(height: 24),
-                  _buildPremiumTextField(
-                    label: 'Business Name',
-                    controller: _businessNameCtrl,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Select keywords that describe your expertise to match you with the right clients.',
+                    style: GoogleFonts.roboto(
+                      fontSize: 14,
+                      color: const Color(0xFF64748B),
+                      height: 1.5,
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  _buildPremiumTextField(
-                    label: 'Business Description',
-                    initialValue: '',
-                    controller: _descriptionCtrl,
-                    maxLines: 4,
+                  const SizedBox(height: 20),
+                  _TagWrap(
+                    tags: _serviceCategories,
+                    onAdd: () => _addCustomCategory(true),
                   ),
-                  const SizedBox(height: 24),
-                  _buildPremiumTextField(
-                    label: 'Years of Experience',
-                    controller: _expCtrl,
-                    icon: Icons.work_history_rounded,
+                  const SizedBox(height: 40),
+                  _ProfileSectionHeader(
+                    icon: Icons.celebration_rounded,
+                    title: 'Event Categories',
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            _ProfileSectionHeader(
-              icon: Icons.auto_awesome_rounded,
-              title: 'Service Categories',
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Select keywords that describe your expertise to match you with the right clients.',
-              style: GoogleFonts.roboto(
-                fontSize: 14,
-                color: const Color(0xFF64748B),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _TagWrap(tags: _serviceCategories, onAdd: () => _addCustomCategory(true)),
-            const SizedBox(height: 40),
-            _ProfileSectionHeader(
-              icon: Icons.celebration_rounded,
-              title: 'Event Categories',
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Select the types of events you cater to.',
-              style: GoogleFonts.roboto(
-                fontSize: 14,
-                color: const Color(0xFF64748B),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _TagWrap(tags: _eventCategories, onAdd: () => _addCustomCategory(false)),
-            const SizedBox(height: 40),
-            _ProfileSectionHeader(
-              icon: Icons.image_rounded,
-              title: 'Portfolio Gallery',
-              trailing: '${_portfolioImages.length} / $_maxImages',
-              onActionTap: () => context.push('/vendor-portfolio'),
-              actionLabel: 'View Live',
-            ),
-            const SizedBox(height: 20),
-            _PortfolioGrid(
-              images: _portfolioImages,
-              maxImages: _maxImages,
-              onAdd: _pickAndUploadImage,
-              onRemove: (index) {
-                setState(() => _portfolioImages.removeAt(index));
-                _saveChanges();
-              },
-            ),
-            const SizedBox(height: 40),
-            _ProfileSectionHeader(
-              icon: Icons.link_rounded,
-              title: 'Digital Presence',
-            ),
-            const SizedBox(height: 20),
-            _buildPremiumTextField(label: 'Instagram', controller: _instaCtrl, icon: Icons.camera_alt_outlined),
-            const SizedBox(height: 16),
-            _buildPremiumTextField(label: 'TikTok', controller: _tiktokCtrl, icon: Icons.music_note_outlined),
-            const SizedBox(height: 16),
-            _buildPremiumTextField(label: 'Website', controller: _webCtrl, icon: Icons.language_rounded),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _buildPremiumTextField(label: 'Country', controller: _countryCtrl, icon: Icons.flag_rounded),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 3,
-                  child: _buildPremiumTextField(
-                    label: 'City/District Location', 
-                    controller: _locationCtrl, 
-                    icon: Icons.location_on_rounded,
-                    readOnly: true,
-                    onTap: _showLocationPicker,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Select the types of events you cater to.',
+                    style: GoogleFonts.roboto(
+                      fontSize: 14,
+                      color: const Color(0xFF64748B),
+                      height: 1.5,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _ServiceAreaCard(
-              radius: _travelRadius,
-              onChanged: (val) => setState(() => _travelRadius = val),
-            ),
-            const SizedBox(height: 40),
-            _ProfileSectionHeader(
-              icon: Icons.payments_rounded,
-              title: 'Pricing & Currency',
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _buildPremiumDropdown(
-                    label: 'Currency',
-                    value: _currency,
-                    items: const ['UGX', 'USD', 'KES', 'TZS', 'RWF', 'GBP', 'EUR'],
-                    onChanged: (val) {
-                      if (val != null) setState(() => _currency = val);
+                  const SizedBox(height: 20),
+                  _TagWrap(
+                    tags: _eventCategories,
+                    onAdd: () => _addCustomCategory(false),
+                  ),
+                  const SizedBox(height: 40),
+                  _ProfileSectionHeader(
+                    icon: Icons.image_rounded,
+                    title: 'Portfolio Gallery',
+                    trailing: '${_portfolioImages.length} / $_maxImages',
+                    onActionTap: () => context.push('/vendor-portfolio'),
+                    actionLabel: 'View Live',
+                  ),
+                  const SizedBox(height: 20),
+                  _PortfolioGrid(
+                    images: _portfolioImages,
+                    maxImages: _maxImages,
+                    onAdd: _pickAndUploadImage,
+                    onRemove: (index) {
+                      setState(() => _portfolioImages.removeAt(index));
+                      _saveChanges();
                     },
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 3,
-                  child: _buildPremiumTextField(
-                    label: 'Starting Price',
-                    controller: _priceCtrl,
-                    icon: Icons.attach_money_rounded,
+                  const SizedBox(height: 40),
+                  _ProfileSectionHeader(
+                    icon: Icons.link_rounded,
+                    title: 'Digital Presence',
                   ),
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  _buildPremiumTextField(
+                    label: 'Instagram',
+                    controller: _instaCtrl,
+                    icon: Icons.camera_alt_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPremiumTextField(
+                    label: 'TikTok',
+                    controller: _tiktokCtrl,
+                    icon: Icons.music_note_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPremiumTextField(
+                    label: 'Website',
+                    controller: _webCtrl,
+                    icon: Icons.language_rounded,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildPremiumTextField(
+                          label: 'Country',
+                          controller: _countryCtrl,
+                          icon: Icons.flag_rounded,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 3,
+                        child: _buildPremiumTextField(
+                          label: 'City/District Location',
+                          controller: _locationCtrl,
+                          icon: Icons.location_on_rounded,
+                          readOnly: true,
+                          onTap: _showLocationPicker,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _ServiceAreaCard(
+                    radius: _travelRadius,
+                    onChanged: (val) => setState(() => _travelRadius = val),
+                  ),
+                  const SizedBox(height: 40),
+                  _ProfileSectionHeader(
+                    icon: Icons.payments_rounded,
+                    title: 'Pricing & Currency',
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildPremiumDropdown(
+                          label: 'Currency',
+                          value: _currency,
+                          items: const [
+                            'UGX',
+                            'USD',
+                            'KES',
+                            'TZS',
+                            'RWF',
+                            'GBP',
+                            'EUR',
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setState(() => _currency = val);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 3,
+                        child: _buildPremiumTextField(
+                          label: 'Starting Price',
+                          controller: _priceCtrl,
+                          icon: Icons.attach_money_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPremiumDropdown(
+                    label: 'Price Unit',
+                    value: _priceUnit,
+                    items: const [
+                      'Per Event',
+                      'Per Plate',
+                      'Per Hour',
+                      'Per Day',
+                      'Per Session',
+                      'Flat Rate',
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _priceUnit = val);
+                    },
+                  ),
+                  const SizedBox(height: 40),
+                  _ProfileSectionHeader(
+                    icon: Icons.calendar_month_rounded,
+                    title: 'Availability Window',
+                  ),
+                  const SizedBox(height: 20),
+                  _AvailabilityCard(
+                    startTime: _startTime,
+                    endTime: _endTime,
+                    onStartTimeTap: () => _pickTime(true),
+                    onEndTimeTap: () => _pickTime(false),
+                  ),
+                  const SizedBox(height: 48),
+                  _buildPremiumSaveButton(),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            _buildPremiumDropdown(
-              label: 'Price Unit',
-              value: _priceUnit,
-              items: const ['Per Event', 'Per Plate', 'Per Hour', 'Per Day', 'Per Session', 'Flat Rate'],
-              onChanged: (val) {
-                if (val != null) setState(() => _priceUnit = val);
-              },
-            ),
-            const SizedBox(height: 40),
-            _ProfileSectionHeader(
-              icon: Icons.calendar_month_rounded,
-              title: 'Availability Window',
-            ),
-            const SizedBox(height: 20),
-            _AvailabilityCard(
-              startTime: _startTime,
-              endTime: _endTime,
-              onStartTimeTap: () => _pickTime(true),
-              onEndTimeTap: () => _pickTime(false),
-            ),
-            const SizedBox(height: 48),
-            _buildPremiumSaveButton(),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
     );
   }
 
@@ -492,14 +567,17 @@ class _VendorProfileSettingsScreenState
             readOnly: readOnly,
             onTap: onTap,
             maxLines: maxLines,
-            controller: controller ?? TextEditingController(text: initialValue ?? ''),
+            controller:
+                controller ?? TextEditingController(text: initialValue ?? ''),
             style: GoogleFonts.roboto(
               fontSize: 15,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF1E293B),
             ),
             decoration: InputDecoration(
-              prefixIcon: icon != null ? Icon(icon, color: AppColors.primary01, size: 20) : null,
+              prefixIcon: icon != null
+                  ? Icon(icon, color: AppColors.primary01, size: 20)
+                  : null,
               contentPadding: const EdgeInsets.all(20),
               border: InputBorder.none,
               hintText: 'Enter $label...',
@@ -545,7 +623,6 @@ class _VendorProfileSettingsScreenState
       ),
     );
   }
-
 
   Widget _buildPremiumSaveButton() {
     return Container(
@@ -622,13 +699,20 @@ class _VendorProfileSettingsScreenState
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary01),
+              icon: const Icon(
+                Icons.arrow_drop_down_rounded,
+                color: AppColors.primary01,
+              ),
               style: GoogleFonts.roboto(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF1E293B),
               ),
-              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem(value: item, child: Text(item)),
+                  )
+                  .toList(),
               onChanged: onChanged,
             ),
           ),
@@ -653,18 +737,24 @@ class _VendorProfileSettingsScreenState
           controller: ctrl,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: 'e.g. ${isService ? 'Drone Photography' : 'Cultural Ceremonies'}',
+            hintText:
+                'e.g. ${isService ? 'Drone Photography' : 'Cultural Ceremonies'}',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF97316),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Add'),
           ),
@@ -675,7 +765,8 @@ class _VendorProfileSettingsScreenState
     if (result != null && result.isNotEmpty && mounted) {
       setState(() {
         if (isService) {
-          if (!_serviceCategories.contains(result)) _serviceCategories.add(result);
+          if (!_serviceCategories.contains(result))
+            _serviceCategories.add(result);
         } else {
           if (!_eventCategories.contains(result)) _eventCategories.add(result);
         }
@@ -687,7 +778,12 @@ class _VendorProfileSettingsScreenState
   Future<void> _showLocationPicker() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (mounted) AppToast.show(context, message: 'Location services are disabled.', type: ToastType.error);
+      if (mounted)
+        AppToast.show(
+          context,
+          message: 'Location services are disabled.',
+          type: ToastType.error,
+        );
       return;
     }
 
@@ -695,13 +791,23 @@ class _VendorProfileSettingsScreenState
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        if (mounted) AppToast.show(context, message: 'Location permissions are denied.', type: ToastType.error);
+        if (mounted)
+          AppToast.show(
+            context,
+            message: 'Location permissions are denied.',
+            type: ToastType.error,
+          );
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (mounted) AppToast.show(context, message: 'Location permissions are permanently denied.', type: ToastType.error);
+      if (mounted)
+        AppToast.show(
+          context,
+          message: 'Location permissions are permanently denied.',
+          type: ToastType.error,
+        );
       return;
     }
 
@@ -812,8 +918,13 @@ class _ProfileSectionHeader extends StatelessWidget {
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.primary01,
                 backgroundColor: AppColors.primary01.withOpacity(0.1),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: Text(
                 actionLabel!,
@@ -837,9 +948,7 @@ class _TagWrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) {
-      return Wrap(
-        children: [ _buildActionTag('+ Add Tag', onAdd) ],
-      );
+      return Wrap(children: [_buildActionTag('+ Add Tag', onAdd)]);
     }
 
     return Wrap(
@@ -935,7 +1044,9 @@ class _PortfolioGrid extends StatelessWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: images.length < maxImages ? images.length + 1 : images.length,
+        itemCount: images.length < maxImages
+            ? images.length + 1
+            : images.length,
         itemBuilder: (context, index) {
           if (index == images.length) {
             return Padding(
@@ -980,7 +1091,11 @@ class _PortfolioGrid extends StatelessWidget {
                 color: Colors.black.withValues(alpha: 0.6),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+              child: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
           ),
         ),
@@ -1178,7 +1293,8 @@ class _AvailabilityCard extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
-    final String timeStr = '${time.hourOfPeriod}:${time.minute.toString().padLeft(2, '0')} ${time.period == DayPeriod.am ? 'AM' : 'PM'}';
+    final String timeStr =
+        '${time.hourOfPeriod}:${time.minute.toString().padLeft(2, '0')} ${time.period == DayPeriod.am ? 'AM' : 'PM'}';
 
     return Row(
       children: [
@@ -1242,7 +1358,10 @@ class _LocationPickerSheet extends StatefulWidget {
   final double initialLat;
   final double initialLng;
 
-  const _LocationPickerSheet({required this.initialLat, required this.initialLng});
+  const _LocationPickerSheet({
+    required this.initialLat,
+    required this.initialLng,
+  });
 
   @override
   State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
@@ -1263,14 +1382,20 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
 
   Future<void> _updateAddress(LatLng pos) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        pos.latitude,
+        pos.longitude,
+      );
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         if (mounted) {
           setState(() {
-            _currentAddress = [p.street, p.subLocality, p.locality, p.country]
-                .where((e) => e != null && e.isNotEmpty)
-                .join(', ');
+            _currentAddress = [
+              p.street,
+              p.subLocality,
+              p.locality,
+              p.country,
+            ].where((e) => e != null && e.isNotEmpty).join(', ');
           });
         }
       }
@@ -1305,7 +1430,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                )
+                ),
               ],
             ),
           ),
@@ -1350,7 +1475,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                   color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -5),
-                )
+                ),
               ],
             ),
             child: SafeArea(
@@ -1360,12 +1485,18 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.place_outlined, color: AppColors.primary01),
+                      const Icon(
+                        Icons.place_outlined,
+                        color: AppColors.primary01,
+                      ),
                       const Gap(10),
                       Expanded(
                         child: Text(
                           _currentAddress,
-                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1391,7 +1522,13 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Confirm Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Confirm Location',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1402,9 +1539,6 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
     );
   }
 }
-
-
-
 
 String _getDisplayUrl(dynamic item) {
   if (item == null) return '';

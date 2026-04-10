@@ -2,24 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
-import 'package:eventbridge/core/network/api_service.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:eventbridge/features/vendors_screen/widgets/lead_details_bottom_sheet.dart';
 
-class VendorSearchScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eventbridge/features/shared/providers/shared_lead_state.dart';
+
+class VendorSearchScreen extends ConsumerStatefulWidget {
   const VendorSearchScreen({super.key});
 
   @override
-  State<VendorSearchScreen> createState() => _VendorSearchScreenState();
+  ConsumerState<VendorSearchScreen> createState() => _VendorSearchScreenState();
 }
 
-class _VendorSearchScreenState extends State<VendorSearchScreen> {
+class _VendorSearchScreenState extends ConsumerState<VendorSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  List<Lead> _allLeads = [];
   List<Lead> _filteredLeads = [];
-  bool _isLoading = true;
   String _sortBy = 'recent'; // 'recent', 'score', 'budget'
 
   @override
@@ -41,43 +42,20 @@ class _VendorSearchScreenState extends State<VendorSearchScreen> {
       final userId = StorageService().getString('user_id');
       if (userId == null) return;
 
-      final result = await ApiService.instance.getVendorLeads(userId);
-      if (mounted && result['success'] == true) {
-        final List<dynamic> leadsData = result['leads'] ?? [];
-        setState(() {
-          _allLeads = leadsData.map((json) => Lead(
-            id: json['id'].toString(),
-            title: json['title'] ?? 'Lead',
-            date: json['date'] ?? 'TBD',
-            time: json['time'] ?? 'TBD',
-            location: json['location'] ?? 'TBD',
-            matchScore: int.tryParse(json['matchScore']?.toString() ?? '0') ?? 0,
-            budget: (json['budget'] is num) ? (json['budget'] as num).toDouble() : double.tryParse(json['budget']?.toString() ?? '0.0') ?? 0.0,
-            guests: int.tryParse(json['guests']?.toString() ?? '0') ?? 0,
-            responseTime: json['responseTime'] ?? '2h',
-            clientName: json['clientName'] ?? 'Client',
-            clientMessage: json['clientMessage'] ?? '',
-            venueName: json['venueName'] ?? '',
-            venueAddress: json['venueAddress'] ?? '',
-            clientImageUrl: json['clientImageUrl'] ?? 'https://via.placeholder.com/150',
-            isHighValue: json['isHighValue'] ?? false,
-            lastActive: json['lastActive'] ?? 'Active now',
-            isAccepted: json['isAccepted'] ?? false,
-          )).toList();
-          _filteredLeads = _allLeads;
-          _isLoading = false;
-        });
+      await ref.read(sharedLeadStateProvider.notifier).fetchLeads(userId);
+      if (mounted) {
+        _onSearchChanged(); // Update filtered list
       }
     } catch (e) {
       debugPrint('Error fetching leads: $e');
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _onSearchChanged() {
+    final allLeads = ref.read(sharedLeadStateProvider);
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredLeads = _allLeads.where((lead) {
+      _filteredLeads = allLeads.where((lead) {
         return lead.title.toLowerCase().contains(query) ||
                lead.clientName.toLowerCase().contains(query) ||
                lead.location.toLowerCase().contains(query);
@@ -99,6 +77,13 @@ class _VendorSearchScreenState extends State<VendorSearchScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final allLeads = ref.watch(sharedLeadStateProvider);
+    // If we haven't filtered yet and have leads, initialize them
+    if (_filteredLeads.isEmpty && _searchController.text.isEmpty && allLeads.isNotEmpty) {
+      _filteredLeads = allLeads;
+      _applySorting();
+    }
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
@@ -126,21 +111,19 @@ class _VendorSearchScreenState extends State<VendorSearchScreen> {
             child: _buildSearchBar(isDark),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredLeads.isEmpty
-                    ? _buildEmptyState(isDark)
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: _filteredLeads.length,
-                        itemBuilder: (context, index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _buildResultCard(context, _filteredLeads[index], isDark),
-                          ).animate().fadeIn(delay: (index * 50).ms, duration: 400.ms).slideY(begin: 0.1, end: 0);
-                        },
-                      ),
+            child: _filteredLeads.isEmpty && _searchController.text.isNotEmpty
+                ? _buildEmptyState(isDark)
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _filteredLeads.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildResultCard(context, _filteredLeads[index], isDark),
+                      ).animate().fadeIn(delay: (index * 50).ms, duration: 400.ms).slideY(begin: 0.1, end: 0);
+                    },
+                  ),
           ),
         ],
       ),
@@ -275,7 +258,14 @@ class _VendorSearchScreenState extends State<VendorSearchScreen> {
 
   Widget _buildResultCard(BuildContext context, Lead lead, bool isDark) {
     return GestureDetector(
-      onTap: () => context.push('/lead-details/${lead.id}'),
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => LeadDetailsBottomSheet(leadId: lead.id),
+        );
+      },
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(

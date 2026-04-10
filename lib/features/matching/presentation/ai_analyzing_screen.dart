@@ -58,7 +58,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
 
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8), // Longer progress bar
+      duration: const Duration(seconds: 8),
     )..forward();
 
     _pulseAnim = Tween<double>(begin: 0.92, end: 1.08).animate(
@@ -71,7 +71,6 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
       CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
     );
 
-    // Cycle messages
     _messageTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
       if (mounted) {
         setState(() {
@@ -79,14 +78,6 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
         });
       }
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    
-    // Listen to matching state changes
-    // We do this here or using ref.listen in build, but ref.listen is generally preferred in build
   }
 
   @override
@@ -100,7 +91,6 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Listen for completion
     ref.listen<MatchingState>(matchingControllerProvider, (previous, next) {
       if (previous?.isLoading == true && next.isLoading == false) {
         if (next.error != null) {
@@ -113,6 +103,8 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
         }
       }
     });
+
+    final matchCount = ref.watch(matchingControllerProvider).matches.length;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -144,7 +136,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                       style: GoogleFonts.outfit(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.primary01,
+                        color: AppColors.neutrals08,
                         height: 1.2,
                       ),
                     ),
@@ -154,7 +146,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                     'Matching with your style and budget.',
                     style: GoogleFonts.outfit(
                       fontSize: 15,
-                      color: const Color(0xFF6B7280),
+                      color: AppColors.neutrals07,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -162,7 +154,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                 ],
               ),
             ),
-            _buildBottomCard(),
+            _buildBottomCard(matchCount),
             const SizedBox(height: 24),
           ],
         ),
@@ -180,7 +172,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Outer orbit ring
+              // Outer orbit ring — neutral
               Transform.scale(
                 scale: _pulseAnim.value,
                 child: Container(
@@ -189,13 +181,13 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.primary01.withValues(alpha: 0.15),
+                      color: AppColors.neutrals03,
                       width: 2,
                     ),
                   ),
                 ),
               ),
-              // Inner orbit ring
+              // Inner orbit ring — light primary tint
               Transform.scale(
                 scale: _pulseAnim.value * 0.85,
                 child: Container(
@@ -204,13 +196,13 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.primary01.withValues(alpha: 0.25),
+                      color: AppColors.primary01.withOpacity(0.2),
                       width: 2,
                     ),
                   ),
                 ),
               ),
-              // Orbiting icons
+              // Orbiting icons — neutral bg
               ...List.generate(_serviceIcons.length, (i) {
                 final angle = _rotateAnim.value + (i * (2 * pi / _serviceIcons.length));
                 final radius = 95.0;
@@ -226,17 +218,17 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary01.withValues(alpha: 0.15),
+                          color: Colors.black.withOpacity(0.08),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    child: Icon(_serviceIcons[i], size: 16, color: AppColors.primary01),
+                    child: Icon(_serviceIcons[i], size: 16, color: AppColors.neutrals08),
                   ),
                 );
               }),
-              // Center badge
+              // Center badge — primary
               Container(
                 width: 90,
                 height: 90,
@@ -245,7 +237,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary01.withValues(alpha: 0.4),
+                      color: AppColors.primary01.withOpacity(0.3),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
@@ -253,7 +245,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                 ),
                 child: const Icon(Icons.hub_rounded, color: Colors.white, size: 38),
               ),
-              // Checkmark badge (top right)
+              // Checkmark badge — success green
               Positioned(
                 top: 20,
                 right: 20,
@@ -261,7 +253,7 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                   width: 32,
                   height: 32,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF00CFA1),
+                    color: AppColors.successGreen,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
@@ -285,8 +277,8 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
               animation: _progressAnim,
               builder: (context, _) => LinearProgressIndicator(
                 value: _progressAnim.value,
-                backgroundColor: AppColors.primary01.withValues(alpha: 0.15),
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary01),
+                backgroundColor: AppColors.neutrals02,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary01),
                 minHeight: 4,
               ),
             ),
@@ -305,11 +297,11 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                 ),
               ),
               Text(
-                'STEP 2/3',
+                'SEARCHING...',
                 style: GoogleFonts.outfit(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF9CA3AF),
+                  color: AppColors.neutrals06,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -320,13 +312,13 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
     );
   }
 
-  Widget _buildBottomCard() {
+  Widget _buildBottomCard(int matchCount) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.primary01.withValues(alpha: 0.08),
+          color: AppColors.neutrals01,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -335,10 +327,10 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.primary01.withValues(alpha: 0.15),
+                color: AppColors.primary01.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(Icons.auto_awesome, color: AppColors.primary01, size: 22),
+              child: const Icon(Icons.auto_awesome, color: AppColors.primary01, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -350,23 +342,23 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                     style: GoogleFonts.outfit(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary01,
+                      color: AppColors.neutrals07,
                       letterSpacing: 0.8,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '3 Active Requests',
+                    matchCount > 0 ? '$matchCount Matches Found' : 'Searching...',
                     style: GoogleFonts.outfit(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary01,
+                      color: AppColors.neutrals08,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFF9CA3AF)),
+            Icon(Icons.chevron_right_rounded, color: AppColors.neutrals06),
           ],
         ),
       ),

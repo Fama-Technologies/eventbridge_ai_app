@@ -23,12 +23,10 @@ import 'package:dio/dio.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const _kOrange = AppColors.primary01;
-const _kBg = Color(0xFFF6F7FB);
-const _kCard = Colors.white;
 const _kText = Color(0xFF111827);
 const _kMuted = AppColors.darkNeutral06; // Changed from Color(0xFF6B7280)
 const _kBorder = Color(0xFFE5E7EB);
-const _kMapsApiKey = "AIzaSyBh-GVHVYhZ7irbZ5o8QAyzpZPsXuNUwLM"; // Added
+const _kMapsApiKey = "AIzaSyBh-GVHVYhZ7irbZ5o8QAyzpZPsXuNUwLM";
 
 ImageProvider<Object> _pickedImageProvider(File file) {
   if (kIsWeb) return NetworkImage(file.path);
@@ -68,7 +66,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   double? _lat;
   double? _lng;
   double _radiusKm = 20.0;
-  
+
   // Autocomplete state
   Timer? _debounce;
   List<Map<String, String>> _placeSuggestions = [];
@@ -109,9 +107,24 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   final _gallery = <File>[];
   final _priceCtrl = TextEditingController();
   String _selectedCurrency = 'UGX';
-  final List<String> _currencies = ['UGX', 'USD', 'KES', 'TZS', 'RWF', 'GBP', 'EUR'];
+  final List<String> _currencies = [
+    'UGX',
+    'USD',
+    'KES',
+    'TZS',
+    'RWF',
+    'GBP',
+    'EUR',
+  ];
   String _selectedPriceUnit = 'Per Event';
-  final List<String> _priceUnits = ['Per Event', 'Per Plate', 'Per Hour', 'Per Day', 'Per Session', 'Flat Rate'];
+  final List<String> _priceUnits = [
+    'Per Event',
+    'Per Plate',
+    'Per Hour',
+    'Per Day',
+    'Per Session',
+    'Flat Rate',
+  ];
 
   // ── Nav ──────────────────────────────────────────────────────────────────────
   void _goto(int s) {
@@ -135,56 +148,6 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
       imageQuality: 80,
     );
     if (p != null && mounted) setState(() => _gallery.add(File(p.path)));
-  }
-
-  Future<void> _showLocationPicker() async {
-    // Check permissions
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (mounted) AppToast.show(context, message: 'Location services are disabled.', type: ToastType.error);
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        if (mounted) AppToast.show(context, message: 'Location permissions are denied.', type: ToastType.error);
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      if (mounted) AppToast.show(context, message: 'Location permissions are permanently denied.', type: ToastType.error);
-      return;
-    }
-
-    Position? currentPos;
-    try {
-      currentPos = await Geolocator.getCurrentPosition();
-    } catch (_) {}
-
-    if (!mounted) return;
-
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _LocationPickerSheet(
-        initialLat: _lat ?? currentPos?.latitude ?? 0.3476, // default Kampala
-        initialLng: _lng ?? currentPos?.longitude ?? 32.5825,
-      ),
-    );
-
-    if (result != null && mounted) {
-      setState(() {
-        _lat = result['lat'];
-        _lng = result['lng'];
-        _location.text = result['address'];
-        _selectedPlaceDescription = result['address']; // Update selected place description
-      });
-    }
   }
 
   Future<void> _pickTime(bool start) async {
@@ -246,15 +209,20 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
     if (query.isEmpty) return;
     setState(() => _isLoadingPlaces = true);
     try {
-      final url = 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$_kMapsApiKey';
+      final url =
+          'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$_kMapsApiKey';
       final res = await Dio().get(url);
       if (res.data['status'] == 'OK') {
         final preds = res.data['predictions'] as List;
         setState(() {
-          _placeSuggestions = preds.map((p) => {
-            'description': p['description'] as String,
-            'place_id': p['place_id'] as String,
-          }).toList();
+          _placeSuggestions = preds
+              .map(
+                (p) => {
+                  'description': p['description'] as String,
+                  'place_id': p['place_id'] as String,
+                },
+              )
+              .toList();
         });
       } else {
         setState(() => _placeSuggestions.clear());
@@ -275,7 +243,8 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
     });
 
     try {
-      final url = 'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$_kMapsApiKey';
+      final url =
+          'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$_kMapsApiKey';
       final res = await Dio().get(url);
       if (res.data['status'] == 'OK') {
         final resultInfo = res.data['result'];
@@ -295,18 +264,28 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
           _lat = loc['lat'];
           _lng = loc['lng'];
           if (foundCountry != null) {
-             _country.text = foundCountry;
-             // Auto-select currency based on country for convenience
-             if (foundCountry.contains('Uganda')) _selectedCurrency = 'UGX';
-             else if (foundCountry.contains('Kenya')) _selectedCurrency = 'KES';
-             else if (foundCountry.contains('Tanzania')) _selectedCurrency = 'TZS';
-             else if (foundCountry.contains('Rwanda')) _selectedCurrency = 'RWF';
-             else _selectedCurrency = 'USD';
+            _country.text = foundCountry;
+            // Auto-select currency based on country for convenience
+            if (foundCountry.contains('Uganda'))
+              _selectedCurrency = 'UGX';
+            else if (foundCountry.contains('Kenya'))
+              _selectedCurrency = 'KES';
+            else if (foundCountry.contains('Tanzania'))
+              _selectedCurrency = 'TZS';
+            else if (foundCountry.contains('Rwanda'))
+              _selectedCurrency = 'RWF';
+            else
+              _selectedCurrency = 'USD';
           }
         });
       }
     } catch (_) {
-      if (mounted) AppToast.show(context, message: 'Could not fetch coordinates.', type: ToastType.error);
+      if (mounted)
+        AppToast.show(
+          context,
+          message: 'Could not fetch coordinates.',
+          type: ToastType.error,
+        );
     }
   }
 
@@ -322,9 +301,11 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
           _location.text = draft['location'] ?? '';
           if (draft['lat'] != null) _lat = (draft['lat'] as num).toDouble();
           if (draft['lng'] != null) _lng = (draft['lng'] as num).toDouble();
-          if (draft['radiusKm'] != null) _radiusKm = (draft['radiusKm'] as num).toDouble();
+          if (draft['radiusKm'] != null)
+            _radiusKm = (draft['radiusKm'] as num).toDouble();
           if (draft['currency'] != null) _selectedCurrency = draft['currency'];
-          if (draft['priceUnit'] != null) _selectedPriceUnit = draft['priceUnit'];
+          if (draft['priceUnit'] != null)
+            _selectedPriceUnit = draft['priceUnit'];
           _selectedPlaceDescription = _location.text; // Added this line
           _descCtrl.text = draft['desc'] ?? '';
           _expCtrl.text = draft['exp'] ?? '';
@@ -374,11 +355,19 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
       await StorageService().setString('vendor_onboarding_draft', jsonStr);
       debugPrint('📋 Draft saved: $jsonStr');
       if (!mounted) return;
-      AppToast.show(context, message: 'Progress saved as draft!', type: ToastType.success);
+      AppToast.show(
+        context,
+        message: 'Progress saved as draft!',
+        type: ToastType.success,
+      );
     } catch (e) {
       debugPrint('❌ Draft save error: $e');
       if (!mounted) return;
-      AppToast.show(context, message: 'Failed to save draft.', type: ToastType.error);
+      AppToast.show(
+        context,
+        message: 'Failed to save draft.',
+        type: ToastType.error,
+      );
     }
   }
 
@@ -386,13 +375,19 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   bool _isSubmitting = false;
 
   Future<void> _submitForm() async {
-    if (_bizName.text.isEmpty || _country.text.isEmpty || _selectedSvc.isEmpty) {
-      AppToast.show(context, message: 'Please fill out all required fields.', type: ToastType.error);
+    if (_bizName.text.isEmpty ||
+        _country.text.isEmpty ||
+        _selectedSvc.isEmpty) {
+      AppToast.show(
+        context,
+        message: 'Please fill out all required fields.',
+        type: ToastType.error,
+      );
       return;
     }
 
     setState(() => _isSubmitting = true);
-    
+
     try {
       final api = ApiService.instance;
       final upload = UploadService.instance;
@@ -422,14 +417,15 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               : await _gallery[i].readAsBytes();
           final url = await upload.uploadFile(
             bytes: bytes,
-            fileName: 'gallery_${i}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            fileName:
+                'gallery_${i}_${DateTime.now().millisecondsSinceEpoch}.jpg',
             contentType: 'image/jpeg',
             folder: 'gallery/$userId',
           );
           galleryUrls.add(url);
         }
       }
-      
+
       await api.submitVendorOnboarding(
         userId: userId,
         businessName: _bizName.text,
@@ -458,9 +454,13 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
 
       if (!mounted) return;
       context.go('/vendor-home');
-
     } catch (e) {
-      if (mounted) AppToast.show(context, message: 'Error: ${e.toString().replaceAll('Exception: ', '')}', type: ToastType.error);
+      if (mounted)
+        AppToast.show(
+          context,
+          message: 'Error: ${e.toString().replaceAll('Exception: ', '')}',
+          type: ToastType.error,
+        );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -481,12 +481,16 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Container(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkNeutral02 : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(32),
+              ),
               boxShadow: const [
                 BoxShadow(
                   color: Colors.black12,
@@ -504,7 +508,9 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkNeutral03 : Colors.grey.shade300,
+                      color: isDark
+                          ? AppColors.darkNeutral03
+                          : Colors.grey.shade300,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -540,22 +546,43 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
-                    hintText: isService ? 'e.g. Drone Photography' : 'e.g. Cultural Ceremonies',
-                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 15),
+                    hintText: isService
+                        ? 'e.g. Drone Photography'
+                        : 'e.g. Cultural Ceremonies',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontSize: 15,
+                    ),
                     filled: true,
-                    fillColor: isDark ? AppColors.darkNeutral03 : const Color(0xFFF9FAFB),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    fillColor: isDark
+                        ? AppColors.darkNeutral03
+                        : const Color(0xFFF9FAFB),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: isDark ? const Color(0xFF333333) : Colors.grey.shade200),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? const Color(0xFF333333)
+                            : Colors.grey.shade200,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: isDark ? const Color(0xFF333333) : Colors.grey.shade200),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? const Color(0xFF333333)
+                            : Colors.grey.shade200,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: AppColors.primary01, width: 2),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary01,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -563,7 +590,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                 ElevatedButton(
                   onPressed: () {
                     if (ctrl.text.trim().isNotEmpty) {
-                       Navigator.pop(ctx, ctrl.text.trim());
+                      Navigator.pop(ctx, ctrl.text.trim());
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -575,7 +602,10 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Add Category', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Add Category',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -628,14 +658,24 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               ),
             ),
             if (_isSubmitting)
-               const Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator(color: AppColors.primary01)),
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(color: AppColors.primary01),
+              ),
             if (!_isSubmitting)
               _BottomNav(
                 step: _step,
                 onNext: () {
                   if (_step == 0) {
-                    if (_bizName.text.isEmpty || _country.text.isEmpty || _selectedSvc.isEmpty) {
-                      AppToast.show(context, message: 'Please fill in all required fields marked with *', type: ToastType.error);
+                    if (_bizName.text.isEmpty ||
+                        _country.text.isEmpty ||
+                        _selectedSvc.isEmpty) {
+                      AppToast.show(
+                        context,
+                        message:
+                            'Please fill in all required fields marked with *',
+                        type: ToastType.error,
+                      );
                       return;
                     }
                     _goto(1);
@@ -802,7 +842,10 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: _kOrange),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _kOrange,
+                          ),
                         ),
                       ),
                   ],
@@ -812,7 +855,11 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                     margin: const EdgeInsets.only(top: 4),
                     decoration: BoxDecoration(
                       color: isDark ? AppColors.darkNeutral02 : Colors.white,
-                      border: Border.all(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF333333)
+                            : const Color(0xFFE5E7EB),
+                      ),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -827,18 +874,33 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                       padding: EdgeInsets.zero,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _placeSuggestions.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: isDark
+                            ? const Color(0xFF333333)
+                            : const Color(0xFFE5E7EB),
+                      ),
                       itemBuilder: (ctx, i) {
                         final s = _placeSuggestions[i];
                         return ListTile(
-                          leading: const Icon(Icons.place_outlined, color: _kMuted, size: 20),
-                          title: Text(s['description']!, style: const TextStyle(fontSize: 13)),
-                          onTap: () => _selectPlace(s['place_id']!, s['description']!),
+                          leading: const Icon(
+                            Icons.place_outlined,
+                            color: _kMuted,
+                            size: 20,
+                          ),
+                          title: Text(
+                            s['description']!,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          onTap: () =>
+                              _selectPlace(s['place_id']!, s['description']!),
                         );
                       },
                     ),
                   ),
-                if (_lat != null && _lng != null && _placeSuggestions.isEmpty) ...[
+                if (_lat != null &&
+                    _lng != null &&
+                    _placeSuggestions.isEmpty) ...[
                   const Gap(12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
@@ -869,7 +931,13 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const _FieldLabel('Service Radius'),
-                      Text('${_radiusKm.toInt()} km', style: const TextStyle(fontWeight: FontWeight.bold, color: _kOrange)),
+                      Text(
+                        '${_radiusKm.toInt()} km',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _kOrange,
+                        ),
+                      ),
                     ],
                   ),
                   SliderTheme(
@@ -899,7 +967,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                     "We'll match you with local events.",
                     style: TextStyle(fontSize: 12, color: _kMuted),
                   ),
-                ]
+                ],
               ],
             ),
           ).animate(delay: 190.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
@@ -1029,15 +1097,27 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _selectedCurrency,
-                              icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: _kOrange),
+                              icon: const Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 14,
+                                color: _kOrange,
+                              ),
                               items: _currencies.map((String c) {
                                 return DropdownMenuItem(
                                   value: c,
-                                  child: Text(c, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _kOrange)),
+                                  child: Text(
+                                    c,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _kOrange,
+                                    ),
+                                  ),
                                 );
                               }).toList(),
                               onChanged: (v) {
-                                if (v != null) setState(() => _selectedCurrency = v);
+                                if (v != null)
+                                  setState(() => _selectedCurrency = v);
                               },
                             ),
                           ),
@@ -1055,7 +1135,8 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                               : const Color(0xFFF9FAFB),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Theme.of(context).brightness == Brightness.dark
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? const Color(0xFF333333)
                                 : const Color(0xFFE5E7EB),
                           ),
@@ -1064,18 +1145,30 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                           child: DropdownButton<String>(
                             value: _selectedPriceUnit,
                             isExpanded: true,
-                            icon: const Icon(Icons.arrow_drop_down, color: _kMuted),
-                            dropdownColor: Theme.of(context).brightness == Brightness.dark 
-                              ? AppColors.darkNeutral02 
-                              : Colors.white,
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              color: _kMuted,
+                            ),
+                            dropdownColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.darkNeutral02
+                                : Colors.white,
                             items: _priceUnits.map((String unit) {
                               return DropdownMenuItem(
                                 value: unit,
-                                child: Text(unit, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kMuted)),
+                                child: Text(
+                                  unit,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: _kMuted,
+                                  ),
+                                ),
                               );
                             }).toList(),
                             onChanged: (v) {
-                              if (v != null) setState(() => _selectedPriceUnit = v);
+                              if (v != null)
+                                setState(() => _selectedPriceUnit = v);
                             },
                           ),
                         ),
@@ -1158,7 +1251,9 @@ class _AppBar extends StatelessWidget {
                 'Vendor Portal',
                 style: TextStyle(
                   fontSize: 11,
-                  color: isDark ? AppColors.darkNeutral06 : Colors.grey.shade500,
+                  color: isDark
+                      ? AppColors.darkNeutral06
+                      : Colors.grey.shade500,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1185,7 +1280,9 @@ class _AppBar extends StatelessWidget {
               child: Icon(
                 Icons.headset_mic_outlined,
                 size: 19,
-                color: isDark ? AppColors.darkNeutral06 : const Color(0xFF6B7280),
+                color: isDark
+                    ? AppColors.darkNeutral06
+                    : const Color(0xFF6B7280),
               ),
             ),
           ),
@@ -1280,7 +1377,9 @@ class _StepRail extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: (done || active) ? _kOrange : Colors.grey.shade400,
+                        color: (done || active)
+                            ? _kOrange
+                            : Colors.grey.shade400,
                       ),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
@@ -1353,7 +1452,9 @@ class _BottomNav extends StatelessWidget {
                 height: 50,
                 width: 50,
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkNeutral03 : Colors.grey.shade100,
+                  color: isDark
+                      ? AppColors.darkNeutral03
+                      : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
@@ -1390,7 +1491,9 @@ class _BottomNav extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkNeutral04 : Colors.grey.shade500,
+                  color: isDark
+                      ? AppColors.darkNeutral04
+                      : Colors.grey.shade500,
                 ),
               ),
             ),
@@ -1420,7 +1523,9 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? AppColors.darkNeutral02 : Colors.white;
-    final borderColor = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
+    final borderColor = isDark
+        ? const Color(0xFF333333)
+        : const Color(0xFFE5E7EB);
 
     return Container(
       width: double.infinity,
@@ -1468,10 +1573,7 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
         const Gap(6),
-        Text(
-          sub,
-          style: TextStyle(fontSize: 14, color: muted, height: 1.5),
-        ),
+        Text(sub, style: TextStyle(fontSize: 14, color: muted, height: 1.5)),
       ],
     );
   }
@@ -1542,7 +1644,9 @@ class _CounterLabel extends StatelessWidget {
             '${ctrl.text.length}/$max',
             style: TextStyle(
               fontSize: 12,
-              color: ctrl.text.length >= max ? Colors.red : Colors.grey.shade400,
+              color: ctrl.text.length >= max
+                  ? Colors.red
+                  : Colors.grey.shade400,
             ),
           ),
         ],
@@ -1557,7 +1661,12 @@ class _Input extends StatelessWidget {
   final String hint;
   final Widget? prefix;
   final TextInputType? keyboardType;
-  const _Input({required this.ctrl, required this.hint, this.prefix, this.keyboardType});
+  const _Input({
+    required this.ctrl,
+    required this.hint,
+    this.prefix,
+    this.keyboardType,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1565,7 +1674,9 @@ class _Input extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final text = isDark ? Colors.white : const Color(0xFF111827);
     final muted = isDark ? AppColors.darkNeutral06 : const Color(0xFF6B7280);
-    final fill = isDark ? AppColors.darkNeutral02.withValues(alpha: 0.5) : const Color(0xFFF9FAFB);
+    final fill = isDark
+        ? AppColors.darkNeutral02.withValues(alpha: 0.5)
+        : const Color(0xFFF9FAFB);
     final border = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
 
     return TextField(
@@ -1578,7 +1689,10 @@ class _Input extends StatelessWidget {
         prefixIcon: prefix,
         filled: true,
         fillColor: fill,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: border),
@@ -1609,7 +1723,9 @@ class _TextArea extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final text = isDark ? Colors.white : const Color(0xFF111827);
     final muted = isDark ? AppColors.darkNeutral06 : const Color(0xFF6B7280);
-    final fill = isDark ? AppColors.darkNeutral02.withValues(alpha: 0.5) : const Color(0xFFF9FAFB);
+    final fill = isDark
+        ? AppColors.darkNeutral02.withValues(alpha: 0.5)
+        : const Color(0xFFF9FAFB);
     final border = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
 
     return TextField(
@@ -1765,7 +1881,11 @@ class _ChipGrid extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (sel) ...[
-                  const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+                  const Icon(
+                    Icons.check_rounded,
+                    size: 13,
+                    color: Colors.white,
+                  ),
                   const Gap(4),
                 ],
                 Text(
@@ -1884,7 +2004,11 @@ class _AvatarPicker extends StatelessWidget {
               color: _kOrange,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+            child: const Icon(
+              Icons.edit_rounded,
+              color: Colors.white,
+              size: 14,
+            ),
           ),
         ],
       ),
@@ -1937,7 +2061,9 @@ class _TimeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fill = isDark ? AppColors.darkNeutral02.withValues(alpha: 0.5) : const Color(0xFFF9FAFB);
+    final fill = isDark
+        ? AppColors.darkNeutral02.withValues(alpha: 0.5)
+        : const Color(0xFFF9FAFB);
     final border = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
     final text = isDark ? Colors.white : const Color(0xFF111827);
     final muted = isDark ? AppColors.darkNeutral06 : const Color(0xFF6B7280);
@@ -1988,9 +2114,6 @@ class _GalleryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final card = isDark ? AppColors.darkNeutral03 : const Color(0xFFF9FAFB);
-    final border = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
-    final muted = isDark ? AppColors.darkNeutral06 : const Color(0xFF6B7280);
 
     final all = [...images, null]; // null = add button slot
     return GridView.builder(
@@ -2131,7 +2254,10 @@ class _LocationPickerSheet extends StatefulWidget {
   final double initialLat;
   final double initialLng;
 
-  const _LocationPickerSheet({required this.initialLat, required this.initialLng});
+  const _LocationPickerSheet({
+    required this.initialLat,
+    required this.initialLng,
+  });
 
   @override
   State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
@@ -2152,14 +2278,20 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
 
   Future<void> _updateAddress(LatLng pos) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        pos.latitude,
+        pos.longitude,
+      );
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         if (mounted) {
           setState(() {
-            _currentAddress = [p.street, p.subLocality, p.locality, p.country]
-                .where((e) => e != null && e.isNotEmpty)
-                .join(', ');
+            _currentAddress = [
+              p.street,
+              p.subLocality,
+              p.locality,
+              p.country,
+            ].where((e) => e != null && e.isNotEmpty).join(', ');
           });
         }
       }
@@ -2194,7 +2326,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                )
+                ),
               ],
             ),
           ),
@@ -2239,7 +2371,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                   color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -5),
-                )
+                ),
               ],
             ),
             child: SafeArea(
@@ -2249,12 +2381,18 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.place_outlined, color: AppColors.primary01),
+                      const Icon(
+                        Icons.place_outlined,
+                        color: AppColors.primary01,
+                      ),
                       const Gap(10),
                       Expanded(
                         child: Text(
                           _currentAddress,
-                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -2280,7 +2418,13 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Confirm Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Confirm Location',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2291,4 +2435,3 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
     );
   }
 }
-

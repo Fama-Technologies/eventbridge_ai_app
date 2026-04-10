@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,90 +12,58 @@ class CustomerBottomNavbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 4 icons matching the design: Home, Explore/Compass, Favorites/Heart, Profile/Person
     final items = [
-      (Icons.home_rounded, 'Home', '/customer-home'),
-      (Icons.auto_awesome_rounded, 'Matches', '/matches'),
-      (Icons.hub_rounded, 'Bridge', '/match-intake'), // Starts the AI flow
-      (Icons.chat_bubble_rounded, 'Chats', '/customer-chats'),
-      (Icons.person_rounded, 'Profile', '/customer-profile'),
+      (Icons.home_rounded, '/customer-home'),
+      (Icons.explore_outlined, '/customer-explore'),
+      (Icons.chat_bubble_outline_rounded, '/customer-chats'),
+      (Icons.person_outline_rounded, '/customer-profile'),
     ];
 
     return Container(
-      height: 85,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      height: 70,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(36),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 25,
-            offset: const Offset(0, 10),
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.shade200,
+            width: 1,
           ),
-        ],
+        ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: items.map((item) {
-          final isSelected = currentRoute == item.$3;
-          final isBridge = item.$2 == 'Bridge';
-
-          if (isBridge) {
-            return GestureDetector(
-              onTap: () => context.go(item.$3),
-              child: Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.primary01,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary01.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(item.$1, color: Colors.white, size: 20),
-                    Text(
-                      'Explore',
-                      style: GoogleFonts.outfit(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: items.asMap().entries.map((entry) {
+          final item = entry.value;
+          final isSelected = currentRoute == item.$2;
 
           return GestureDetector(
-            onTap: () => context.go(item.$3),
+            onTap: () => context.go(item.$2),
+            behavior: HitTestBehavior.opaque,
             child: SizedBox(
-              width: 50,
+              width: 60,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
+                  // Active indicator line at the top
+                  if (isSelected)
+                    Container(
+                      width: 24,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary01,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 3),
+                  const Spacer(),
                   Icon(
                     item.$1,
-                    color: isSelected ? AppColors.primary01 : const Color(0xFF9CA3AF),
-                    size: 24,
+                    color: isSelected ? AppColors.primary01 : Colors.grey.shade400,
+                    size: 26,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.$2,
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected ? AppColors.primary01 : const Color(0xFF9CA3AF),
-                    ),
-                  ),
+                  const Spacer(),
                 ],
               ),
             ),

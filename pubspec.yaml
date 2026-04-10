@@ -118,6 +118,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   web_socket_channel: ^3.0.1
   flutter_native_splash: ^2.4.7
+  firebase_app_check: ^0.3.2+10
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:

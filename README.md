@@ -4,6 +4,33 @@
 
 - EventBridge user flow and product rules: `docs/eventbridge_user_flow.md`
 
+## Architecture
+
+The app is organized by feature and follows a clean-architecture direction:
+
+- `presentation`:
+	- UI screens, widgets, state controllers, and Riverpod providers
+	- depends on use cases, not concrete data classes
+- `domain`:
+	- repository contracts (abstractions)
+	- use cases containing feature actions
+	- no Flutter or infrastructure dependencies
+- `data`:
+	- concrete repository implementations
+	- API/storage integrations
+	- implements domain contracts
+
+Current clean-architecture baseline is implemented for:
+
+- `features/auth`
+- `features/matching`
+
+Dependency rule:
+
+- `presentation -> domain`
+- `data -> domain`
+- `presentation` should not directly depend on concrete data implementations
+
 A new Flutter project.
 
 ## Getting Started

@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:eventbridge/core/theme/app_theme.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:go_router/go_router.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -19,6 +16,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   bool isLastPage = false;
   Timer? _timer;
+  Timer? _redirectTimer;
 
   @override
   void initState() {
@@ -33,14 +31,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           duration: const Duration(milliseconds: 600),
           curve: Curves.easeInOut,
         );
-      } else if (isLastPage && _pageController.hasClients) {
-        // Optional: loop back to the first page if you want continuous auto-scroll
-        // _pageController.animateToPage(
-        //   0,
-        //   duration: const Duration(milliseconds: 600),
-        //   curve: Curves.easeInOut,
-        // );
-        _timer?.cancel(); // Stop scrolling when reaching the end
+      } else if (isLastPage) {
+        _timer?.cancel();
+      }
+    });
+  }
+
+  void _scheduleAutoRedirect() {
+    _redirectTimer?.cancel();
+    _redirectTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        _navigateToLogin();
       }
     });
   }
@@ -48,6 +49,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _redirectTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -84,37 +86,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.backgroundLight,
       body: Stack(
         children: [
           // ── Scrollable Pages ──
           PageView(
             controller: _pageController,
             onPageChanged: (index) {
+              final reachedLastPage = index == 2;
               setState(() {
-                isLastPage = index == 2;
+                isLastPage = reachedLastPage;
               });
+
+              if (reachedLastPage) {
+                _scheduleAutoRedirect();
+              } else {
+                _redirectTimer?.cancel();
+              }
             },
             children: const [
+              // mn  we  a going images  from "assets/images/onboarding1.jpg" to "assets/images/onboarding3.jpg" with 3 different images and text for each page
               _OnboardingPage(
-
                 title: 'Seamless Event Planning',
-                // ----- so we going  to use the images  in the /assets/onboarding/
                 description:
                     'Connect with elite vendors and plan your dream event with AI-powered precision and effortless coordination.',
-                imageUrl: 'assets/onboarding/onboarding1.',
+                imageUrl: 'assets/onboarding/onboarding1.jpg',
               ),
               _OnboardingPage(
                 title: 'AI-Powered Matching',
                 description:
                     'Our advanced algorithms pair you with perfectly suited vendors for your specific needs, budget, and aesthetic.',
-                imageUrl: 'https://images.unsplash.com/photo-1551818255-e6e10975bc17?auto=format&fit=crop&q=80&w=800',
+                imageUrl: 'assets/onboarding/onboarding2.jpg',
               ),
               _OnboardingPage(
                 title: 'Track Every Detail',
                 description:
                     'Monitor your event progress in real-time, manage bookings, and stay ahead of every deadline with one intelligent platform.',
-                imageUrl: 'https://images.unsplash.com/photo-1475721027187-402473394b8e?auto=format&fit=crop&q=80&w=800',
+                imageUrl: 'assets/onboarding/onboarding3.jpg',
               ),
             ],
           ),
@@ -131,7 +141,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _CircularNavigationButton(
                   icon: Icons.chevron_left_rounded,
                   onTap: _onBackTap,
-                  enabled: _pageController.hasClients && _pageController.page != 0,
+                  enabled:
+                      _pageController.hasClients && _pageController.page != 0,
                 ),
 
                 // Page Indicator
@@ -150,14 +161,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                 // Next Button
                 _CircularNavigationButton(
-                  icon: isLastPage ? Icons.check_rounded : Icons.chevron_right_rounded,
+                  icon: Icons.chevron_right_rounded,
                   onTap: _onNextTap,
                   isPrimary: true,
                 ),
               ],
             ),
           ),
-          
+
           // Skip Button top right
           Positioned(
             top: 60,
@@ -203,14 +214,12 @@ class _CircularNavigationButton extends StatelessWidget {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: isPrimary ? AppColors.primary01 : AppColors.darkNeutral02.withValues(alpha: 0.5),
+          color: isPrimary
+              ? AppColors.primary01
+              : AppColors.darkNeutral02.withValues(alpha: 0.5),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
-          color: AppColors.shadesWhite,
-          size: 28,
-        ),
+        child: Icon(icon, color: AppColors.shadesWhite, size: 28),
       ),
     );
   }
@@ -227,13 +236,14 @@ class _OnboardingPage extends StatelessWidget {
     required this.imageUrl,
   });
 
+  // update  this  meethode  to show the  url  settedup
   Widget _buildPlaceholderImage(String imageUrl) {
     IconData icon;
     Color color;
-    if (imageUrl.contains('photo-1540575861501')) {
+    if (imageUrl.contains('onboarding1')) {
       icon = Icons.event_available_rounded;
       color = AppColors.primary01;
-    } else if (imageUrl.contains('photo-1551818255')) {
+    } else if (imageUrl.contains('onboarding2')) {
       icon = Icons.psychology_rounded;
       color = const Color(0xFF6366F1);
     } else {
@@ -241,35 +251,39 @@ class _OnboardingPage extends StatelessWidget {
       color = const Color(0xFF10B981);
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color,
-            color.withValues(alpha: 0.7),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              'assets/icons/Icon.svg',
-              height: 120,
-              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+    return Image.asset(
+      imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [color, color.withValues(alpha: 0.7)],
             ),
-            const SizedBox(height: 20),
-            Icon(
-              icon,
-              size: 48,
-              color: Colors.white,
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(
+                  'assets/icons/Icon.svg',
+                  height: 120,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Icon(icon, size: 48, color: Colors.white),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -277,7 +291,9 @@ class _OnboardingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+    final titleColor = theme.colorScheme.onSurface;
+    final descriptionColor = theme.colorScheme.onSurfaceVariant;
+
     return Column(
       children: [
         // ── Top Curved Graphic Placeholder ──
@@ -288,7 +304,19 @@ class _OnboardingPage extends StatelessWidget {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFFD9D9D9) : const Color(0xFFE5E5E5),
+                  color: isDark
+                      ? const Color(0xFFD9D9D9)
+                      : const Color(0xFFE5E5E5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.32 : 0.14,
+                      ),
+                      blurRadius: 28,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
                   borderRadius: const BorderRadius.vertical(
                     bottom: Radius.elliptical(500, 250),
                   ),
@@ -319,7 +347,7 @@ class _OnboardingPage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.shadesWhite,
+                    color: titleColor,
                     height: 1.1,
                   ),
                 ),
@@ -328,7 +356,7 @@ class _OnboardingPage extends StatelessWidget {
                   description,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.darkNeutral06,
+                    color: descriptionColor,
                     height: 1.4,
                     fontSize: 14,
                     fontWeight: FontWeight.w400,

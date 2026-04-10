@@ -17,9 +17,9 @@ class AppConfig {
     switch (_environment) {
       case Environment.dev:
       case Environment.staging:
-        return 'eventbridge-ai'; // Same project, different Firestore collections
+        return 'eventbridge-34569';
       case Environment.production:
-        return 'eventbridge-ai';
+        return 'eventbridge-34569';
     }
   }
 

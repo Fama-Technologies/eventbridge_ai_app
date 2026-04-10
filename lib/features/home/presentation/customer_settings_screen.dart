@@ -5,19 +5,25 @@ import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:eventbridge/core/network/api_service.dart';
 import 'package:eventbridge/features/auth/data/auth_repository.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:eventbridge/features/shared/widgets/top_notification.dart';
 
-class CustomerSettingsScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'providers/profile_provider.dart';
+import '../data/repositories/profile_repository.dart';
+import '../domain/models/customer_profile.dart';
+import '../../auth/presentation/auth_provider.dart';
+
+class CustomerSettingsScreen extends ConsumerStatefulWidget {
   const CustomerSettingsScreen({super.key});
 
   @override
-  State<CustomerSettingsScreen> createState() => _CustomerSettingsScreenState();
+  ConsumerState<CustomerSettingsScreen> createState() => _CustomerSettingsScreenState();
 }
 
-class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
-  bool _notifications = true;
+class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen> {
   bool _emailUpdates = false;
   bool _darkMode = false;
-  bool _locationSharing = true;
   String _selectedCurrency = 'UGX';
 
   final List<String> _currencies = ['UGX', 'USD', 'KES', 'TZS', 'RWF', 'GBP', 'EUR'];
@@ -34,283 +40,232 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profileAsync = ref.watch(customerProfileProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDark ? AppColors.backgroundDark : AppColors.warmCream;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverToBoxAdapter(child: _buildProfileCard(context)),
-          SliverToBoxAdapter(child: _sectionLabel('Preferences')),
-          SliverToBoxAdapter(
-            child: _buildToggleCard([
-              _ToggleItem(
-                icon: Icons.notifications_rounded,
-                iconColor: AppColors.primary01,
-                title: 'Push Notifications',
-                subtitle: 'Vendor updates & match alerts',
-                value: _notifications,
-                onChanged: (v) => setState(() => _notifications = v),
-              ),
-              _ToggleItem(
-                icon: Icons.email_rounded,
-                iconColor: const Color(0xFF4338CA),
-                title: 'Email Updates',
-                subtitle: 'Weekly digest & promotions',
-                value: _emailUpdates,
-                onChanged: (v) => setState(() => _emailUpdates = v),
-              ),
-              _ToggleItem(
-                icon: Icons.dark_mode_rounded,
-                iconColor: const Color(0xFF1E293B),
-                title: 'Dark Mode',
-                subtitle: 'Use dark theme across the app',
-                value: _darkMode,
-                onChanged: (v) => setState(() => _darkMode = v),
-              ),
-              _ToggleItem(
-                icon: Icons.location_on_rounded,
-                iconColor: const Color(0xFF00CFA1),
-                title: 'Location Sharing',
-                subtitle: 'Improve nearby vendor matches',
-                value: _locationSharing,
-                onChanged: (v) => setState(() => _locationSharing = v),
-              ),
-            ]),
-          ),
-          // Currency Selector
-          SliverToBoxAdapter(child: _sectionLabel('Currency')),
-          SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary01.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+      backgroundColor: backgroundColor,
+      body: profileAsync.when(
+        data: (profile) => CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _buildSliverAppBar(context, isDark),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 80),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildProfileCard(context, isDark, profile).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
+                  const SizedBox(height: 32),
+                  
+                  _buildSectionTitle('Preferences', isDark),
+                  const SizedBox(height: 16),
+                  _buildToggleGroup([
+                    _ToggleItem(
+                      icon: Icons.email_rounded,
+                      iconColor: const Color(0xFF4338CA),
+                      title: 'Email Updates',
+                      subtitle: 'Weekly digest & promotions',
+                      value: _emailUpdates,
+                      onChanged: (v) => setState(() => _emailUpdates = v),
                     ),
-                    child: const Icon(Icons.currency_exchange_rounded, color: AppColors.primary01, size: 20),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
+                    _ToggleItem(
+                      icon: Icons.dark_mode_rounded,
+                      iconColor: const Color(0xFF1E293B),
+                      title: 'Dark Mode',
+                      subtitle: 'Use dark theme across the app',
+                      value: _darkMode,
+                      onChanged: (v) => setState(() => _darkMode = v),
+                    ),
+                  ], isDark).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1, end: 0),
+
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('Regional', isDark),
+                  const SizedBox(height: 16),
+                  _buildGlassCard(
+                    isDark: isDark,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          _buildIconContainer(Icons.currency_exchange_rounded, AppColors.primary01),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Display Currency',
+                                    style: GoogleFonts.outfit(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark ? Colors.white : AppColors.primary01)),
+                                Text('Select your preferred currency',
+                                    style: GoogleFonts.outfit(
+                                        fontSize: 12,
+                                        color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                          DropdownButton<String>(
+                            value: _selectedCurrency,
+                            underline: const SizedBox(),
+                            dropdownColor: isDark ? AppColors.darkNeutral01 : Colors.white,
+                            icon: Icon(Icons.keyboard_arrow_down_rounded, color: isDark ? Colors.white38 : AppColors.primary01),
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? AppColors.primary01 : AppColors.primary01,
+                            ),
+                            items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedCurrency = val);
+                                StorageService().setString('display_currency', val);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
+
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('Account & Security', isDark),
+                  const SizedBox(height: 16),
+                  _buildMenuGroup([
+                    _MenuItem(
+                      icon: Icons.person_outline_rounded,
+                      iconColor: AppColors.primary01,
+                      title: 'Personal Information',
+                      subtitle: 'Name, email, phone',
+                      onTap: () => _showPersonalInformation(context, profile, isDark),
+                    ),
+                    _MenuItem(
+                      icon: Icons.lock_outline_rounded,
+                      iconColor: const Color(0xFF4338CA),
+                      title: 'Password & Security',
+                      subtitle: 'Change password, 2FA',
+                      onTap: () => _showSecuritySettings(context, isDark),
+                    ),
+                    _MenuItem(
+                      icon: Icons.payment_rounded,
+                      iconColor: const Color(0xFF00CFA1),
+                      title: 'Payment Methods',
+                      subtitle: 'Manage cards & billing',
+                      onTap: () => _showPaymentMethods(context, isDark),
+                    ),
+                  ], isDark).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0),
+
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('Danger Zone', isDark),
+                  const SizedBox(height: 16),
+                  _buildGlassCard(
+                    isDark: isDark,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Display Currency',
-                            style: GoogleFonts.outfit(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary01)),
-                        Text('Select your preferred currency',
-                            style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                color: const Color(0xFF9CA3AF))),
+                        _buildSettingsItem(
+                          icon: Icons.logout_rounded,
+                          title: 'Sign Out',
+                          subtitle: 'Safely exit your account',
+                          titleColor: Colors.orange,
+                          isDark: isDark,
+                          onTap: () => _handleLogout(context),
+                          showArrow: false,
+                        ),
+                        _buildDivider(isDark),
+                        _buildSettingsItem(
+                          icon: Icons.delete_forever_rounded,
+                          title: 'Delete Account',
+                          subtitle: 'Permanently remove all data',
+                          titleColor: Colors.redAccent,
+                          isDark: isDark,
+                          onTap: () => _handleDeleteAccount(context),
+                          showArrow: false,
+                        ),
                       ],
                     ),
-                  ),
-                  DropdownButton<String>(
-                    value: _selectedCurrency,
-                    underline: const SizedBox(),
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary01,
+                  ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1, end: 0),
+                  
+                  const SizedBox(height: 48),
+                  Center(
+                    child: Text(
+                      'EventBridge Premium v2.4.0',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white24 : Colors.black26,
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                    items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() => _selectedCurrency = val);
-                        StorageService().setString('display_currency', val);
-                      }
-                    },
                   ),
-                ],
+                ]),
               ),
             ),
-          ),
-          SliverToBoxAdapter(child: _sectionLabel('Account')),
-          SliverToBoxAdapter(
-            child: _buildMenuCard([
-              _MenuItem(
-                icon: Icons.person_rounded,
-                iconColor: AppColors.primary01,
-                title: 'Personal Information',
-                subtitle: 'Name, email, phone',
-                onTap: () {},
-              ),
-              _MenuItem(
-                icon: Icons.lock_rounded,
-                iconColor: const Color(0xFF4338CA),
-                title: 'Password & Security',
-                subtitle: 'Change password, 2FA',
-                onTap: () {},
-              ),
-              _MenuItem(
-                icon: Icons.credit_card_rounded,
-                iconColor: const Color(0xFF00CFA1),
-                title: 'Payment Methods',
-                subtitle: 'Manage cards & billing',
-                onTap: () {},
-              ),
-              _MenuItem(
-                icon: Icons.star_rounded,
-                iconColor: const Color(0xFFFFB800),
-                title: 'Subscription Plan',
-                subtitle: 'Premium — Active',
-                onTap: () {},
-              ),
-            ]),
-          ),
-          SliverToBoxAdapter(child: _sectionLabel('Support')),
-          SliverToBoxAdapter(
-            child: _buildMenuCard([
-              _MenuItem(
-                icon: Icons.help_rounded,
-                iconColor: const Color(0xFF6B7280),
-                title: 'Help & Support',
-                subtitle: 'FAQs, contact us',
-                onTap: () {},
-              ),
-              _MenuItem(
-                icon: Icons.privacy_tip_rounded,
-                iconColor: const Color(0xFF6B7280),
-                title: 'Privacy Policy',
-                subtitle: 'How we handle your data',
-                onTap: () {},
-              ),
-              _MenuItem(
-                icon: Icons.description_rounded,
-                iconColor: const Color(0xFF6B7280),
-                title: 'Terms of Service',
-                subtitle: 'Usage agreements',
-                onTap: () {},
-              ),
-            ]),
-          ),
-          SliverToBoxAdapter(child: _sectionLabel('Account Actions')),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 48),
-              child: Column(
-                children: [
-                  // Switch User
-                  _buildActionButton(
-                    icon: Icons.swap_horiz_rounded,
-                    label: 'Switch User',
-                    color: const Color(0xFF4338CA),
-                    onTap: () => context.go('/role-selection'),
-                  ),
-                  const SizedBox(height: 12),
-                  // Log Out
-                  _buildActionButton(
-                    icon: Icons.logout_rounded,
-                    label: 'Sign Out',
-                    color: const Color(0xFFEF4444),
-                    onTap: () async {
-                      await AuthRepository().logout();
-                      if (!context.mounted) return;
-                      context.go('/login');
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  // Delete Account
-                  _buildActionButton(
-                    icon: Icons.delete_forever_rounded,
-                    label: 'Delete Account',
-                    color: const Color(0xFFEF4444),
-                    onTap: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Delete Account?'),
-                          content: const Text(
-                              'This will permanently delete your account and all data. This action cannot be undone.'),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel')),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Delete',
-                                  style: TextStyle(color: Color(0xFFEF4444))),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true && context.mounted) {
-                        final userId = StorageService().getString('user_id');
-                        if (userId != null) {
-                          try {
-                            await ApiService.instance.deleteAccount(userId);
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Failed to delete account')),
-                              );
-                            }
-                            return;
-                          }
-                        }
-                        await AuthRepository().logout();
-                        if (context.mounted) context.go('/login');
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
+        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary01)),
+        error: (e, s) => Center(child: Text('Failed to load profile', style: GoogleFonts.outfit(color: isDark ? Colors.white : Colors.black))),
       ),
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
+  Widget _buildSliverAppBar(BuildContext context, bool isDark) {
+    return SliverAppBar(
+      expandedHeight: 140,
+      pinned: true,
+      elevation: 0,
+      stretch: true,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.warmCream,
+      leading: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: GestureDetector(
+          onTap: () => context.pop(),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
+              shape: BoxShape.circle,
             ),
-          ],
+            child: Icon(Icons.arrow_back_ios_new_rounded, 
+              size: 16, 
+              color: isDark ? Colors.white : AppColors.primary01),
+          ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+      ),
+      flexibleSpace: FlexibleSpaceBar(
+        centerTitle: false,
+        titlePadding: const EdgeInsets.only(left: 60, bottom: 16),
+        title: Text(
+          'Settings',
+          style: GoogleFonts.outfit(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: isDark ? Colors.white : AppColors.primary01,
+          ),
+        ),
+        background: Stack(
+          fit: StackFit.expand,
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: color,
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark 
+                    ? [const Color(0xFF1A1A24), AppColors.backgroundDark]
+                    : [AppColors.softPeach, AppColors.warmCream],
+                ),
+              ),
+            ),
+            Positioned(
+              right: -50,
+              top: -50,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary01.withValues(alpha: isDark ? 0.05 : 0.03),
+                ),
               ),
             ),
           ],
@@ -319,149 +274,127 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          20, MediaQuery.of(context).padding.top + 12, 20, 20),
-      color: const Color(0xFFF9F9FB),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => context.pop(),
-            child: Container(
-              width: 40,
-              height: 40,
+  Widget _buildProfileCard(BuildContext context, bool isDark, dynamic profile) {
+    final userName = profile?.name ?? StorageService().getString('user_name') ?? 'Customer';
+    final userEmail = profile?.email ?? StorageService().getString('user_email') ?? 'premium@eventbridge.ai';
+    
+    return _buildGlassCard(
+      isDark: isDark,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
-                color: Colors.white,
                 shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [AppColors.primary01, Color(0xFFFFA892)],
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: AppColors.primary01.withValues(alpha: 0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded,
-                  size: 16, color: AppColors.primary01),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Text(
-            'Settings',
-            style: GoogleFonts.outfit(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primary01,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileCard(BuildContext context) {
-    final userName = StorageService().getString('user_name') ?? 'Customer';
-    final userEmail = StorageService().getString('user_email') ?? '';
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.primary01,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2.5),
-            ),
-            child: ClipOval(
-              child: Container(
-                color: Colors.white.withValues(alpha: 0.2),
-                child: Center(
-                  child: Text(
-                    userName.isNotEmpty ? userName[0].toUpperCase() : 'C',
-                    style: GoogleFonts.outfit(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
+              child: Center(
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : 'C',
+                  style: GoogleFonts.outfit(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(userName,
-                    style: GoogleFonts.outfit(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white)),
-                const SizedBox(height: 2),
-                Text(userEmail,
-                    style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.6))),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(userName,
+                      style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : const Color(0xFF1A1A24))),
+                  const SizedBox(height: 2),
+                  Text(userEmail,
+                      style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+                ],
               ),
-              child: Text('Edit',
-                  style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white)),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-      child: Text(
-        label.toUpperCase(),
-        style: GoogleFonts.outfit(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: const Color(0xFF9CA3AF),
-          letterSpacing: 1,
+            GestureDetector(
+              onTap: () => _showPersonalInformation(context, profile, isDark),
+              child: _buildEditBadge(isDark),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildToggleCard(List<_ToggleItem> items) {
+  Widget _buildEditBadge(bool isDark) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.primary01.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        'EDIT',
+        style: GoogleFonts.outfit(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          color: AppColors.primary01,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, bool isDark) {
+    return Text(
+      title.toUpperCase(),
+      style: GoogleFonts.outfit(
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        color: AppColors.primary01,
+        letterSpacing: 1.5,
+      ),
+    );
+  }
+
+  Widget _buildGlassCard({required Widget child, required bool isDark}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02.withValues(alpha: 0.6) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
+  Widget _buildToggleGroup(List<_ToggleItem> items, bool isDark) {
+    return _buildGlassCard(
+      isDark: isDark,
       child: Column(
         children: List.generate(items.length, (i) {
           final item = items[i];
@@ -471,15 +404,7 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: item.iconColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(item.icon, color: item.iconColor, size: 20),
-                    ),
+                    _buildIconContainer(item.icon, item.iconColor),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -487,27 +412,26 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                         children: [
                           Text(item.title,
                               style: GoogleFonts.outfit(
-                                  fontSize: 14,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.primary01)),
+                                  color: isDark ? Colors.white : const Color(0xFF1E293B))),
                           Text(item.subtitle,
                               style: GoogleFonts.outfit(
                                   fontSize: 12,
-                                  color: const Color(0xFF9CA3AF))),
+                                  color: isDark ? Colors.white38 : const Color(0xFF64748B))),
                         ],
                       ),
                     ),
                     Switch.adaptive(
                       value: item.value,
                       onChanged: item.onChanged,
-                      activeThumbColor: AppColors.primary01,
-                      activeTrackColor: AppColors.primary01.withValues(alpha: 0.4),
+                      activeColor: AppColors.primary01,
+                      activeTrackColor: AppColors.primary01.withValues(alpha: 0.3),
                     ),
                   ],
                 ),
               ),
-              if (i < items.length - 1)
-                const Divider(height: 1, indent: 70, color: Color(0xFFF3F4F6)),
+              if (i < items.length - 1) _buildDivider(isDark),
             ],
           );
         }),
@@ -515,41 +439,21 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
     );
   }
 
-  Widget _buildMenuCard(List<_MenuItem> items) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  Widget _buildMenuGroup(List<_MenuItem> items, bool isDark) {
+    return _buildGlassCard(
+      isDark: isDark,
       child: Column(
         children: List.generate(items.length, (i) {
           final item = items[i];
           return Column(
             children: [
-              GestureDetector(
+              InkWell(
                 onTap: item.onTap,
-                child: Container(
-                  color: Colors.transparent,
+                child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Row(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: item.iconColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(item.icon, color: item.iconColor, size: 20),
-                      ),
+                      _buildIconContainer(item.icon, item.iconColor),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -557,27 +461,510 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                           children: [
                             Text(item.title,
                                 style: GoogleFonts.outfit(
-                                    fontSize: 14,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.primary01)),
+                                    color: isDark ? Colors.white : const Color(0xFF1E293B))),
                             Text(item.subtitle,
                                 style: GoogleFonts.outfit(
                                     fontSize: 12,
-                                    color: const Color(0xFF9CA3AF))),
+                                    color: isDark ? Colors.white38 : const Color(0xFF64748B))),
                           ],
                         ),
                       ),
                       const Icon(Icons.chevron_right_rounded,
-                          color: Color(0xFFD1D5DB), size: 20),
+                          color: Color(0xFFD1D5DB), size: 22),
                     ],
                   ),
                 ),
               ),
-              if (i < items.length - 1)
-                const Divider(height: 1, indent: 70, color: Color(0xFFF3F4F6)),
+              if (i < items.length - 1) _buildDivider(isDark),
             ],
           );
         }),
+      ),
+    );
+  }
+
+  Widget _buildSettingsItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? titleColor,
+    bool showArrow = true,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            _buildIconContainer(icon, titleColor ?? AppColors.primary01),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: titleColor ?? (isDark ? Colors.white : const Color(0xFF1E293B)))),
+                  Text(subtitle,
+                      style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+                ],
+              ),
+            ),
+            if (showArrow) const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconContainer(IconData icon, Color color) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(icon, color: color, size: 20),
+    );
+  }
+
+  Widget _buildDivider(bool isDark) {
+    return Divider(
+      height: 1,
+      indent: 72,
+      endIndent: 16,
+      color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
+    );
+  }
+
+  void _showPersonalInformation(BuildContext context, CustomerProfile? profile, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildModalContainer(
+        isDark: isDark,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildModalDragHandle(isDark),
+            const SizedBox(height: 24),
+            Text('Personal Information', 
+                style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: isDark ? Colors.white : const Color(0xFF1A1A24))),
+            const SizedBox(height: 8),
+            Text('Manage your basic details used across EventBridge.', 
+                style: GoogleFonts.outfit(fontSize: 14, color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+            const SizedBox(height: 32),
+            _buildInfoTile('Full Name', profile?.name ?? 'Not set', Icons.person_rounded, isDark),
+            _buildInfoTile('Email Address', profile?.email ?? 'Not set', Icons.email_rounded, isDark),
+            _buildInfoTile('Phone Number', profile?.phone ?? '+256 700 000 000', Icons.phone_android_rounded, isDark),
+            _buildInfoTile('Location', profile?.location ?? 'Kampala, Uganda', Icons.location_on_rounded, isDark),
+            const SizedBox(height: 24),
+            _buildPrimaryButton(
+              context: context,
+              label: 'Update Profile',
+              onTap: () {
+                Navigator.pop(context);
+                _showEditProfileFields(context, profile, isDark);
+              },
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditProfileFields(BuildContext context, CustomerProfile? profile, bool isDark) {
+    final nameController = TextEditingController(text: profile?.name);
+    final phoneController = TextEditingController(text: profile?.phone);
+    final locationController = TextEditingController(text: profile?.location);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkNeutral01 : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Update Profile', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+              _buildModernTextField(nameController, 'Full Name', Icons.person_outline, isDark),
+              const SizedBox(height: 16),
+              _buildModernTextField(phoneController, 'Phone Number', Icons.phone_android, isDark),
+              const SizedBox(height: 16),
+              _buildModernTextField(locationController, 'Location', Icons.location_on, isDark),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey))),
+          ElevatedButton(
+            onPressed: () async {
+              final profileRepo = ref.read(profileRepositoryProvider);
+              final authRepo = ref.read(authRepositoryProvider);
+              final userId = authRepo.getUserId();
+              
+              if (userId != null) {
+                final success = await profileRepo.updateCustomerProfile(
+                  userId: userId,
+                  name: nameController.text.trim(),
+                  phone: phoneController.text.trim(),
+                  location: locationController.text.trim(),
+                );
+                
+                if (success) {
+                  ref.invalidate(customerProfileProvider);
+                  Navigator.pop(context);
+                  TopNotificationOverlay.show(
+                    context: context,
+                    title: 'Success',
+                    message: 'Profile updated successfully!',
+                    onTap: () {},
+                  );
+                } else {
+                  TopNotificationOverlay.show(
+                    context: context,
+                    title: 'Error',
+                    message: 'Failed to update profile.',
+                    onTap: () {},
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary01, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: Text('Save', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernTextField(TextEditingController controller, String label, IconData icon, bool isDark) {
+    return TextField(
+      controller: controller,
+      style: GoogleFonts.outfit(color: isDark ? Colors.white : Colors.black),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.outfit(color: isDark ? Colors.white38 : Colors.black38),
+        prefixIcon: Icon(icon, color: AppColors.primary01, size: 20),
+        filled: true,
+        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      ),
+    );
+  }
+
+  void _showSecuritySettings(BuildContext context, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildModalContainer(
+        isDark: isDark,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildModalDragHandle(isDark),
+            const SizedBox(height: 24),
+            Text('Password & Security', 
+                style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: isDark ? Colors.white : const Color(0xFF1A1A24))),
+            const SizedBox(height: 8),
+            Text('Secure your account with multi-layered protection.', 
+                style: GoogleFonts.outfit(fontSize: 14, color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+            const SizedBox(height: 32),
+            _buildActionTile('Change Password', 'Update your login credentials', Icons.lock_outline_rounded, isDark, () => _showEditFieldDialog(context, 'Change Password', 'Enter your new secure password.', isDark)),
+            _buildActionTile('Two-Factor Authentication', 'Add an extra layer of security', Icons.security_rounded, isDark, () => _showNotImplemented(context)),
+            _buildActionTile('Active Sessions', 'Manage your logged-in devices', Icons.devices_rounded, isDark, () => _showNotImplemented(context)),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentMethods(BuildContext context, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildModalContainer(
+        isDark: isDark,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildModalDragHandle(isDark),
+            const SizedBox(height: 24),
+            Text('Payment Methods', 
+                style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: isDark ? Colors.white : const Color(0xFF1A1A24))),
+            const SizedBox(height: 8),
+            Text('Securely manage your billing and card info.', 
+                style: GoogleFonts.outfit(fontSize: 14, color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+            const SizedBox(height: 32),
+            _buildPaymentCard('Visa Platinum', '•••• 4242', '08/26', context),
+            _buildPaymentCard('Mobile Money', '+256 700 ••• 000', 'Active', context),
+            const SizedBox(height: 24),
+            _buildPrimaryButton(
+              context: context,
+              label: 'Add New Method',
+              onTap: () => _showNotImplemented(context),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModalContainer({required bool isDark, required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral01 : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 40, offset: const Offset(0, -10)),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: child,
+    );
+  }
+
+  Widget _buildModalDragHandle(bool isDark) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(top: 12),
+        width: 40,
+        height: 5,
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white12 : Colors.black12,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile(String label, String val, IconData icon, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        children: [
+          _buildIconContainer(icon, AppColors.primary01),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white24 : Colors.black38)),
+              Text(val, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF1E293B))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile(String title, String subtitle, IconData icon, bool isDark, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            _buildIconContainer(icon, AppColors.primary01),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF1E293B))),
+                  Text(subtitle, style: GoogleFonts.outfit(fontSize: 13, color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFFCBD5E1)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentCard(String type, String number, String expiry, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFF1F5F9)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.credit_card_rounded, color: AppColors.primary01),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(type, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF1E293B))),
+                Text(number, style: GoogleFonts.outfit(fontSize: 13, color: isDark ? Colors.white38 : const Color(0xFF64748B))),
+              ],
+            ),
+          ),
+          Text(expiry, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary01)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrimaryButton({required BuildContext context, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [AppColors.primary01, Color(0xFFFFA892)]),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(color: AppColors.primary01.withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 5)),
+          ],
+        ),
+        child: Center(
+          child: Text(label, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+        ),
+      ),
+    );
+  }
+
+  void _showEditFieldDialog(BuildContext context, String title, String subtitle, bool isDark) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkNeutral01 : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(subtitle, style: GoogleFonts.outfit(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87)),
+            const SizedBox(height: 20),
+            TextField(
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                hintText: 'Enter new value...',
+                hintStyle: GoogleFonts.outfit(color: isDark ? Colors.white24 : Colors.black26),
+              ),
+              style: GoogleFonts.outfit(color: isDark ? Colors.white : Colors.black),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey))),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              TopNotificationOverlay.show(
+                context: context,
+                title: 'Request Sent',
+                message: 'Your update request is being processed.',
+                onTap: () {},
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary01, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: Text('Update', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNotImplemented(BuildContext context) {
+    TopNotificationOverlay.show(
+      context: context,
+      title: 'Coming Soon',
+      message: 'This feature is currently under high-priority development.',
+      onTap: () {},
+    );
+  }
+
+  void _handleLogout(BuildContext context) async {
+    final confirm = await _showConfirmDialog(
+      context,
+      'Sign Out',
+      'Are you sure you want to sign out of EventBridge?',
+      'Sign Out',
+      Colors.orange,
+    );
+    if (confirm == true) {
+      await AuthRepository().logout();
+      if (context.mounted) context.go('/login');
+    }
+  }
+
+  Future<void> _handleDeleteAccount(BuildContext context) async {
+    final confirm = await _showConfirmDialog(
+      context,
+      'Delete Account',
+      'This action is permanent and will erase all your data. Proceed with extreme caution.',
+      'Delete Forever',
+      Colors.redAccent,
+    );
+    
+    if (confirm == true && context.mounted) {
+      final userId = StorageService().getString('user_id');
+      if (userId != null) {
+        try {
+          await ApiService.instance.deleteAccount(userId);
+        } catch (e) {
+          if (context.mounted) {
+            TopNotificationOverlay.show(
+              context: context,
+              title: 'Error',
+              message: 'Failed to delete account. Please contact support.',
+              onTap: () {},
+            );
+          }
+          return;
+        }
+      }
+      await AuthRepository().logout();
+      if (context.mounted) context.go('/login');
+    }
+  }
+
+  Future<bool?> _showConfirmDialog(
+      BuildContext context, String title, String content, String confirmLabel, Color confirmColor) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.darkNeutral01 : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        content: Text(content, style: GoogleFonts.outfit(fontWeight: FontWeight.w500)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel, style: GoogleFonts.outfit(color: confirmColor, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

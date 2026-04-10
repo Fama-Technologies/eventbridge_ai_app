@@ -1,13 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eventbridge/core/network/api_service.dart';
+import 'package:eventbridge/features/matching/domain/repositories/i_matching_repository.dart';
 import 'package:eventbridge/features/matching/models/match_vendor.dart';
 import 'package:eventbridge/features/matching/models/event_request.dart';
+import 'package:eventbridge/features/messaging/data/datasources/firestore_chat_source.dart';
+
+import 'package:eventbridge/features/shared/providers/shared_lead_state.dart';
+import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
 
 final matchingRepositoryProvider = Provider<MatchingRepository>((ref) {
-  return MatchingRepository();
+  return MatchingRepository(ref);
 });
 
-class MatchingRepository {
+class MatchingRepository implements IMatchingRepository {
+  final Ref ref;
+  MatchingRepository(this.ref);
+
+  @override
   Future<List<MatchVendor>> findMatches(EventRequest request) async {
     try {
       final response = await ApiService.instance.findCustomerMatches(
@@ -15,6 +25,8 @@ class MatchingRepository {
         budget: request.budget,
         eventDate: request.eventDate.toIso8601String(),
         services: request.services,
+        location: request.location,
+        guestCount: request.guestCount,
       );
 
       if (response['success'] == true) {
@@ -27,34 +39,117 @@ class MatchingRepository {
     }
   }
 
+  @override
   Future<void> sendInquiry({
     required EventRequest request,
     required MatchVendor vendor,
   }) async {
-    // Lead generation logic would go here
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final storage = StorageService();
+    final customerId = storage.getString('user_id') ?? 'usr_001';
+    final customerName = storage.getString('user_name') ?? 'Customer';
+    final customerPhotoUrl = storage.getString('user_image') ?? '';
+    final initialMessage = request.prompt.isNotEmpty
+        ? request.prompt
+        : 'I would like to inquire about your services.';
+    String? leadId;
+
+    String customerPhone = '';
+    try {
+      final customerProfile = await ApiService.instance.getCustomerProfile(
+        customerId,
+      );
+      final profile = customerProfile['profile'] as Map<String, dynamic>?;
+      customerPhone = profile?['phone']?.toString() ?? '';
+    } catch (_) {
+      // Best effort only; chat bootstrap should not fail on missing profile data.
+    }
+
+    // 1. Persist the lead on the backend so the vendor can see it
+    try {
+      final leadResponse = await ApiService.instance.createLead(
+        vendorId: vendor.id,
+        customerId: customerId,
+        title: request.eventType,
+        eventDate: request.eventDate.toIso8601String().split('T')[0],
+        eventTime: request.eventTime ?? 'TBD',
+        location: request.location.isNotEmpty ? request.location : 'TBD',
+        budget: request.budget,
+        guests: request.guestCount ?? 0,
+        clientMessage: initialMessage,
+      );
+      final lead = leadResponse['lead'];
+      leadId =
+          leadResponse['id']?.toString() ??
+          (lead is Map<String, dynamic> ? lead['id']?.toString() : null) ??
+          (lead is Map ? lead['id']?.toString() : null);
+    } catch (e) {
+      // Keep the Firestore chat bootstrap resilient even if lead creation fails.
+    }
+
+    // 2. Bootstrap the Firestore chat that powers the unified messaging UI.
+    final firestoreChatSource = FirestoreChatSource();
+    final chat = await firestoreChatSource.createOrGetChat(
+      customerId: customerId,
+      vendorId: vendor.id,
+      customerName: customerName,
+      customerPhotoUrl: customerPhotoUrl,
+      customerPhone: customerPhone,
+      vendorName: vendor.name,
+      vendorPhotoUrl: vendor.avatarUrl ?? '',
+      vendorPhone: '',
+      leadId: leadId,
+    );
+    final chatId =
+        chat?.id ?? FirestoreChatSource.chatId(customerId, vendor.id);
+
+    if (chat != null) {
+      await firestoreChatSource.sendMessage(
+        chatId: chat.id,
+        senderId: customerId,
+        text: initialMessage,
+      );
+    }
+
+    // 3. Create the optimistic Lead object locally for vendor-facing lead state.
+    final userEmail = storage.getString('user_email') ?? 'customer@example.com';
+    final userName = userEmail.split('@').first;
+
+    final lead = Lead(
+      id: leadId ?? chatId,
+      customerId: customerId,
+      title: request.eventType,
+      date: request.eventDate.toIso8601String().split('T')[0],
+      time: request.eventTime ?? 'TBD',
+      location: request.location.isNotEmpty ? request.location : 'TBD',
+      matchScore: vendor.matchScore.toInt(),
+      budget: request.budget,
+      guests: request.guestCount ?? 0,
+      responseTime: '5m',
+      clientName: userName,
+      clientMessage: initialMessage,
+      venueName: 'TBD',
+      venueAddress: 'TBD',
+      clientImageUrl:
+          'https://ui-avatars.com/api/?name=$userName&background=random',
+      isHighValue: request.budget > 50000,
+      lastActive: 'Active now',
+      isAccepted: false,
+      phoneNumber: customerPhone,
+    );
+
+    // 3. Add to the shared global lead state
+    ref.read(sharedLeadStateProvider.notifier).addLead(lead);
+
+    await Future<void>.delayed(const Duration(milliseconds: 600));
   }
 
+  @override
   Future<MatchVendor?> getVendorById(String id) async {
     try {
       final response = await ApiService.instance.getVendorProfile(id);
       if (response['success'] == true) {
         final p = response['profile'];
-        return MatchVendor(
-            id: id,
-            name: p['businessName'] ?? '',
-            businessOverview: p['description'] ?? '',
-            services: (p['serviceCategories'] as List<dynamic>?)?.map((s) => s.toString()).toList() ?? [],
-            location: p['location'] ?? '',
-            plan: 'pro',
-            rating: 4.5,
-            isVerified: true,
-            portfolio: (p['galleryUrls'] as List<dynamic>?)?.map((g) => g is Map ? g['url'].toString() : g.toString()).toList() ?? [],
-            packages: (p['packages'] as List<dynamic>?)?.map((pkg) => VendorPackage.fromJson(pkg)).toList() ?? [],
-            reviews: [],
-            socialLinks: {},
-            availableDates: []
-        );
+        return MatchVendor.fromJson(p);
       }
       return null;
     } catch (_) {

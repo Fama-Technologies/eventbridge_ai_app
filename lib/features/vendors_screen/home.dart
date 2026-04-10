@@ -3,26 +3,26 @@ import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/core/network/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
-import 'package:eventbridge/features/vendors_screen/data/mock_lead_data.dart';
 import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
 import 'package:go_router/go_router.dart';
-import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:eventbridge/core/widgets/plan_upgrade_overlay.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:eventbridge/features/vendors_screen/widgets/lead_details_bottom_sheet.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eventbridge/features/shared/providers/shared_lead_state.dart';
 import 'dart:ui';
 
-class VendorHomeScreen extends StatefulWidget {
+class VendorHomeScreen extends ConsumerStatefulWidget {
   const VendorHomeScreen({super.key});
 
   @override
-  State<VendorHomeScreen> createState() => _VendorHomeScreenState();
+  ConsumerState<VendorHomeScreen> createState() => _VendorHomeScreenState();
 }
 
-class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerProviderStateMixin {
+class _VendorHomeScreenState extends ConsumerState<VendorHomeScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  List<Lead> _filteredLeads = [];
   bool _hasNotifications = true;
   String? _planName;
   String? _serviceCategory;
@@ -72,31 +72,9 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
       final userId = StorageService().getString('user_id');
       if (userId == null) return;
 
-      final result = await ApiService.instance.getVendorLeads(userId);
-      if (mounted && result['success'] == true) {
-        final List<dynamic> leadsData = result['leads'] ?? [];
-        setState(() {
-          _filteredLeads = leadsData.map((json) => Lead(
-            id: json['id'].toString(),
-            title: json['title'] ?? 'Lead',
-            date: json['date'] ?? 'TBD',
-            time: json['time'] ?? 'TBD',
-            location: json['location'] ?? 'TBD',
-            matchScore: int.tryParse(json['matchScore']?.toString() ?? '0') ?? 0,
-            budget: (json['budget'] is num) ? (json['budget'] as num).toDouble() : double.tryParse(json['budget']?.toString() ?? '0.0') ?? 0.0,
-            guests: int.tryParse(json['guests']?.toString() ?? '0') ?? 0,
-            responseTime: json['responseTime'] ?? '2h',
-            clientName: json['clientName'] ?? 'Client',
-            clientMessage: json['clientMessage'] ?? '',
-            venueName: json['venueName'] ?? '',
-            venueAddress: json['venueAddress'] ?? '',
-            clientImageUrl: json['clientImageUrl'] ?? 'https://ui-avatars.com/api/?name=${json['clientName'] ?? 'Client'}&background=random',
-            isHighValue: json['isHighValue'] ?? false,
-            lastActive: json['lastActive'] ?? 'Active now',
-            isAccepted: json['isAccepted'] ?? false,
-          )).toList();
-          _isLoadingLeads = false;
-        });
+      await ref.read(sharedLeadStateProvider.notifier).fetchLeads(userId);
+      if (mounted) {
+        setState(() => _isLoadingLeads = false);
       }
     } catch (e) {
       debugPrint('Error fetching leads: $e');
@@ -186,6 +164,9 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
     final userName = storage.getString('user_name') ?? 'Vendor';
     final userImage = storage.getString('user_image');
 
+    // Get leads from provider instead of local state
+    final providerLeads = ref.watch(sharedLeadStateProvider);
+
     return Scaffold(
       backgroundColor: AppColors.primary01, // Orange behind the curve
       body: Column(
@@ -252,7 +233,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
                   // ── Leads List ──────────────────────────────────
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    sliver: _filteredLeads.isEmpty
+                    sliver: providerLeads.isEmpty
                         ? SliverToBoxAdapter(
                             child: _buildEmptyLeadsState(isDark),
                           )
@@ -261,10 +242,10 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
                               (context, index) {
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 16),
-                                  child: _buildPremiumLeadCard(context, _filteredLeads[index], isDark),
+                                  child: _buildPremiumLeadCard(context, providerLeads[index], isDark),
                                 ).animate().fadeIn(delay: (index * 100).ms, duration: 400.ms).slideX(begin: 0.1, end: 0);
                               },
-                              childCount: _filteredLeads.length,
+                              childCount: providerLeads.length,
                             ),
                           ),
                   ),
@@ -755,7 +736,12 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
           _showUpgradeOverlay();
           return;
         }
-        context.push('/lead-details/${lead.id}');
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => LeadDetailsBottomSheet(leadId: lead.id),
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -850,8 +836,6 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
                 _buildCardBadge(Icons.location_on_outlined, lead.location, isDark),
                 const SizedBox(width: 12),
                 _buildCardBadge(Icons.access_time_rounded, lead.responseTime, isDark),
-                const Spacer(),
-                _buildMatchPill(lead.matchScore.toInt()),
               ],
             ),
           ],
@@ -917,25 +901,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> with SingleTickerPr
     ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9));
   }
 
-  Widget _buildMatchPill(int score) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary01, Color(0xFFEA580C)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        "$score% Match",
-        style: GoogleFonts.outfit(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildCardBadge(IconData icon, String label, bool isDark) {
     return Row(

@@ -20,187 +20,205 @@ class LeadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: SpacingTokens.lg),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkNeutral02 : Colors.white,
-          borderRadius: BorderRadius.circular(RadiusTokens.round),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.05)
-                : Colors.black.withValues(alpha: 0.05),
-          ),
-          boxShadow: [ShadowTokens.getShadow(8, isDark: isDark)],
+    return Container(
+      margin: const EdgeInsets.only(bottom: SpacingTokens.lg),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkNeutral02 : Colors.white,
+        borderRadius: BorderRadius.circular(RadiusTokens.round),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.05),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(RadiusTokens.round),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.all(SpacingTokens.xxl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header: Avatar + Title + Badge
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Client Avatar
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(RadiusTokens.lg),
-                            boxShadow: [ShadowTokens.getShadow(4, isDark: isDark)],
-                            image: DecorationImage(
-                              image: NetworkImage(lead.clientImageUrl),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        Gaps.hLg,
-                        // Title section
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      lead.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                  if (lead.isHighValue)
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFFFEF3C7),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.star_rounded,
-                                        color: Color(0xFFD97706),
-                                        size: 14,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              Gaps.xs,
-                              Text(
-                                lead.clientName,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.white60 : Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    Gaps.xl,
-
-                    // Metrics row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildMetricBadge(
-                          Icons.calendar_today_rounded,
-                          lead.date,
-                          isDark,
-                        ),
-                        _buildMetricBadge(
-                          Icons.people_alt_rounded,
-                          '${lead.guests} Guests',
-                          isDark,
-                        ),
-                        _buildMetricBadge(
-                          Icons.payments_rounded,
-                          'UGX ${lead.budget.toInt()}',
-                          isDark,
-                        ),
-                      ],
-                    ),
-                    Gaps.lg,
-
-                    // Recent message preview (if exists)
-                    if (lead.clientMessage.isNotEmpty)
+        boxShadow: [ShadowTokens.getShadow(8, isDark: isDark)],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(RadiusTokens.round),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            splashColor: AppColors.primary01.withValues(alpha: 0.1),
+            child: Padding(
+              padding: const EdgeInsets.all(SpacingTokens.xxl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header: Avatar + Title + Badge
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Client Avatar
                       Container(
-                        padding: const EdgeInsets.all(SpacingTokens.lg),
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : Colors.black.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(RadiusTokens.lg),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.white10
-                                : Colors.black.withValues(alpha: 0.1),
+                          boxShadow: [ShadowTokens.getShadow(4, isDark: isDark)],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(RadiusTokens.lg),
+                          child: Image.network(
+                            lead.clientImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                              child: Icon(
+                                Icons.person_rounded,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                                size: 28,
+                              ),
+                            ),
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return Container(
+                                color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                                child: const Center(
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              );
+                            },
                           ),
                         ),
+                      ),
+                      Gaps.hLg,
+                      // Title section
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Client Message',
-                              style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white60 : Colors.black54,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    lead.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                                if (lead.isHighValue)
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFEF3C7),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.star_rounded,
+                                      color: Color(0xFFD97706),
+                                      size: 14,
+                                    ),
+                                  ),
+                              ],
                             ),
-                            Gaps.sm,
+                            Gaps.xs,
                             Text(
-                              lead.clientMessage,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              lead.clientName,
                               style: GoogleFonts.outfit(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: isDark ? Colors.white : Colors.black,
-                                height: 1.4,
+                                color: isDark ? Colors.white60 : Colors.black54,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    Gaps.lg,
+                    ],
+                  ),
+                  Gaps.xl,
 
-                    // Status badge
+                  // Metrics row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildMetricBadge(
+                        Icons.calendar_today_rounded,
+                        lead.date,
+                        isDark,
+                      ),
+                      _buildMetricBadge(
+                        Icons.people_alt_rounded,
+                        '${lead.guests} Guests',
+                        isDark,
+                      ),
+                      _buildMetricBadge(
+                        Icons.payments_rounded,
+                        'UGX ${lead.budget.toInt()}',
+                        isDark,
+                      ),
+                    ],
+                  ),
+                  Gaps.lg,
+
+                  // Recent message preview (if exists)
+                  if (lead.clientMessage.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: SpacingTokens.md,
-                        vertical: SpacingTokens.sm,
-                      ),
+                      padding: const EdgeInsets.all(SpacingTokens.lg),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(lead.status).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(RadiusTokens.md),
-                      ),
-                      child: Text(
-                        lead.status.toUpperCase(),
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _getStatusColor(lead.status),
-                          letterSpacing: 0.5,
+                        color: isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.03),
+                        borderRadius: BorderRadius.circular(RadiusTokens.lg),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white10
+                              : Colors.black.withOpacity(0.1),
                         ),
                       ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Client Message',
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                          Gaps.sm,
+                          Text(
+                            lead.clientMessage,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white : Colors.black,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  Gaps.lg,
+
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: SpacingTokens.md,
+                      vertical: SpacingTokens.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(lead.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(RadiusTokens.md),
+                    ),
+                    child: Text(
+                      lead.status.toUpperCase(),
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _getStatusColor(lead.status),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -326,9 +344,29 @@ class LeadHeaderCard extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(RadiusTokens.lg),
-                image: DecorationImage(
-                  image: NetworkImage(lead.clientImageUrl),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(RadiusTokens.lg),
+                child: Image.network(
+                  lead.clientImageUrl,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                    child: Icon(
+                      Icons.person_rounded,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                      size: 20,
+                    ),
+                  ),
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

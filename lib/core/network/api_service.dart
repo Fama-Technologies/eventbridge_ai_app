@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'network_exceptions.dart';
 import 'network_service.dart';
+import 'network_status_provider.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -11,7 +12,8 @@ class ApiService {
   ApiService._internal() {
     _dio = NetworkService().dio;
     // Override the base URL to our new AWS Lambda endpoint
-    _dio.options.baseUrl = 'https://3nqhgc5y2l.execute-api.us-east-1.amazonaws.com/dev';
+    _dio.options.baseUrl =
+        'https://3nqhgc5y2l.execute-api.us-east-1.amazonaws.com/dev';
   }
 
   static ApiService get instance => _instance;
@@ -40,7 +42,7 @@ class ApiService {
       final names = fullName.split(' ');
       final firstName = names[0];
       final lastName = names.length > 1 ? names.sublist(1).join(' ') : ' ';
-      
+
       final response = await _dio.post(
         '/api/auth/signup',
         data: {
@@ -64,10 +66,7 @@ class ApiService {
     try {
       final response = await _dio.post(
         '/api/auth/google',
-        data: {
-          'idToken': idToken,
-          'accountType': accountType.toUpperCase(),
-        },
+        data: {'idToken': idToken, 'accountType': accountType.toUpperCase()},
       );
       return response.data;
     } on DioException catch (e) {
@@ -87,6 +86,7 @@ class ApiService {
     List<String>? eventCategories,
     String? avatarUrl,
     List<dynamic>? galleryUrls,
+    List<dynamic>? projects,
     String? website,
     int? travelRadius,
     double? latitude,
@@ -113,6 +113,7 @@ class ApiService {
           'eventCategories': eventCategories,
           if (avatarUrl != null) 'avatarUrl': avatarUrl,
           if (galleryUrls != null) 'galleryUrls': galleryUrls,
+          if (projects != null) 'projects': projects,
           if (website != null) 'website': website,
           if (travelRadius != null) 'travelRadius': travelRadius,
           if (latitude != null) 'latitude': latitude,
@@ -147,10 +148,7 @@ class ApiService {
     try {
       final response = await _dio.post(
         '/api/vendor/packages',
-        data: {
-          'userId': userId,
-          'packages': packages,
-        },
+        data: {'userId': userId, 'packages': packages},
       );
       return response.data;
     } on DioException catch (e) {
@@ -191,7 +189,42 @@ class ApiService {
 
   // ── Leads ──────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getVendorLeads(String userId, {String? status}) async {
+  Future<Map<String, dynamic>> createLead({
+    required String vendorId,
+    required String customerId,
+    required String title,
+    required String eventDate,
+    String? eventTime,
+    String? location,
+    double? budget,
+    int? guests,
+    String? clientMessage,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/leads',
+        data: {
+          'vendorId': vendorId,
+          'customerId': customerId,
+          'title': title,
+          'eventDate': eventDate,
+          'eventTime': eventTime,
+          'location': location,
+          'budget': budget,
+          'guests': guests,
+          'clientMessage': clientMessage,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getVendorLeads(
+    String userId, {
+    String? status,
+  }) async {
     try {
       final response = await _dio.get(
         '/api/vendor/leads/$userId',
@@ -200,6 +233,28 @@ class ApiService {
       return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
+    }
+  }
+
+  /// Fetch the full details for a single lead by leadId.
+  /// Tries common REST patterns; returns null if the backend doesn't support it.
+  Future<Map<String, dynamic>?> getVendorLeadById(String leadId) async {
+    try {
+      final response = await _dio.get('/api/vendor/leads/lead/$leadId');
+      return response.data;
+    } on DioException catch (e) {
+      // 404 → endpoint doesn't exist or lead not found — not a hard error
+      if (e.response?.statusCode == 404 ||
+          e.response?.statusCode == 405) {
+        try {
+          // Try alternative pattern
+          final response2 = await _dio.get('/api/leads/$leadId');
+          return response2.data;
+        } on DioException catch (_) {
+          return null;
+        }
+      }
+      return null;
     }
   }
 
@@ -224,76 +279,6 @@ class ApiService {
       return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
-    }
-  }
-
-  // ── Messaging ────────────────────────────────────────────────────────────
-
-  Future<Map<String, dynamic>> getVendorChats(String userId) async {
-    try {
-      final response = await _dio.get('/api/vendor/chats/$userId');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getChatMessages(String chatId) async {
-    try {
-      final response = await _dio.get('/api/vendor/chats/$chatId/messages');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> sendChatMessage({
-    required String chatId,
-    required String senderId,
-    required String text,
-    String? imageUrl,
-  }) async {
-    try {
-      final response = await _dio.post(
-        '/api/vendor/chats/$chatId/messages',
-        data: {
-          'senderId': senderId,
-          'text': text,
-          if (imageUrl != null) 'imageUrl': imageUrl,
-        },
-      );
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  Future<void> updateTypingStatus({
-    required String chatId,
-    required String userId,
-    required bool isTyping,
-  }) async {
-    try {
-      await _dio.post(
-        '/api/vendor/chats/$chatId/typing',
-        data: {'userId': userId, 'isTyping': isTyping},
-      );
-    } on DioException catch (e) {
-      debugPrint('Typing Error: $e');
-    }
-  }
-
-  Future<void> markChatAsRead({
-    required String chatId,
-    required String userId,
-  }) async {
-    try {
-      await _dio.post(
-        '/api/vendor/chats/$chatId/read',
-        data: {'userId': userId},
-      );
-    } on DioException catch (e) {
-      debugPrint('Read Status Error: $e');
     }
   }
 
@@ -339,14 +324,17 @@ class ApiService {
     String? notes,
   }) async {
     try {
-      final response = await _dio.post('/api/vendor/bookings', data: {
-        'userId': userId,
-        'bookingDate': bookingDate,
-        'clientName': clientName,
-        'eventType': eventType,
-        'totalPrice': totalPrice,
-        'notes': notes,
-      });
+      final response = await _dio.post(
+        '/api/vendor/bookings',
+        data: {
+          'userId': userId,
+          'bookingDate': bookingDate,
+          'clientName': clientName,
+          'eventType': eventType,
+          'totalPrice': totalPrice,
+          'notes': notes,
+        },
+      );
       return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
@@ -371,18 +359,31 @@ class ApiService {
   // ── Error Handling ───────────────────────────────────────────────────────
 
   Exception _handleError(DioException e) {
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionTimeout) {
+      // Fast-fail the global connectivity status
+      globalConnectivityErrorController.add(null);
+      return NoInternetException('Check your internet connection and try again');
+    }
+
     if (e.response != null && e.response?.data != null) {
       final data = e.response?.data;
+      final statusCode = e.response?.statusCode;
+
+      if (statusCode == 401) return UnauthenticatedException();
+
       if (data is Map) {
         final message = data['message'] ?? 'Unknown network error';
-        return Exception(message);
+        return ServerException(message, statusCode: statusCode);
       } else if (data is String) {
-        // Handle HTML or text error pages
         final cleanMsg = data.length > 100 ? data.substring(0, 100) : data;
-        return Exception('Server Error (${e.response?.statusCode}): $cleanMsg');
+        return ServerException('Server Error ($statusCode): $cleanMsg',
+            statusCode: statusCode);
       }
     }
-    return Exception(e.message ?? 'Failed to connect to backend');
+    return ServerException(e.message ?? 'Failed to connect to backend');
   }
 
   Future<bool> updateFcmToken(String userId, String token) async {
@@ -410,7 +411,9 @@ class ApiService {
 
   Future<bool> markNotificationAsRead(String notificationId) async {
     try {
-      final response = await _dio.put('/api/vendor/notifications/$notificationId/read');
+      final response = await _dio.put(
+        '/api/vendor/notifications/$notificationId/read',
+      );
       return response.data['success'] == true;
     } catch (_) {
       return false;
@@ -443,15 +446,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> upgradePlanPesapal(String userId, String plan, {String currency = 'USD'}) async {
+  Future<Map<String, dynamic>> upgradePlanPesapal(
+    String userId,
+    String plan, {
+    String currency = 'USD',
+  }) async {
     try {
       final response = await _dio.post(
         '/api/vendor/upgrade-pesapal',
-        data: {
-          'userId': userId,
-          'plan': plan,
-          'currency': currency,
-        },
+        data: {'userId': userId, 'plan': plan, 'currency': currency},
       );
       return response.data;
     } on DioException catch (e) {
@@ -467,7 +470,6 @@ class ApiService {
       throw _handleError(e);
     }
   }
-
 
   // ── Customer Endpoints ────────────────────────────────────────────────────
 
@@ -485,6 +487,8 @@ class ApiService {
     required double budget,
     required String eventDate,
     required List<String> services,
+    String? location,
+    int? guestCount,
   }) async {
     try {
       final response = await _dio.post(
@@ -494,6 +498,8 @@ class ApiService {
           'budget': budget,
           'eventDate': eventDate,
           'services': services,
+          if (location != null) 'location': location,
+          if (guestCount != null) 'guestCount': guestCount,
         },
       );
       return response.data;
@@ -502,14 +508,12 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getCustomerChats(String userId) async {
-    try {
-      final response = await _dio.get('/api/customer/chats/$userId');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
+  // Chat endpoints removed: messaging now runs entirely on Firestore +
+  // Firebase Cloud Functions (see lib/features/messaging/ and
+  // eventbridge_ai_app/functions/index.js). The legacy Postgres chat
+  // pipeline (/api/vendor/chats/*, /api/customer/chats/*) was a second
+  // identity/storage surface that split the data and silently broke
+  // push notifications.
 
   Future<Map<String, dynamic>> getCustomerProfile(String userId) async {
     try {
@@ -525,6 +529,8 @@ class ApiService {
     String? name,
     String? email,
     String? imageUrl,
+    String? phone,
+    String? location,
   }) async {
     try {
       final response = await _dio.put(
@@ -533,6 +539,8 @@ class ApiService {
           if (name != null) 'name': name,
           if (email != null) 'email': email,
           if (imageUrl != null) 'imageUrl': imageUrl,
+          if (phone != null) 'phone': phone,
+          if (location != null) 'location': location,
         },
       );
       return response.data;
@@ -541,44 +549,36 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> initChat(String customerId, String vendorId) async {
+  Future<Map<String, dynamic>> getCustomerMatches(String userId) async {
     try {
-      final response = await _dio.post(
-        '/api/customer/chats/init',
-        data: {
-          'customerId': customerId,
-          'vendorId': vendorId,
-        },
-      );
+      final response = await _dio.get('/api/customer/matches/$userId');
       return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<Map<String, dynamic>> getCustomerChatMessages(String chatId) async {
+  Future<List<Map<String, dynamic>>> getCategories() async {
     try {
-      final response = await _dio.get('/api/customer/chats/$chatId/messages');
-      return response.data;
+      final response = await _dio.get('/api/categories');
+      if (response.data is List) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      throw Exception('Invalid response format for categories');
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<Map<String, dynamic>> sendCustomerChatMessage({
-    required String chatId,
-    required String senderId,
-    required String text,
-    String? imageUrl,
+  Future<Map<String, dynamic>> getNearbyVendors({
+    required double lat,
+    required double lng,
+    double radiusKm = 50,
   }) async {
     try {
-      final response = await _dio.post(
-        '/api/customer/chats/$chatId/messages',
-        data: {
-          'senderId': senderId,
-          'text': text,
-          if (imageUrl != null) 'imageUrl': imageUrl,
-        },
+      final response = await _dio.get(
+        '/api/customer/vendors/nearby',
+        queryParameters: {'lat': lat, 'lng': lng, 'radius': radiusKm},
       );
       return response.data;
     } on DioException catch (e) {

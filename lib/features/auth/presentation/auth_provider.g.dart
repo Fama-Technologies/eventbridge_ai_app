@@ -89,7 +89,7 @@ final class AuthStateChangesProvider
   }
 }
 
-String _$authStateChangesHash() => r'bad15e17f8b45cefbdd0a82416d33b33ff22dffe';
+String _$authStateChangesHash() => r'20cbb8c7f0d9e8258a80a532d727cf7f1a466112';
 
 @ProviderFor(AuthController)
 final authControllerProvider = AuthControllerProvider._();
@@ -123,7 +123,7 @@ final class AuthControllerProvider
   }
 }
 
-String _$authControllerHash() => r'c7575dacb751037add04cbca12bb7d044250a57c';
+String _$authControllerHash() => r'734d07b5a5cc8eac34ce000ca06fc81200e27942';
 
 abstract class _$AuthController extends $Notifier<AsyncValue<void>> {
   AsyncValue<void> build();

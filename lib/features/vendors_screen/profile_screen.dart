@@ -62,9 +62,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   Widget build(BuildContext context) {
     final userName = _storage.getString('user_name') ?? 'Vendor';
     final userImage = _storage.getString('user_image');
-    
-    // Mock data for visual metrics
-    const averageRating = 4.8;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F8),
@@ -78,7 +75,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-                  
+
                   Text(
                     'SETTINGS & ACCOUNT',
                     style: GoogleFonts.roboto(
@@ -89,7 +86,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   _buildSettingsTile(
                     icon: Icons.person_outline_rounded,
                     title: 'Personal Information',
@@ -146,9 +143,20 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24),
                           ),
-                          titlePadding: const EdgeInsets.only(top: 32, left: 24, right: 24),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          actionsPadding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+                          titlePadding: const EdgeInsets.only(
+                            top: 32,
+                            left: 24,
+                            right: 24,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                          actionsPadding: const EdgeInsets.only(
+                            bottom: 24,
+                            left: 24,
+                            right: 24,
+                          ),
                           title: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -158,7 +166,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                                   color: const Color(0xFFFEF2F2),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 36),
+                                child: const Icon(
+                                  Icons.delete_forever_rounded,
+                                  color: Color(0xFFEF4444),
+                                  size: 36,
+                                ),
                               ),
                               const SizedBox(height: 20),
                               Text(
@@ -190,7 +202,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                                   child: TextButton(
                                     onPressed: () => Navigator.pop(ctx, false),
                                     style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
                                       backgroundColor: const Color(0xFFF1F5F9),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(16),
@@ -211,7 +225,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                                   child: TextButton(
                                     onPressed: () => Navigator.pop(ctx, true),
                                     style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
                                       backgroundColor: const Color(0xFFEF4444),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(16),
@@ -239,7 +255,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                             await ApiService.instance.deleteAccount(userId);
                           } catch (e) {
                             if (context.mounted) {
-                              AppToast.show(context, message: 'Failed to delete account', type: ToastType.error);
+                              AppToast.show(
+                                context,
+                                message: 'Failed to delete account',
+                                type: ToastType.error,
+                              );
                             }
                             return;
                           }
@@ -261,7 +281,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, String userName, String? userImage) {
+  Widget _buildSliverAppBar(
+    BuildContext context,
+    String userName,
+    String? userImage,
+  ) {
     return SliverAppBar(
       expandedHeight: 280,
       pinned: true,
@@ -286,7 +310,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               child: GridView.count(
                 crossAxisCount: 10,
                 physics: const NeverScrollableScrollPhysics(),
-                children: List.generate(100, (i) => const Icon(Icons.circle, size: 4, color: Colors.white)),
+                children: List.generate(
+                  100,
+                  (i) => const Icon(Icons.circle, size: 4, color: Colors.white),
+                ),
               ),
             ),
             // Rating Icon Button in Header
@@ -294,13 +321,19 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               top: MediaQuery.of(context).padding.top + 10,
               right: 20,
               child: IconButton(
-                icon: const Icon(Icons.star_rounded, color: Colors.white, size: 28),
+                icon: const Icon(
+                  Icons.star_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
                 onPressed: () => _showRatingDetails(context),
               ),
             ),
             // Integrated Profile Content
             _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
                 : SafeArea(
                     child: Center(
                       child: Column(
@@ -318,24 +351,35 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                                   left: 0,
                                   right: 0,
                                   child: Center(
-                                    child: Icon(
-                                      Icons.king_bed_rounded,
-                                      color: const Color(0xFFFFD700),
-                                      size: 28,
-                                    ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                                     .scale(duration: 1.seconds, begin: const Offset(1, 1), end: const Offset(1.1, 1.1))
-                                     .shimmer(delay: 2.seconds),
+                                    child:
+                                        Icon(
+                                              Icons.king_bed_rounded,
+                                              color: const Color(0xFFFFD700),
+                                              size: 28,
+                                            )
+                                            .animate(
+                                              onPlay: (controller) => controller
+                                                  .repeat(reverse: true),
+                                            )
+                                            .scale(
+                                              duration: 1.seconds,
+                                              begin: const Offset(1, 1),
+                                              end: const Offset(1.1, 1.1),
+                                            )
+                                            .shimmer(delay: 2.seconds),
                                   ),
                                 ),
-                              
+
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF7F7F8),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: _planName?.toLowerCase() == 'business_pro' 
-                                        ? const Color(0xFFFFD700) 
+                                    color:
+                                        _planName?.toLowerCase() ==
+                                            'business_pro'
+                                        ? const Color(0xFFFFD700)
                                         : Colors.transparent,
                                     width: 2,
                                   ),
@@ -347,15 +391,26 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                                     height: 100,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: AppColors.primary01.withValues(alpha: 0.1),
+                                      color: AppColors.primary01.withValues(
+                                        alpha: 0.1,
+                                      ),
                                     ),
                                     child: ClipOval(
-                                      child: (userImage != null && userImage.isNotEmpty)
+                                      child:
+                                          (userImage != null &&
+                                              userImage.isNotEmpty)
                                           ? Image.network(
                                               userImage,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) =>
-                                                  _buildInitialsPlaceholder(userName),
+                                              errorBuilder:
+                                                  (
+                                                    context,
+                                                    error,
+                                                    stackTrace,
+                                                  ) =>
+                                                      _buildInitialsPlaceholder(
+                                                        userName,
+                                                      ),
                                             )
                                           : _buildInitialsPlaceholder(userName),
                                     ),
@@ -366,14 +421,21 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                               // Free Plan White Bubble Badge (Exterior Tab Look)
                               if (_planName?.toLowerCase() != 'business_pro')
                                 Positioned(
-                                  left: 92, // Positioned tangent to the 100px avatar edge
+                                  left:
+                                      92, // Positioned tangent to the 100px avatar edge
                                   top: 38,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(color: const Color(0xFFEA580C), width: 2),
+                                      border: Border.all(
+                                        color: const Color(0xFFEA580C),
+                                        width: 2,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
                                           color: Colors.black.withOpacity(0.15),
@@ -411,7 +473,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                               ),
                               if (_isVerified) ...[
                                 const SizedBox(width: 8),
-                                const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                               ],
                             ],
                           ),
@@ -473,7 +539,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 48),
+                const Icon(
+                  Icons.star_rounded,
+                  color: Color(0xFFF59E0B),
+                  size: 48,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   '4.8',
@@ -488,10 +558,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             const SizedBox(height: 8),
             Text(
               'Based on 128 client reviews',
-              style: GoogleFonts.roboto(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: GoogleFonts.roboto(fontSize: 14, color: Colors.grey[600]),
             ),
             const SizedBox(height: 40),
             SizedBox(
@@ -507,7 +574,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text('Close Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Close Details',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -530,9 +600,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       ),
     );
   }
-
-
-
 
   Widget _buildSettingsTile({
     required IconData icon,
@@ -563,7 +630,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                   color: iconColor?.withOpacity(0.1) ?? const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: iconColor ?? const Color(0xFF4B5563), size: 20),
+                child: Icon(
+                  icon,
+                  color: iconColor ?? const Color(0xFF4B5563),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -591,7 +662,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               ),
               if (trailing != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF7ED),
                     borderRadius: BorderRadius.circular(6),

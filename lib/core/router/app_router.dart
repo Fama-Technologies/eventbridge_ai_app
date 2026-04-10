@@ -1,4 +1,4 @@
-// import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:eventbridge/features/auth/presentation/splash_screen.dart';
@@ -12,7 +12,8 @@ import 'package:eventbridge/features/auth/presentation/vendor_onboarding_screen.
 import 'package:eventbridge/features/auth/presentation/forgot_password_screen.dart';
 import 'package:eventbridge/features/auth/presentation/verify_code_screen.dart';
 import 'package:eventbridge/features/home/presentation/home_screen.dart';
-import 'package:eventbridge/features/home/presentation/customer_home_screen.dart';
+import 'package:eventbridge/features/home/navigationbar/bottomnavscreen.dart';
+import 'package:eventbridge/features/home/presentation/vendor_discovery_home.dart';
 import 'package:eventbridge/features/home/presentation/customer_settings_screen.dart';
 import 'package:eventbridge/features/home/presentation/customer_profile_screen.dart';
 import 'package:eventbridge/features/matching/presentation/event_request_screen.dart';
@@ -21,7 +22,6 @@ import 'package:eventbridge/features/matching/presentation/vendor_public_profile
 import 'package:eventbridge/features/vendors_screen/vendor_main_screen.dart';
 import 'package:eventbridge/features/vendors_screen/lead_details_screen.dart';
 import 'package:eventbridge/features/vendors_screen/settings.dart';
-import 'package:eventbridge/features/vendors_screen/vendor_chat_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_profile_settings.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_packages_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_availability_screen.dart';
@@ -34,10 +34,11 @@ import 'package:eventbridge/features/vendors_screen/active_booking_details_scree
 import 'package:eventbridge/features/matching/presentation/submit_review_screen.dart';
 import 'package:eventbridge/features/matching/presentation/match_intake_form_screen.dart';
 import 'package:eventbridge/features/matching/presentation/ai_analyzing_screen.dart';
-import 'package:eventbridge/features/messaging/presentation/customer_chats_screen.dart';
-import 'package:eventbridge/features/messaging/presentation/customer_chat_detail_screen.dart';
+import 'package:eventbridge/features/messaging/presentation/screens/chats_list_screen.dart';
+import 'package:eventbridge/features/messaging/presentation/screens/chat_detail_screen.dart';
 import 'package:eventbridge/features/matching/presentation/ai_results_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_search_screen.dart';
+import 'package:eventbridge/features/shared/screens/offline_screen.dart';
 
 // Routes that don't require authentication
 const _publicRoutes = [
@@ -52,6 +53,7 @@ const _publicRoutes = [
   '/signup-success',
   '/login-success',
   '/vendor-signup-success',
+  '/offline',
 ];
 
 // Routes reserved for Vendors
@@ -101,7 +103,10 @@ bool _isCustomerRoute(String path) {
   );
 }
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouter = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   redirect: (context, state) async {
     final path = state.matchedLocation;
@@ -122,10 +127,9 @@ final appRouter = GoRouter(
     final role = storage.getString('user_role');
 
     // If on public "getting started" pages, redirect to their role-based home
-    if (path == '/' ||
-        path == '/login' ||
-        path == '/signup' ||
-        path == '/role-selection') {
+    // Note: '/' (splash) is intentionally excluded — the SplashScreen handles
+    // its own timed navigation to avoid conflicting with the 3s delay.
+    if (path == '/login' || path == '/signup' || path == '/role-selection') {
       if (role == 'VENDOR') {
         final onboarded = storage.getString('onboarding_completed');
         return onboarded == 'true' ? '/vendor-home' : '/vendor-onboarding';
@@ -140,7 +144,7 @@ final appRouter = GoRouter(
       if (!onboarded && path != '/vendor-onboarding') {
         return '/vendor-onboarding';
       }
-      
+
       // Vendors should not access customer-only routes
       if (_isCustomerRoute(path)) {
         return '/vendor-home';
@@ -156,6 +160,7 @@ final appRouter = GoRouter(
   },
   routes: [
     GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+    GoRoute(path: '/offline', builder: (context, state) => const OfflineScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(
       path: '/role-selection',
@@ -219,7 +224,11 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/customer-home',
-      builder: (context, state) => const CustomerHomeScreen(),
+      builder: (context, state) => const Bottomnavscreen(),
+    ),
+    GoRoute(
+      path: '/customer-home-legacy',
+      builder: (context, state) => const VendorDiscoveryHome(),
     ),
     GoRoute(
       path: '/customer-settings',
@@ -270,8 +279,20 @@ final appRouter = GoRouter(
       path: '/vendor-chat/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        final phone = state.uri.queryParameters['phone'];
-        return VendorChatScreen(leadId: id, phone: phone);
+        final storage = StorageService();
+        final currentUserId = storage.getString('user_id') ?? '';
+        final q = state.uri.queryParameters;
+        return ChatDetailScreen(
+          chatLookupKey: id,
+          currentUserId: currentUserId,
+          isVendor: true,
+          initialOtherUserName: q['otherUserName'] ?? 'Customer',
+          initialOtherUserPhotoUrl: q['otherUserPhotoUrl'],
+          leadTitle: q['leadTitle'],
+          leadDate: q['leadDate'],
+          clientPhone: q['phone'],
+          customerId: q['customerId'],
+        );
       },
     ),
     GoRoute(
@@ -335,13 +356,25 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/customer-chats',
-      builder: (context, state) => const CustomerChatsScreen(),
+      builder: (context, state) => const ChatsListScreen(),
     ),
     GoRoute(
       path: '/customer-chat/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CustomerChatDetailScreen(vendorId: id);
+        final storage = StorageService();
+        final currentUserId = storage.getString('user_id') ?? '';
+
+        return ChatDetailScreen(
+          chatLookupKey: id,
+          currentUserId: currentUserId,
+          isVendor: false,
+          initialOtherUserId: state.uri.queryParameters['otherUserId'],
+          initialOtherUserName:
+              state.uri.queryParameters['otherUserName'] ?? 'Vendor',
+          initialOtherUserPhotoUrl:
+              state.uri.queryParameters['otherUserPhotoUrl'],
+        );
       },
     ),
   ],
