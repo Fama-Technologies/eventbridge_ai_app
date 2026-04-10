@@ -832,11 +832,25 @@ class _LeadDetailsBottomSheetState extends ConsumerState<LeadDetailsBottomSheet>
   }
 
   void _showConfirmBookingSheet(Lead lead, bool isDark) {
-    DateTime selectedDate = DateTime.now();
+    DateTime? selectedDate;
+    TimeOfDay? selectedTime;
     final priceCtrl = TextEditingController(
-      text: lead.budget.toStringAsFixed(0),
+      text: lead.budget > 0 ? lead.budget.toStringAsFixed(0) : '',
     );
     final notesCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    // Try to parse the lead's existing time
+    if (lead.time.isNotEmpty && lead.time != 'TBD') {
+      final parts = lead.time.split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1].replaceAll(RegExp(r'[^0-9]'), ''));
+        if (h != null && m != null) {
+          selectedTime = TimeOfDay(hour: h, minute: m);
+        }
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -846,151 +860,476 @@ class _LeadDetailsBottomSheetState extends ConsumerState<LeadDetailsBottomSheet>
         builder: (ctx, setSheetState) => Container(
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkNeutral01 : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(32),
+            ),
           ),
           padding: EdgeInsets.fromLTRB(
             24,
-            20,
+            16,
             24,
             MediaQuery.of(ctx).viewInsets.bottom + 32,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.black12,
-                    borderRadius: BorderRadius.circular(2),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Convert to Booking',
-                style: GoogleFonts.outfit(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Finalize this lead with ${lead.clientName}',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: isDark ? Colors.white38 : Colors.black38,
-                ),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-              _buildFieldLabel('Event Date', isDark),
-              GestureDetector(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: ctx,
-                    initialDate: selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2030),
-                  );
-                  if (picked != null) {
-                    setSheetState(() => selectedDate = picked);
-                  }
-                },
-                child: Container(
+                // Title
+                Text(
+                  'Convert to Booking',
+                  style: GoogleFonts.outfit(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Client summary card
+                Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: isDark
                         ? Colors.white.withValues(alpha: 0.05)
-                        : const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(12),
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isDark
-                          ? Colors.white10
-                          : Colors.black.withValues(alpha: 0.05),
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
                     ),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.calendar_today_rounded,
-                        size: 18,
-                        color: AppColors.primary01,
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundImage: NetworkImage(lead.clientImageUrl),
+                        backgroundColor: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.black.withValues(alpha: 0.05),
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lead.clientName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1A1A24),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppColors.primary01.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                lead.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary01,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-              _buildFieldLabel('Price (Optional)', isDark),
-              TextField(
-                controller: priceCtrl,
-                keyboardType: TextInputType.number,
-                decoration: _inputDecoration('Enter agreed price', isDark),
-              ),
-              const SizedBox(height: 16),
-
-              _buildFieldLabel('Notes (Optional)', isDark),
-              TextField(
-                controller: notesCtrl,
-                maxLines: 2,
-                decoration: _inputDecoration('Any extra details', isDark),
-              ),
-              const SizedBox(height: 32),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final success = await ref
-                        .read(sharedLeadStateProvider.notifier)
-                        .confirmBooking(
-                          leadId: lead.id,
-                          bookingDate: selectedDate,
-                          clientName: lead.clientName,
-                          eventType: lead.title,
-                          price: double.tryParse(priceCtrl.text),
-                          notes: notesCtrl.text,
-                        );
-                    if (!success || !ctx.mounted || !mounted) return;
-                    ctx.pop();
-                    context.pop();
-                    AppToast.show(
-                      context,
-                      message: 'Lead converted to booking!',
-                      type: ToastType.success,
+                // Event Date field
+                _buildFieldLabel('Event Date *', isDark),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate ?? DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2030),
+                      builder: (context, child) => Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.fromSeed(
+                            seedColor: AppColors.primary01,
+                            brightness: isDark
+                                ? Brightness.dark
+                                : Brightness.light,
+                          ),
+                        ),
+                        child: child!,
+                      ),
                     );
+                    if (picked != null) {
+                      setSheetState(() => selectedDate = picked);
+                    }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
                     ),
-                  ),
-                  child: Text(
-                    'Confirm Booking',
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color:
+                                AppColors.primary01.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.calendar_today_rounded,
+                            size: 18,
+                            color: AppColors.primary01,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            selectedDate == null
+                                ? 'Select event date'
+                                : _formatDate(selectedDate!),
+                            style: GoogleFonts.outfit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: selectedDate == null
+                                  ? (isDark
+                                      ? Colors.white38
+                                      : Colors.black38)
+                                  : (isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1A1A24)),
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: isDark ? Colors.white24 : Colors.black26,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+
+                // Event Time field
+                _buildFieldLabel('Event Time', isDark),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: ctx,
+                      initialTime: selectedTime ?? TimeOfDay.now(),
+                      builder: (context, child) => Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.fromSeed(
+                            seedColor: AppColors.primary01,
+                            brightness: isDark
+                                ? Brightness.dark
+                                : Brightness.light,
+                          ),
+                        ),
+                        child: child!,
+                      ),
+                    );
+                    if (picked != null) {
+                      setSheetState(() => selectedTime = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color:
+                                AppColors.primary01.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.access_time_rounded,
+                            size: 18,
+                            color: AppColors.primary01,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            selectedTime == null
+                                ? 'Select event time'
+                                : selectedTime!.format(ctx),
+                            style: GoogleFonts.outfit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: selectedTime == null
+                                  ? (isDark
+                                      ? Colors.white38
+                                      : Colors.black38)
+                                  : (isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1A1A24)),
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: isDark ? Colors.white24 : Colors.black26,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Price field
+                _buildFieldLabel('Agreed Price (Optional)', isDark),
+                TextField(
+                  controller: priceCtrl,
+                  keyboardType: TextInputType.number,
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter agreed price',
+                    hintStyle: GoogleFonts.outfit(
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    ),
+                    prefixText: 'USh  ',
+                    prefixStyle: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary01,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : const Color(0xFFF9FAFB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppColors.primary01,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Notes field
+                _buildFieldLabel('Notes (Optional)', isDark),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 3,
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A24),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Any extra details for this booking...',
+                    hintStyle: GoogleFonts.outfit(
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : const Color(0xFFF9FAFB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppColors.primary01,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Confirm button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (selectedDate == null) {
+                              AppToast.show(
+                                context,
+                                message: 'Please select a date for the booking',
+                                type: ToastType.error,
+                              );
+                              return;
+                            }
+                            setSheetState(() => isSubmitting = true);
+                            final success = await ref
+                                .read(sharedLeadStateProvider.notifier)
+                                .confirmBooking(
+                                  leadId: lead.id,
+                                  bookingDate: selectedDate!,
+                                  clientName: lead.clientName,
+                                  eventType: lead.title,
+                                  price: double.tryParse(priceCtrl.text),
+                                  notes: notesCtrl.text,
+                                );
+                            if (!ctx.mounted || !mounted) return;
+                            if (success) {
+                              ctx.pop();
+                              context.pop();
+                              AppToast.show(
+                                context,
+                                message: 'Booking confirmed!',
+                                type: ToastType.success,
+                              );
+                            } else {
+                              setSheetState(() => isSubmitting = false);
+                              AppToast.show(
+                                context,
+                                message: 'Failed to create booking. Try again.',
+                                type: ToastType.error,
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      disabledBackgroundColor:
+                          const Color(0xFF10B981).withValues(alpha: 0.5),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : Text(
+                            'Confirm Booking',
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   Widget _buildFieldLabel(String label, bool isDark) {
@@ -1007,20 +1346,6 @@ class _LeadDetailsBottomSheetState extends ConsumerState<LeadDetailsBottomSheet>
     );
   }
 
-  InputDecoration _inputDecoration(String hint, bool isDark) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: isDark
-          ? Colors.white.withValues(alpha: 0.05)
-          : const Color(0xFFF9FAFB),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    );
-  }
 
   void _showSuccessOverlay() {
     final overlay = Overlay.of(context);
