@@ -1,3 +1,4 @@
+import 'package:eventbridge/shared/widgets/app_header.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/features/messaging/presentation/providers/chats_list_provider.dart';
 import 'package:eventbridge/features/messaging/presentation/widgets/chat_list_tile.dart';
@@ -32,111 +33,125 @@ class _ChatsListScreenState extends ConsumerState<ChatsListScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor:
-            isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            _buildAppBar(isDark),
-            if (_searching)
-              SliverToBoxAdapter(child: _buildSearchBar(isDark)),
-            chatsAsync.when(
-              data: (chats) {
-                // Filter by search query
-                final filtered = _searchQuery.isEmpty
-                    ? chats
-                    : chats.where((c) {
-                        final q = _searchQuery.toLowerCase();
-                        return c.customerName.toLowerCase().contains(q) ||
-                            c.vendorName.toLowerCase().contains(q) ||
-                            c.lastMessage.toLowerCase().contains(q);
-                      }).toList();
+        backgroundColor: isDark
+            ? AppColors.backgroundDark
+            : const Color(0xFFF8FAFC),
+        body: Column(
+          children: [
+            _buildHeader(isDark),
+            Expanded(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  chatsAsync.when(
+                    data: (chats) {
+                      final filtered = _searchQuery.isEmpty
+                          ? chats
+                          : chats.where((c) {
+                              final q = _searchQuery.toLowerCase();
+                              return c.customerName.toLowerCase().contains(q) ||
+                                  c.vendorName.toLowerCase().contains(q) ||
+                                  c.lastMessage.toLowerCase().contains(q);
+                            }).toList();
 
-                if (filtered.isEmpty) {
-                  return SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _searchQuery.isNotEmpty
-                        ? _buildNoResults(isDark)
-                        : _buildEmptyState(isDark),
-                  );
-                }
-                return SliverPadding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 100),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => ChatListTile(chat: filtered[index]),
-                      childCount: filtered.length,
-                    ),
-                  ),
-                );
-              },
-              loading: () => SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary01,
-                          strokeWidth: 3,
+                      if (filtered.isEmpty) {
+                        return SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _searchQuery.isNotEmpty
+                              ? _buildNoResults(isDark)
+                              : _buildEmptyState(isDark),
+                        );
+                      }
+
+                      return SliverPadding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) =>
+                                ChatListTile(chat: filtered[index]),
+                            childCount: filtered.length,
+                          ),
+                        ),
+                      );
+                    },
+                    loading: () => SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary01,
+                                strokeWidth: 3,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Loading conversations...',
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Loading conversations...',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          color: isDark ? Colors.white38 : Colors.black38,
+                    ),
+                    error: (error, stack) => SliverFillRemaining(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: AppColors.errorsMain.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.wifi_off_rounded,
+                                  color: AppColors.errorsMain,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Connection issue',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Could not load your messages.\nPull down to retry.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black38,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              error: (error, stack) => SliverFillRemaining(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: AppColors.errorsMain.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.wifi_off_rounded,
-                              color: AppColors.errorsMain, size: 28),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Connection issue',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Could not load your messages.\nPull down to retry.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            color: isDark ? Colors.white38 : Colors.black38,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
-                ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                ],
               ),
             ),
           ],
@@ -145,134 +160,76 @@ class _ChatsListScreenState extends ConsumerState<ChatsListScreen> {
     );
   }
 
-  Widget _buildAppBar(bool isDark) {
-    return SliverAppBar(
-      expandedHeight: 110,
-      floating: false,
-      pinned: true,
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      flexibleSpace: FlexibleSpaceBar(
-        titlePadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        centerTitle: false,
-        title: Text(
-          'Messages',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w900,
-            fontSize: 26,
-            color: isDark ? Colors.white : const Color(0xFF1A1A24),
-          ),
-        ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: isDark
-                  ? [
-                      AppColors.backgroundDark,
-                      AppColors.backgroundDark,
-                    ]
-                  : [
-                      Colors.white,
-                      const Color(0xFFFFF5F2),
-                    ],
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -30,
-                right: -30,
-                child: Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        AppColors.primary01.withValues(alpha: 0.08),
-                        AppColors.primary01.withValues(alpha: 0.0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 10,
-                left: -40,
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primary01.withValues(alpha: 0.03),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: Icon(
-              _searching ? Icons.close_rounded : Icons.search_rounded,
-              key: ValueKey(_searching),
-              color: isDark ? Colors.white70 : const Color(0xFF4B5563),
-            ),
-          ),
-          onPressed: () {
-            setState(() {
-              _searching = !_searching;
-              if (!_searching) {
-                _searchController.clear();
-                _searchQuery = '';
-              }
-            });
-          },
-        ),
-        const SizedBox(width: 8),
-      ],
+  Widget _buildHeader(bool isDark) {
+    return AppHeader(
+      title: 'Messages',
+      showSearch: false,
+      customSearchWidget: _buildSearchBar(isDark, inHeader: true),
     );
   }
 
-  Widget _buildSearchBar(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkNeutral02 : const Color(0xFFF1F3F5),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: TextField(
-          controller: _searchController,
-          autofocus: true,
-          onChanged: (v) => setState(() => _searchQuery = v.trim()),
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Search conversations...',
-            hintStyle: GoogleFonts.outfit(
-              fontSize: 14,
-              color: isDark ? Colors.white30 : Colors.black26,
+  Widget _buildSearchBar(bool isDark, {bool inHeader = false}) {
+    final bgColor = inHeader 
+        ? AppColors.white 
+        : (isDark ? AppColors.darkNeutral02 : const Color(0xFFF1F3F5));
+    final textColor = inHeader ? Colors.black87 : (isDark ? Colors.white : Colors.black87);
+    final hintColor = inHeader ? const Color(0xFFBDBDBD) : (isDark ? Colors.white30 : Colors.black26);
+
+    Widget searchField = Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: inHeader ? const EdgeInsets.symmetric(horizontal: 12) : EdgeInsets.zero,
+      child: Row(
+        children: [
+          if (inHeader) ...[
+            Icon(
+              Icons.search_rounded,
+              size: 18,
+              color: hintColor,
             ),
-            prefixIcon: Icon(Icons.search_rounded,
-                size: 20,
-                color: isDark ? Colors.white30 : Colors.black26),
-            border: InputBorder.none,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              autofocus: false, // Changed autofocus to false so it doesn't pop up immediately
+              onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: textColor,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search conversations...',
+                hintStyle: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: hintColor,
+                ),
+                prefixIcon: inHeader ? null : Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: hintColor,
+                ),
+                border: InputBorder.none,
+                isDense: inHeader,
+                contentPadding: inHeader 
+                    ? const EdgeInsets.symmetric(vertical: 12)
+                    : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
+
+    if (!inHeader) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        child: searchField,
+      );
+    }
+    return searchField;
   }
 
   Widget _buildNoResults(bool isDark) {
@@ -282,9 +239,11 @@ class _ChatsListScreenState extends ConsumerState<ChatsListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off_rounded,
-                size: 48,
-                color: isDark ? Colors.white24 : Colors.black12),
+            Icon(
+              Icons.search_off_rounded,
+              size: 48,
+              color: isDark ? Colors.white24 : Colors.black12,
+            ),
             const SizedBox(height: 16),
             Text(
               'No matches found',

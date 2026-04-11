@@ -6,6 +6,7 @@ import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
 
+import 'package:eventbridge/features/vendors_screen/widgets/booking_summary_bottom_sheet.dart';
 import 'package:eventbridge/features/vendors_screen/widgets/lead_details_bottom_sheet.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -77,6 +78,25 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
     }
   }
 
+  void _showBookingSummarySheet(BuildContext context, Lead lead) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => BookingSummaryBottomSheet(
+        booking: lead,
+        onMessageTap: () {
+          Navigator.of(sheetContext).pop();
+          _openVendorChat(context, lead);
+        },
+        onViewFullDetailsTap: () {
+          Navigator.of(sheetContext).pop();
+          context.push('/active-booking-details/${lead.id}');
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -86,15 +106,23 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
 
     // Initial Segment Filtering
     var filteredLeads = allLeads.where((l) {
+      final normalizedStatus = l.status.toLowerCase();
+      final isBooked =
+          l.isAccepted ||
+          normalizedStatus == 'booked' ||
+          normalizedStatus == 'confirmed';
+
       if (_selectedSegment == 0) {
         // New: Not accepted yet
-        return !l.isAccepted;
+        return !isBooked;
       } else if (_selectedSegment == 1) {
         // Negotiating: Accepted but not booked
-        return l.isAccepted && l.status != 'booked';
+        return l.isAccepted &&
+            normalizedStatus != 'booked' &&
+            normalizedStatus != 'confirmed';
       } else {
         // Booked: Finalized booking
-        return l.status == 'booked' || l.status == 'confirmed';
+        return isBooked;
       }
     }).toList();
 
@@ -729,7 +757,7 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => context.push('/active-booking-details/${lead.id}'),
+                onTap: () => _showBookingSummarySheet(context, lead),
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -845,9 +873,7 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
                           const SizedBox(width: 12),
                           _buildQuickAction(
                             'Details',
-                            () => context.push(
-                              '/active-booking-details/${lead.id}',
-                            ),
+                            () => _showBookingSummarySheet(context, lead),
                             false,
                             isDark,
                           ),

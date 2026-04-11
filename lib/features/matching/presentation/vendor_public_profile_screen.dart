@@ -22,6 +22,7 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
+  late Future<MatchVendor?> _vendorFuture;
 
   @override
   void initState() {
@@ -33,6 +34,13 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
     _scrollController.addListener(() {
       _scrollOffset.value = _scrollController.offset;
     });
+
+    _vendorFuture = _loadVendor();
+  }
+
+  Future<MatchVendor?> _loadVendor() async {
+    // Try to get from matching controller (which checks state first)
+    return await ref.read(matchingControllerProvider.notifier).getVendorById(widget.vendorId);
   }
 
   @override
@@ -46,19 +54,96 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<MatchVendor?>(
-      future: ref.read(matchingControllerProvider.notifier).getVendorById(widget.vendorId),
+      future: _vendorFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+        if (snapshot.hasError) {
+          return Scaffold(
             backgroundColor: Colors.white,
-            body: Center(child: CircularProgressIndicator(color: AppColors.primary01)),
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => context.pop(),
+              ),
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 64),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Oops! Something went wrong',
+                      style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'We couldn\'t load this vendor\'s profile. Please try again later.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(color: const Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => context.pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary01,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Go Back', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary01,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Loading vendor profile...',
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
         final vendor = snapshot.data;
         if (vendor == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Vendor not found')),
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => context.pop(),
+              ),
+              title: Text('Not Found', style: GoogleFonts.outfit(color: Colors.black)),
+            ),
             body: const Center(child: Text('This vendor profile is unavailable.')),
           );
         }
@@ -132,7 +217,7 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
       case 2:
         return _buildReviewsSliver(vendor);
       case 3:
-        return SliverToBoxAdapter(child: _PortfolioTabView(vendor: vendor));
+        return _PortfolioTabView(vendor: vendor);
       default:
         return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
@@ -151,11 +236,11 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
           child: Container(
             height: MediaQuery.of(context).padding.top + 70,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(opacity),
+              color: Colors.white.withValues(alpha: opacity),
               boxShadow: [
                 if (opacity > 0.8)
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -307,13 +392,55 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          vendor.name,
-          style: GoogleFonts.outfit(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF1E293B),
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                vendor.name,
+                style: GoogleFonts.outfit(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            if (vendor.matchScore > 0)
+              Container(
+                margin: const EdgeInsets.only(top: 6, left: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFE8430A), Color(0xFFFF6B35)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE8430A).withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${(vendor.matchScore * 100).toInt()}% Match',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 4),
         Row(
@@ -548,21 +675,55 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
             ),
           ),
           const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: Text(
-              'Show all ${vendor.reviews.length} reviews',
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    // TODO: Implement show all reviews logic
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  child: Text(
+                    'All (${vendor.reviews.length}) Reviews',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push('/submit-review/${vendor.id}'),
+                  icon: const Icon(Icons.rate_review_outlined, size: 16, color: Colors.white),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary01,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    elevation: 0,
+                  ),
+                  label: Text(
+                    'Write Review',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -678,25 +839,25 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                InquiryBottomSheet.show(context, vendor, package: p);
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFFF7A51), width: 1.5),
-                backgroundColor: isHighlighted ? const Color(0xFFFF7A51) : Colors.white,
-                foregroundColor: isHighlighted ? Colors.white : const Color(0xFFFF7A51),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text(
-                'Make Request',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+              child: OutlinedButton(
+                onPressed: () {
+                  InquiryBottomSheet.show(context, vendor, package: p);
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFFF7A51), width: 1.5),
+                  backgroundColor: isHighlighted ? const Color(0xFFFF7A51) : Colors.white,
+                  foregroundColor: isHighlighted ? Colors.white : const Color(0xFFFF7A51),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(
+                  'Make Request',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
           ),
         ],
       ),
@@ -714,7 +875,7 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
               CircleAvatar(
                 radius: 20,
                 backgroundColor: const Color(0xFFF1F5F9),
-                child: Text(r.customerName[0]),
+                child: Text(r.customerName.isNotEmpty ? r.customerName[0] : 'U'),
               ),
               const SizedBox(width: 12),
               Column(
@@ -814,7 +975,7 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
                 TopNotificationOverlay.show(
                   context: context,
                   title: 'Messaging Locked',
-                  message: 'Please send an inquiry to activate messaging with ${vendor.name}.',
+                  message: 'Please match with ${vendor.name} to activate messaging.',
                   onTap: () {},
                 );
               },
@@ -823,18 +984,20 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
             ),
           ),
           const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => InquiryBottomSheet.show(context, vendor),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF7A51), // Coral color from design
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-              elevation: 0,
+          Flexible(
+            child: ElevatedButton(
+              onPressed: () => InquiryBottomSheet.show(context, vendor),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF7A51), // Coral color from design
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+                elevation: 0,
+              ),
+              child: isSubmitting 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : Text('Match with Business', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w800)),
             ),
-            child: isSubmitting 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : Text('Make Inquiry', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w800)),
           ),
         ],
       ),
@@ -882,7 +1045,7 @@ class _OverviewTabState extends State<_OverviewTab> {
   Widget build(BuildContext context) {
     return Consumer(
       builder: (context, ref, child) {
-        return SingleChildScrollView(
+        return Padding(
           padding: const EdgeInsets.symmetric(vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

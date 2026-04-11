@@ -34,3 +34,21 @@ class GetVendorByIdUseCase {
     return _repository.getVendorById(id);
   }
 }
+
+class SubmitReviewUseCase {
+  SubmitReviewUseCase(this._repository);
+
+  final IMatchingRepository _repository;
+
+  Future<void> call({
+    required String vendorId,
+    required double rating,
+    required String comment,
+  }) {
+    return _repository.submitReview(
+      vendorId: vendorId,
+      rating: rating,
+      comment: comment,
+    );
+  }
+}

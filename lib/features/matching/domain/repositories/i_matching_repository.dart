@@ -10,4 +10,10 @@ abstract class IMatchingRepository {
   });
 
   Future<MatchVendor?> getVendorById(String id);
+
+  Future<void> submitReview({
+    required String vendorId,
+    required double rating,
+    required String comment,
+  });
 }

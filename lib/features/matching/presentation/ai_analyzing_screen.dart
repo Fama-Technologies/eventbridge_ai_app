@@ -16,76 +16,104 @@ class AiAnalyzingScreen extends ConsumerStatefulWidget {
 
 class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
     with TickerProviderStateMixin {
+  late AnimationController _sweepController;
   late AnimationController _pulseController;
-  late AnimationController _rotateController;
-  late AnimationController _progressController;
+  late Animation<double> _sweepAnim;
   late Animation<double> _pulseAnim;
-  late Animation<double> _rotateAnim;
-  late Animation<double> _progressAnim;
 
-  int _messageIndex = 0;
-  Timer? _messageTimer;
-
-  final List<String> _messages = [
-    'Analyzing 500+ local vendors...',
-    'Matching with your style and budget...',
-    'Ranking top AI picks...',
-    'Almost there!',
+  final List<_CheckItem> _steps = [
+    _CheckItem('Scanning service categories...', Icons.design_services_rounded),
+    _CheckItem('Applying location & radius filter...', Icons.location_on_rounded),
+    _CheckItem('Analysing vendor portfolios...', Icons.photo_library_rounded),
+    _CheckItem('Checking ratings & reviews...', Icons.star_rounded),
+    _CheckItem('Calculating budget fit...', Icons.account_balance_wallet_rounded),
+    _CheckItem('Ranking top AI picks...', Icons.auto_awesome_rounded),
   ];
 
-  final List<IconData> _serviceIcons = [
-    Icons.restaurant_rounded,
-    Icons.celebration_rounded,
-    Icons.camera_alt_rounded,
-    Icons.search_rounded,
-    Icons.music_note_rounded,
-    Icons.palette_rounded,
-  ];
+  int _completedSteps = 0;
+  Timer? _stepTimer;
+
+  static const Duration _minDisplayDuration = Duration(milliseconds: 6500);
+  late final DateTime _startedAt;
+  bool _navigated = false;
+  bool _loadingFinished = false;
+  MatchingState? _pendingNextState;
 
   @override
   void initState() {
     super.initState();
 
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    _startedAt = DateTime.now();
 
-    _rotateController = AnimationController(
+    _sweepController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 3),
     )..repeat();
 
-    _progressController = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
-    )..forward();
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
 
-    _pulseAnim = Tween<double>(begin: 0.92, end: 1.08).animate(
+    _sweepAnim = Tween<double>(begin: 0, end: 2 * pi).animate(_sweepController);
+
+    _pulseAnim = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _rotateAnim = Tween<double>(begin: 0, end: 2 * pi).animate(_rotateController);
+    // Tick checklist items — paced to finish around _minDisplayDuration
+    const stepInterval = Duration(milliseconds: 950);
+    _stepTimer = Timer.periodic(stepInterval, (_) {
+      if (mounted && _completedSteps < _steps.length) {
+        setState(() => _completedSteps++);
+      }
+    });
 
-    _progressAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
-    );
-
-    _messageTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
-      if (mounted) {
-        setState(() {
-          _messageIndex = (_messageIndex + 1) % _messages.length;
-        });
+    // Handle case where loading already completed before this screen mounted.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final current = ref.read(matchingControllerProvider);
+      if (!current.isLoading) {
+        _loadingFinished = true;
+        _pendingNextState = current;
+        _maybeNavigate();
       }
     });
   }
 
+  void _maybeNavigate() {
+    if (_navigated || !_loadingFinished || !mounted) return;
+    final elapsed = DateTime.now().difference(_startedAt);
+    final remaining = _minDisplayDuration - elapsed;
+
+    void go() {
+      if (_navigated || !mounted) return;
+      final next = _pendingNextState;
+      if (next == null) return;
+      _navigated = true;
+      if (next.error != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(next.error!)));
+        context.pop();
+      } else {
+        // Ensure all checklist items visually complete
+        setState(() => _completedSteps = _steps.length);
+        context.pushReplacement('/ai-results');
+      }
+    }
+
+    if (remaining <= Duration.zero) {
+      go();
+    } else {
+      Future.delayed(remaining, go);
+    }
+  }
+
   @override
   void dispose() {
+    _sweepController.dispose();
     _pulseController.dispose();
-    _rotateController.dispose();
-    _progressController.dispose();
-    _messageTimer?.cancel();
+    _stepTimer?.cancel();
     super.dispose();
   }
 
@@ -93,170 +121,152 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
   Widget build(BuildContext context) {
     ref.listen<MatchingState>(matchingControllerProvider, (previous, next) {
       if (previous?.isLoading == true && next.isLoading == false) {
-        if (next.error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(next.error!)),
-          );
-          context.pop();
-        } else {
-          context.pushReplacement('/ai-results');
-        }
+        _loadingFinished = true;
+        _pendingNextState = next;
+        _maybeNavigate();
       }
     });
 
     final matchCount = ref.watch(matchingControllerProvider).matches.length;
+    final request = ref.watch(matchingControllerProvider).request;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FC),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildOrbitAnimation(),
-                  const SizedBox(height: 48),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    transitionBuilder: (child, anim) => FadeTransition(
-                      opacity: anim,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.2),
-                          end: Offset.zero,
-                        ).animate(anim),
-                        child: child,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildHeader(request?.eventType),
+                      const SizedBox(height: 24),
+                      _buildRadarWidget(),
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: _buildChecklist(),
                       ),
-                    ),
-                    child: Text(
-                      _messages[_messageIndex],
-                      key: ValueKey(_messageIndex),
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.neutrals08,
-                        height: 1.2,
-                      ),
-                    ),
+                      const Spacer(),
+                      _buildBottomCard(matchCount, request?.location),
+                      const SizedBox(height: 20),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Matching with your style and budget.',
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      color: AppColors.neutrals07,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildProgressBar(),
-                ],
+                ),
               ),
-            ),
-            _buildBottomCard(matchCount),
-            const SizedBox(height: 24),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildOrbitAnimation() {
+  Widget _buildHeader(String? eventType) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary01.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.psychology_rounded, color: AppColors.primary01, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  'AI ENGINE ACTIVE',
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary01,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Finding the best\nvendors for you',
+            style: GoogleFonts.outfit(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF1A1A24),
+              height: 1.2,
+            ),
+          ),
+          if (eventType != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Planning: $eventType',
+              style: GoogleFonts.outfit(
+                fontSize: 15,
+                color: const Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRadarWidget() {
     return AnimatedBuilder(
-      animation: Listenable.merge([_pulseAnim, _rotateAnim]),
+      animation: Listenable.merge([_sweepAnim, _pulseAnim]),
       builder: (context, _) {
         return SizedBox(
-          width: 240,
-          height: 240,
+          width: 220,
+          height: 220,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Outer orbit ring — neutral
+              // Outer ring
+              _buildRing(220, AppColors.primary01.withValues(alpha: 0.08)),
+              // Middle ring
+              _buildRing(155, AppColors.primary01.withValues(alpha: 0.12)),
+              // Inner ring
+              _buildRing(90, AppColors.primary01.withValues(alpha: 0.18)),
+
+              // Radar sweep
+              Transform.rotate(
+                angle: _sweepAnim.value,
+                child: CustomPaint(
+                  size: const Size(220, 220),
+                  painter: _RadarSweepPainter(AppColors.primary01),
+                ),
+              ),
+
+              // Blips
+              ..._buildBlips(),
+
+              // Centre badge
               Transform.scale(
                 scale: _pulseAnim.value,
                 child: Container(
-                  width: 220,
-                  height: 220,
+                  width: 70,
+                  height: 70,
                   decoration: BoxDecoration(
+                    color: AppColors.primary01,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.neutrals03,
-                      width: 2,
-                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary01.withValues(alpha: 0.4),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              // Inner orbit ring — light primary tint
-              Transform.scale(
-                scale: _pulseAnim.value * 0.85,
-                child: Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.primary01.withOpacity(0.2),
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-              // Orbiting icons — neutral bg
-              ...List.generate(_serviceIcons.length, (i) {
-                final angle = _rotateAnim.value + (i * (2 * pi / _serviceIcons.length));
-                final radius = 95.0;
-                final x = cos(angle) * radius;
-                final y = sin(angle) * radius;
-                return Transform.translate(
-                  offset: Offset(x, y),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(_serviceIcons[i], size: 16, color: AppColors.neutrals08),
-                  ),
-                );
-              }),
-              // Center badge — primary
-              Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  color: AppColors.primary01,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary01.withOpacity(0.3),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.hub_rounded, color: Colors.white, size: 38),
-              ),
-              // Checkmark badge — success green
-              Positioned(
-                top: 20,
-                right: 20,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    color: AppColors.successGreen,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                  child: const Icon(Icons.hub_rounded, color: Colors.white, size: 32),
                 ),
               ),
             ],
@@ -266,71 +276,162 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
     );
   }
 
-  Widget _buildProgressBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 48),
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: AnimatedBuilder(
-              animation: _progressAnim,
-              builder: (context, _) => LinearProgressIndicator(
-                value: _progressAnim.value,
-                backgroundColor: AppColors.neutrals02,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary01),
-                minHeight: 4,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'AI ENGINE ACTIVE',
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary01,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Text(
-                'SEARCHING...',
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.neutrals06,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ],
+  Widget _buildRing(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 1.5),
       ),
     );
   }
 
-  Widget _buildBottomCard(int matchCount) {
+  List<Widget> _buildBlips() {
+    final positions = [
+      const Offset(0.72, 0.18),
+      const Offset(-0.55, 0.40),
+      const Offset(0.35, -0.62),
+      const Offset(-0.70, -0.25),
+      const Offset(0.15, 0.80),
+    ];
+    return positions.map((p) {
+      return Positioned(
+        left: 110 + p.dx * 90,
+        top: 110 + p.dy * 90,
+        child: Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: AppColors.primary01,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary01.withValues(alpha: 0.5),
+                blurRadius: 6,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildChecklist() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: List.generate(_steps.length, (i) {
+          final isDone = i < _completedSteps;
+          final isActive = i == _completedSteps;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDone
+                        ? AppColors.primary01
+                        : isActive
+                            ? AppColors.primary01.withValues(alpha: 0.12)
+                            : const Color(0xFFF1F5F9),
+                    border: isActive
+                        ? Border.all(color: AppColors.primary01, width: 2)
+                        : null,
+                  ),
+                  child: isDone
+                      ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                      : isActive
+                          ? _buildSpinner()
+                          : Icon(_steps[i].icon, color: const Color(0xFFCBD5E1), size: 16),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    _steps[i].label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: isDone
+                          ? FontWeight.w600
+                          : isActive
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                      color: isDone
+                          ? const Color(0xFF1A1A24)
+                          : isActive
+                              ? AppColors.primary01
+                              : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildSpinner() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(8),
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: AppColors.primary01,
+      ),
+    );
+  }
+
+  Widget _buildBottomCard(int matchCount, String? location) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.neutrals01,
-          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary01,
+              AppColors.primary01.withValues(alpha: 0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary01.withValues(alpha: 0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                color: AppColors.primary01.withOpacity(0.12),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.auto_awesome, color: AppColors.primary01, size: 22),
+              child: const Icon(Icons.location_searching_rounded,
+                  color: Colors.white, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -338,30 +439,73 @@ class _AiAnalyzingScreenState extends ConsumerState<AiAnalyzingScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'MY VENDOR MATCHES',
+                    location != null ? 'Searching in $location' : 'AI Search Running',
                     style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.neutrals07,
-                      letterSpacing: 0.8,
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    matchCount > 0 ? '$matchCount Matches Found' : 'Searching...',
+                    matchCount > 0
+                        ? '$matchCount vendor${matchCount == 1 ? '' : 's'} found so far'
+                        : 'Scanning nearby vendors...',
                     style: GoogleFonts.outfit(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.neutrals08,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.neutrals06),
           ],
         ),
       ),
     );
   }
+}
+
+// Radar sweep custom painter
+class _RadarSweepPainter extends CustomPainter {
+  final Color color;
+  _RadarSweepPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    final sweepPaint = Paint()
+      ..shader = SweepGradient(
+        colors: [
+          color.withValues(alpha: 0),
+          color.withValues(alpha: 0),
+          color.withValues(alpha: 0.25),
+          color.withValues(alpha: 0.5),
+          color.withValues(alpha: 0.15),
+        ],
+        stops: const [0.0, 0.55, 0.75, 0.98, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+    canvas.drawCircle(center, radius, sweepPaint);
+
+    // Leading edge line
+    final linePaint = Paint()
+      ..color = color.withValues(alpha: 0.7)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(center, center + Offset(radius, 0), linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _CheckItem {
+  final String label;
+  final IconData icon;
+  const _CheckItem(this.label, this.icon);
 }

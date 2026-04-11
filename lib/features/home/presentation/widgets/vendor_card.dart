@@ -30,41 +30,72 @@ class _VendorCardState extends State<VendorCard> {
     final images = widget.vendor.images.isNotEmpty
         ? widget.vendor.images
         : (widget.vendor.avatarUrl != null ? [widget.vendor.avatarUrl!] : []);
+    final businessName = _displayBusinessName(widget.vendor.businessName);
+    final primaryCategory = _displayCategory(widget.vendor.serviceCategories);
+    final location = _displayLocation(widget.vendor.location);
+    final priceLabel = _displayPrice(widget.vendor.price);
+    final matchPercent = widget.vendor.matchScore > 0
+        ? (widget.vendor.matchScore * 100).round()
+        : null;
+    final cardRadius = BorderRadius.circular(22);
 
     return GestureDetector(
       onTap: () => context.push('/vendor-public/${widget.vendor.id}'),
       child: Container(
         width: widget.width,
         decoration: BoxDecoration(
-          color: widget.isDark ? AppColors.darkNeutral01 : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: widget.isDark ? AppColors.darkNeutral02 : AppColors.cardWhite,
+          borderRadius: cardRadius,
+          border: Border.all(
+            color: widget.isDark
+                ? AppColors.darkNeutral03
+                : AppColors.neutrals02,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: widget.isDark ? 0.2 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(
+                alpha: widget.isDark ? 0.22 : 0.08,
+              ),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: SizedBox(
-                    height: 115,
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
+              child: Stack(
+                children: [
+                  SizedBox(
+                    height: 104,
                     width: double.infinity,
                     child: images.isEmpty
                         ? Container(
-                            color: AppColors.primary01.withValues(alpha: 0.1),
-                            child: const Center(
-                              child: Icon(
-                                Icons.business,
-                                color: AppColors.primary01,
-                                size: 30,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: widget.isDark
+                                    ? const [
+                                        AppColors.darkNeutral03,
+                                        AppColors.darkNeutral01,
+                                      ]
+                                    : const [
+                                        Color(0xFFF6F2EE),
+                                        Color(0xFFE9E2DB),
+                                      ],
                               ),
+                            ),
+                            child: Icon(
+                              Icons.storefront_rounded,
+                              color: widget.isDark
+                                  ? Colors.white70
+                                  : const Color(0xFF6B7280),
+                              size: 34,
                             ),
                           )
                         : PageView.builder(
@@ -76,162 +107,250 @@ class _VendorCardState extends State<VendorCard> {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stack) =>
                                   Container(
-                                    color: Colors.grey[200],
-                                    child: const Icon(
-                                      Icons.error_outline,
-                                      color: Colors.red,
+                                    color: widget.isDark
+                                        ? AppColors.darkNeutral03
+                                        : AppColors.neutrals02,
+                                    child: Icon(
+                                      Icons.broken_image_outlined,
+                                      color: widget.isDark
+                                          ? Colors.white60
+                                          : AppColors.textSecondary,
+                                      size: 28,
                                     ),
                                   ),
                             ),
                           ),
                   ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Consumer(
-                    builder: (context, ref, child) {
-                      final isFavorite = ref.watch(matchingControllerProvider.select(
-                        (s) => s.favoriteIds.contains(widget.vendor.id),
-                      ));
-                      return GestureDetector(
-                        onTap: () => ref.read(matchingControllerProvider.notifier).toggleFavorite(widget.vendor.id),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: isFavorite ? Colors.red : Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                if (images.length > 1)
                   Positioned(
-                    bottom: 8,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(images.length, (idx) {
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          width: 4,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: idx == _currentIndex
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.6),
-                            shape: BoxShape.circle,
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 8, 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   if (widget.vendor.matchScore > 0)
-                    Container(
-                      width: 3,
-                      height: 45,
-                      margin: const EdgeInsets.only(top: 2, right: 10),
+                    top: 10,
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary01,
-                        borderRadius: BorderRadius.circular(2),
+                        color: widget.isDark
+                            ? Colors.black.withValues(alpha: 0.4)
+                            : Colors.white.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        primaryCategory,
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: widget.isDark
+                              ? Colors.white
+                              : AppColors.textPrimary,
+                        ),
                       ),
                     ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.vendor.businessName,
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: widget.isDark ? Colors.white : Colors.black87,
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Consumer(
+                      builder: (context, ref, child) {
+                        final isFavorite = ref.watch(
+                          matchingControllerProvider.select(
+                            (s) => s.favoriteIds.contains(widget.vendor.id),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '${widget.vendor.serviceCategories.isNotEmpty ? widget.vendor.serviceCategories.first : "Service"} • ${widget.vendor.location}',
+                        );
+                        return GestureDetector(
+                          onTap: () => ref
+                              .read(matchingControllerProvider.notifier)
+                              .toggleFavorite(widget.vendor.id),
+                          child: Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: widget.isDark
+                                  ? AppColors.darkNeutral02.withValues(
+                                      alpha: 0.88,
+                                    )
+                                  : Colors.white.withValues(alpha: 0.94),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              isFavorite
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              color: isFavorite
+                                  ? const Color(0xFFD64545)
+                                  : (widget.isDark
+                                        ? Colors.white70
+                                        : AppColors.textPrimary),
+                              size: 16,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  if (images.length > 1)
+                    Positioned(
+                      bottom: 10,
+                      left: 10,
+                      child: Row(
+                        children: List.generate(images.length, (idx) {
+                          final isActive = idx == _currentIndex;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.only(right: 4),
+                            width: isActive ? 16 : 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.58),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    businessName,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: widget.isDark
+                          ? Colors.white
+                          : AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 13,
+                        color: widget.isDark
+                            ? Colors.white60
+                            : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
                           style: GoogleFonts.outfit(
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
-                            color: widget.isDark ? Colors.white38 : Colors.grey[500],
+                            color: widget.isDark
+                                ? Colors.white60
+                                : AppColors.textSecondary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: widget.isDark
+                                ? AppColors.darkNeutral01
+                                : const Color(0xFFF4F4F5),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            priceLabel,
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: widget.isDark
+                                  ? Colors.white70
+                                  : AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: widget.isDark
+                              ? const Color(0xFF2D2616)
+                              : const Color(0xFFFFF7E8),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (widget.vendor.price != null)
-                              Expanded(
-                                child: Text(
-                                  '${widget.vendor.price!} / event',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: widget.isDark ? Colors.white70 : Colors.black87,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              )
-                            else
-                              Expanded(
-                                child: Text(
-                                  'Price on inquiry',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary01,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            Icon(Icons.star, color: Colors.amber[700], size: 10),
-                            const SizedBox(width: 2),
+                            const Icon(
+                              Icons.star_rounded,
+                              color: Color(0xFFE0A100),
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
                             Text(
                               widget.vendor.rating.toStringAsFixed(1),
                               style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: widget.isDark ? Colors.white70 : Colors.grey[800],
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: widget.isDark
+                                    ? Colors.white70
+                                    : AppColors.textPrimary,
                               ),
                             ),
                           ],
                         ),
-                        if (widget.vendor.matchScore > 0) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${(widget.vendor.matchScore * 100).toInt()}% match for you',
-                            style: GoogleFonts.outfit(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary01,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  if (matchPercent != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: widget.isDark
+                            ? const Color(0xFF173229)
+                            : const Color(0xFFEAF6F1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$matchPercent% match for you',
+                        style: GoogleFonts.outfit(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1E6A56),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -239,5 +358,42 @@ class _VendorCardState extends State<VendorCard> {
         ),
       ),
     );
+  }
+
+  String _displayBusinessName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'vendor') {
+      return 'Event vendor';
+    }
+    return trimmed;
+  }
+
+  String _displayCategory(List<String> categories) {
+    for (final category in categories) {
+      final trimmed = category.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return 'Event service';
+  }
+
+  String _displayLocation(String location) {
+    final trimmed = location.trim();
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'unknown location') {
+      return 'Location pending';
+    }
+    return trimmed;
+  }
+
+  bool _hasUsablePrice(String? price) {
+    final trimmed = price?.trim();
+    return trimmed != null &&
+        trimmed.isNotEmpty &&
+        trimmed.toLowerCase() != 'null';
+  }
+
+  String _displayPrice(String? price) {
+    if (!_hasUsablePrice(price)) return 'Price on inquiry';
+    final trimmed = price!.trim();
+    return trimmed.contains('/') ? trimmed : '$trimmed / event';
   }
 }

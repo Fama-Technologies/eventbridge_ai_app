@@ -4,6 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > A parent `CLAUDE.md` at `/home/robotics1025/projects/CLAUDE.md` covers this app in the context of the full EventBridge workspace (backend + mobile + Natalie AI). This file adds app-specific detail.
 
+## Design system — read this before writing UI
+
+The canonical UI/theme contract lives in `claude_prompt/eventbridge_flutter_prompt.md`. **Read it before building or modifying any screen or widget.** It defines `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius`, the 6 reusable widgets (`AppHeader`, `FloatingNavBar`, `EventBannerCard`, `SectionHeader`, `AiBadge`, `CategoryChip`), the standard screen scaffold (`Stack` + `CustomScrollView` + `Positioned(FloatingNavBar)`), and the `EventModel.gradientColors` mapping.
+
+**Non-negotiable design rules** (full list + rationale in the prompt):
+
+1. Import `lib/core/theme/app_theme.dart` — never hardcode `Color(0xFF...)`, sizes, or radii inline
+2. Header is always `AppColors.primary` (orange) on every screen
+3. `FloatingNavBar` is always in `Stack` > `Positioned(bottom: 18)`
+4. Nav labels are hidden by default; only the active item reveals its label via `AnimatedSize`
+5. Event lists are always horizontal `ListView` (`scrollDirection: Axis.horizontal`) — never vertical
+6. Event cards always use `EventBannerCard` with the category gradient from `EventModel.gradientColors`
+7. Body bottom padding is always `90` to clear the floating nav
+8. `AiBadge` is the only way to render the "AI" tag (`#FFF0EB` bg, `#E8430A` text)
+9. Card radius = `AppRadius.card` (14), chip radius = `AppRadius.chip` (20), pill nav = `AppRadius.pill` (40)
+10. Section gaps and screen padding are always `AppSpacing.lg` (16)
+
+**Reality check:** the existing theme files are `lib/core/theme/app_theme.dart`, `app_colors.dart`, `design_tokens.dart`. Before adding new tokens, check those files — the names in the prompt may already exist under a slightly different symbol. Prefer extending the existing file over creating a parallel one.
+
+Category icon set used on banner cards (see the prompt's `EventBannerCard`): `Icons.celebration` (party), `Icons.business_center` (corporate), `Icons.flight_takeoff` (travel), `Icons.favorite` (wedding), `Icons.music_note` (music).
+
 ## What this app is
 
 EventBridge — a Flutter (mobile/web) client for an AI-driven vendor-matching platform for event planning. A user picks a role (`CUSTOMER` or `VENDOR`) and the app renders two essentially separate product experiences inside the same binary.

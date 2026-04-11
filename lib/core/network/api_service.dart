@@ -141,6 +141,36 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateVendorProfile({
+    required String userId,
+    String? businessName,
+    String? phone,
+    String? location,
+    String? description,
+    String? avatarUrl,
+    int? yearsExperience,
+    double? hourlyRate,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/api/vendor/profile',
+        data: {
+          'userId': userId,
+          if (businessName != null) 'businessName': businessName,
+          if (phone != null) 'phone': phone,
+          if (location != null) 'location': location,
+          if (description != null) 'description': description,
+          if (avatarUrl != null) 'profileImage': avatarUrl,
+          if (yearsExperience != null) 'yearsExperience': yearsExperience,
+          if (hourlyRate != null) 'hourlyRate': hourlyRate,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> saveVendorPackages({
     required String userId,
     required List<Map<String, dynamic>> packages,
@@ -322,6 +352,9 @@ class ApiService {
     String? eventType,
     double? totalPrice,
     String? notes,
+    String? clientPhone,
+    String? leadId,
+    String? clientId,
   }) async {
     try {
       final response = await _dio.post(
@@ -333,6 +366,9 @@ class ApiService {
           'eventType': eventType,
           'totalPrice': totalPrice,
           'notes': notes,
+          'clientPhone': clientPhone,
+          'leadId': leadId,
+          'clientId': clientId,
         },
       );
       return response.data;
@@ -579,6 +615,28 @@ class ApiService {
       final response = await _dio.get(
         '/api/customer/vendors/nearby',
         queryParameters: {'lat': lat, 'lng': lng, 'radius': radiusKm},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> submitReview({
+    required String vendorId,
+    required String customerId,
+    required double rating,
+    required String comment,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/review',
+        data: {
+          'vendorId': vendorId,
+          'customerId': customerId,
+          'rating': rating,
+          'comment': comment,
+        },
       );
       return response.data;
     } on DioException catch (e) {

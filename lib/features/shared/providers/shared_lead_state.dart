@@ -51,8 +51,27 @@ class SharedLeadState extends Notifier<List<Lead>> {
       if (bookingsResult['success'] == true) {
         final List<dynamic> bookingsData = bookingsResult['bookings'] ?? [];
         for (var b in bookingsData) {
-          final bookingId = b['id'].toString();
-          if (!leads.any((l) => l.id == bookingId)) {
+          final eventId = b['eventId']?.toString();
+          
+          if (eventId != null) {
+            // Find if there's an existing lead to update
+            final index = leads.indexWhere((l) => l.id == eventId);
+            if (index != -1) {
+              // Enrich existing lead with final booking data
+              leads[index] = leads[index].copyWith(
+                status: 'booked',
+                isAccepted: true,
+                budget: (b['totalPrice'] as num?)?.toDouble() ?? leads[index].budget,
+                date: b['bookingDate']?.toString() ?? leads[index].date,
+                phoneNumber: b['clientPhone']?.toString() ?? leads[index].phoneNumber,
+              );
+              continue;
+            }
+          }
+
+          // If no matching lead found, or eventId is missing, add as standalone
+          final bookingIdForLead = b['id'].toString();
+          if (!leads.any((l) => l.id == bookingIdForLead)) {
             leads.add(Lead.fromJson({
               ...b,
               'status': 'CONFIRMED',

@@ -33,21 +33,55 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
   final _guestCountController = TextEditingController();
   final _budgetController = TextEditingController();
   final _messageController = TextEditingController();
-  final _serviceController = TextEditingController();
+  List<String> _selectedServices = [];
+  bool _needsVenue = true;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.vendor.services.isNotEmpty) {
-      _serviceController.text = widget.vendor.services.first;
+      _selectedServices.add(widget.vendor.services.first);
     }
     _guestCountController.text = '50';
     
+    // Auto-fill from matching state if available
+    final matchingState = ref.read(matchingControllerProvider);
+    final lastRequest = matchingState.request;
+    
+    if (lastRequest != null) {
+      _selectedDate = lastRequest.eventDate;
+      _guestCountController.text = lastRequest.guestCount?.toString() ?? '50';
+      _budgetController.text = lastRequest.budget.toStringAsFixed(0);
+      
+      // Try to parse the time if it exists
+      if (lastRequest.eventTime != null) {
+        try {
+          final df = DateFormat.jm();
+          final dt = df.parse(lastRequest.eventTime!);
+          _selectedTime = TimeOfDay.fromDateTime(dt);
+        } catch (_) {}
+      }
+
+      // Sync venue need (default to true if venue is in services list)
+      _needsVenue = lastRequest.services.any((s) => s.toLowerCase().contains('venue'));
+
+      // Pre-select services: Prefer those from the request that match the vendor
+      final requestServicesLower = lastRequest.services.map((s) => s.toLowerCase()).toSet();
+      final commonServices = widget.vendor.services.where((vendorService) {
+        final vsLower = vendorService.toLowerCase();
+        return requestServicesLower.any((rs) => vsLower.contains(rs) || rs.contains(vsLower));
+      }).toList();
+
+      if (commonServices.isNotEmpty) {
+        _selectedServices = commonServices;
+      }
+    }
+
     if (widget.package != null) {
       _budgetController.text = widget.package!.price.toStringAsFixed(0);
       _messageController.text = "I'm interested in the ${widget.package!.title} package.";
-    } else {
+    } else if (lastRequest == null) {
       _budgetController.text = widget.vendor.minPackagePrice.toStringAsFixed(0);
     }
   }
@@ -57,7 +91,6 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
     _guestCountController.dispose();
     _budgetController.dispose();
     _messageController.dispose();
-    _serviceController.dispose();
     super.dispose();
   }
 
@@ -110,18 +143,27 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
   Future<void> _handleSubmit() async {
     setState(() => _isSubmitting = true);
 
-    final service = _serviceController.text;
     final guests = int.tryParse(_guestCountController.text) ?? 50;
+    
+    String finalMessage = _messageController.text;
+    if (_needsVenue) {
+      finalMessage += finalMessage.isEmpty 
+          ? "Note: I don't have a venue yet."
+          : "\n\nNote: I don't have a venue yet.";
+    }
+
+    final matchingState = ref.read(matchingControllerProvider);
+    final lastRequest = matchingState.request;
 
     final request = EventRequest(
-      eventType: service,
-      services: [service],
+      eventType: lastRequest?.eventType ?? (_selectedServices.isNotEmpty ? _selectedServices.first : 'General'),
+      services: _selectedServices,
       guestCount: guests,
       eventDate: _selectedDate,
       eventTime: _selectedTime.format(context),
-      location: widget.vendor.location, // Fallback to vendor location
+      location: lastRequest?.location ?? widget.vendor.location,
       budget: double.tryParse(_budgetController.text) ?? widget.vendor.minPackagePrice,
-      prompt: _messageController.text,
+      prompt: finalMessage,
     );
 
     try {
@@ -198,7 +240,7 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Make Inquiry',
+                              'Match with Business',
                               style: GoogleFonts.outfit(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -271,13 +313,89 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
                   ),
                   
                   const SizedBox(height: 24),
-                  _buildSectionTitle('Service Required', isDark),
+                  _buildSectionTitle('Services Required', isDark),
                   const SizedBox(height: 12),
-                  _buildTextField(
-                    controller: _serviceController,
-                    hint: 'What service do you need?',
-                    icon: Icons.category_rounded,
-                    isDark: isDark,
+                  if (widget.vendor.services.isEmpty)
+                    Text(
+                      'No specific services listed by vendor.',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF64748B),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.vendor.services.map((service) {
+                        final isSelected = _selectedServices.contains(service);
+                        return FilterChip(
+                          selected: isSelected,
+                          label: Text(service),
+                          labelStyle: GoogleFonts.outfit(
+                            color: isSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                          backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+                          selectedColor: AppColors.primary01,
+                          side: BorderSide(
+                            color: isSelected ? AppColors.primary01 : (isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedServices.add(service);
+                              } else {
+                                if (_selectedServices.length > 1) {
+                                  _selectedServices.remove(service);
+                                }
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  
+                  const SizedBox(height: 24),
+                  _buildSectionTitle('Venue', isDark),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                    ),
+                    child: CheckboxListTile(
+                      value: _needsVenue,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _needsVenue = val);
+                        }
+                      },
+                      title: Text(
+                        "I don't have a venue yet",
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF1E293B),
+                        ),
+                      ),
+                      subtitle: Text(
+                        "Vendor may suggest venue options",
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                      activeColor: AppColors.primary01,
+                      checkColor: Colors.white,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    ),
                   ),
                   
                   const SizedBox(height: 24),
@@ -308,7 +426,7 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
                       child: _isSubmitting 
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(
-                            'Send Inquiry',
+                            'Confirm Match',
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,

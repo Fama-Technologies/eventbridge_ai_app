@@ -6,12 +6,12 @@ class HelpCenterScreen extends StatelessWidget {
   const HelpCenterScreen({super.key});
 
   static const _faqs = [
-    _FaqItem('How do I find a vendor?', 'Navigate to the Explore tab and use the intelligent search. You can search by category (e.g., "Catering") to get AI-matched results, or search by a specific vendor name to find them directly.'),
-    _FaqItem('How does the AI matching work?', 'Our AI analyzes your event requirements—type, budget, guest count, and location—then scores vendors based on relevance, ratings, package density, and subscription tier to surface the best matches.'),
-    _FaqItem('Can I message a vendor before booking?', 'Yes! Once you send an inquiry and the vendor accepts your lead, a real-time chat channel opens between you and the vendor for direct communication.'),
-    _FaqItem('How do I edit my profile?', 'Go to Profile → Profile Information → tap the Edit button in the top-right corner. You can update your name and phone number from there.'),
-    _FaqItem('What happens after I send an inquiry?', 'The vendor receives your inquiry as a new lead. They can accept or decline it. If accepted, you will be notified and a chat session will open automatically.'),
-    _FaqItem('How do I cancel or delete my account?', 'Go to Profile → Security & Preferences → scroll to the bottom and tap "Delete Account". Please note this action is permanent.'),
+    _FaqItem('How do I find a vendor?', 'Open Explore and describe what you need. EventBridge AI uses your event details to surface relevant vendors you can review and contact.'),
+    _FaqItem('How does EventBridge AI work?', 'EventBridge AI looks at your event type, budget, location, guest count, and preferences to help you discover vendors that fit your request.'),
+    _FaqItem('Can I message a vendor before booking?', 'Yes. Send an inquiry first. When a vendor accepts it, EventBridge AI opens a chat so you can continue the conversation directly.'),
+    _FaqItem('How do I edit my profile?', 'Go to Profile, open your personal information, and update your saved details there.'),
+    _FaqItem('What happens after I send an inquiry?', 'The vendor receives your request as a lead. If they accept, you are notified and a chat is created automatically.'),
+    _FaqItem('How do I delete my account?', 'Go to Profile, open Security & Preferences, and choose Delete Account. This action is permanent.'),
   ];
 
   @override
@@ -47,7 +47,6 @@ class HelpCenterScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                           colors: [AppColors.primary01.withValues(alpha: 0.08), AppColors.softPeach]),
-                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       children: [
@@ -64,12 +63,12 @@ class HelpCenterScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Need more help?',
+                              Text('About EventBridge AI',
                                   style: GoogleFonts.outfit(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
                                       color: const Color(0xFF1A1A24))),
-                              Text('support@eventbridge.app',
+                              Text('Learn how matching, inquiries, and chat work inside the platform.',
                                   style: GoogleFonts.outfit(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
@@ -93,7 +92,6 @@ class HelpCenterScreen extends StatelessWidget {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: isDark ? AppColors.darkNeutral02 : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
@@ -102,9 +100,7 @@ class HelpCenterScreen extends StatelessWidget {
                           )
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: ExpansionPanelList.radio(
+                      child: ExpansionPanelList.radio(
                           elevation: 0,
                           expandedHeaderPadding: EdgeInsets.zero,
                           children: _faqs.asMap().entries.map((entry) {
@@ -136,7 +132,6 @@ class HelpCenterScreen extends StatelessWidget {
                               ),
                             );
                           }).toList(),
-                        ),
                       ),
                     ),
                   ),

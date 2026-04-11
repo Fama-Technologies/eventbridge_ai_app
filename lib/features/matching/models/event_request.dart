@@ -5,6 +5,7 @@ class EventRequest {
     this.guestCount,
     required this.eventDate,
     required this.location,
+    this.targetRadius = 50.0,
     this.eventTime,
     required this.budget,
     required this.prompt,
@@ -15,6 +16,7 @@ class EventRequest {
   final int? guestCount;
   final DateTime eventDate;
   final String location;
+  final double targetRadius;
   final String? eventTime;
   final double budget;
   final String prompt;

@@ -693,7 +693,7 @@ class _VendorPortfolioImprovedState extends State<VendorPortfolioImproved> {
                 child: Icon(
                   Icons.photo_library_outlined,
                   size: 48,
-                  color: isDark ? Colors.white24 : Colors.black24,
+                  color: isDark ? Colors.white.withOpacity(0.24) : Colors.black.withOpacity(0.24),
                 ),
               ),
               Gaps.xxl,

@@ -87,6 +87,9 @@ class AuthRepository implements IAuthRepository {
   Future<void> restoreFirebaseMessagingAuthIfNeeded() async {
     final token = await _storage.getToken();
     final userId = _storage.getString('user_id');
+
+    debugPrint('[Auth] Checking restoration: userId=$userId, firebaseUid=${_firebaseAuth.currentUser?.uid}');
+
     if (token == null ||
         token.isEmpty ||
         userId == null ||
@@ -95,10 +98,21 @@ class AuthRepository implements IAuthRepository {
       return;
     }
 
+    await forceRestoreFirebaseSession();
+  }
+
+  /// Forcefully restores the Firebase session by requesting a new custom token.
+  /// Useful for manual "Fix" triggers or when the app detects a mismatch.
+  Future<void> forceRestoreFirebaseSession() async {
+    final userId = _storage.getString('user_id');
+    if (userId == null || userId.isEmpty) return;
+
     final email =
         _storage.getString('user_email') ?? '$userId@eventbridge.local';
     final name = _storage.getString('user_name') ?? '';
     final role = _storage.getString('user_role') ?? 'CUSTOMER';
+
+    debugPrint('[Auth] FORCING restoration for backend user $userId...');
 
     try {
       await _signInToFirebaseMessagingUser(
@@ -112,8 +126,9 @@ class AuthRepository implements IAuthRepository {
         fallbackRole: role,
       );
       await NotificationService().updateToken();
+      debugPrint('[Auth] Force restore SUCCESSFUL for $userId');
     } catch (e) {
-      debugPrint('[Auth] CRITICAL: restoreFirebaseMessagingAuthIfNeeded failed: $e');
+      debugPrint('[Auth] CRITICAL: forceRestoreFirebaseSession failed: $e');
       rethrow;
     }
   }

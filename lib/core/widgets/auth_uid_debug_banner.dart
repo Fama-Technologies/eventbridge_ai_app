@@ -4,6 +4,7 @@ import 'package:eventbridge/core/storage/storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:eventbridge/features/auth/data/auth_repository.dart';
 
 /// Debug-only overlay that exposes the Firebase Auth uid / backend user_id
 /// invariant. If they diverge, messaging (Firestore rule
@@ -93,9 +94,23 @@ class _AuthUidDebugBannerState extends State<AuthUidDebugBanner> {
     if (!kDebugMode) return child;
     if (_dismissed) return child;
 
-    final banner = _status.banner(onDismiss: () {
-      setState(() => _dismissed = true);
-    });
+    final banner = _status.banner(
+      onDismiss: () {
+        setState(() => _dismissed = true);
+      },
+      onFix: () async {
+        try {
+          // Import is not needed as it's likely in the same project, but we'll use a direct call
+          await AuthRepository().forceRestoreFirebaseSession();
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Fix failed: $e')),
+            );
+          }
+        }
+      },
+    );
     if (banner == null) return child;
 
     return Directionality(
@@ -147,7 +162,10 @@ class _UidStatus {
   @override
   int get hashCode => Object.hash(kind, firebaseUid, backendId);
 
-  Widget? banner({required VoidCallback onDismiss}) {
+  Widget? banner({
+    required VoidCallback onDismiss,
+    required VoidCallback onFix,
+  }) {
     switch (kind) {
       case _StatusKind.loading:
       case _StatusKind.idle:
@@ -161,6 +179,7 @@ class _UidStatus {
               'Backend user_id=$backendId but FirebaseAuth.currentUser is null. '
               'Messages and push will fail until custom-token restore succeeds.',
           onDismiss: onDismiss,
+          onFix: onFix,
         );
       case _StatusKind.mismatch:
         return _BannerBar(
@@ -170,6 +189,7 @@ class _UidStatus {
               'firebase=$firebaseUid backend=$backendId — Firestore sendMessage '
               'will be rejected by rules; push notifications disabled.',
           onDismiss: onDismiss,
+          onFix: onFix,
         );
     }
   }
@@ -182,12 +202,14 @@ class _BannerBar extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onDismiss;
+  final VoidCallback onFix;
 
   const _BannerBar({
     required this.color,
     required this.title,
     required this.subtitle,
     required this.onDismiss,
+    required this.onFix,
   });
 
   @override
@@ -234,7 +256,32 @@ class _BannerBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.close, color: Colors.white, size: 18),
+              Column(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                    onPressed: onDismiss,
+                  ),
+                  TextButton(
+                    onPressed: onFix,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(40, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    child: const Text(
+                      'TRY FIX',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

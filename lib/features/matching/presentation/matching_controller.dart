@@ -52,6 +52,7 @@ class MatchingController extends Notifier<MatchingState> {
   late final FindMatchesUseCase _findMatches;
   late final SendInquiryUseCase _sendInquiry;
   late final GetVendorByIdUseCase _getVendorById;
+  late final SubmitReviewUseCase _submitReview;
 
   bool _initialized = false;
 
@@ -60,6 +61,7 @@ class MatchingController extends Notifier<MatchingState> {
     _findMatches = ref.watch(findMatchesUseCaseProvider);
     _sendInquiry = ref.watch(sendInquiryUseCaseProvider);
     _getVendorById = ref.watch(getVendorByIdUseCaseProvider);
+    _submitReview = ref.watch(submitReviewUseCaseProvider);
     
     if (!_initialized) {
       _initialized = true;
@@ -68,6 +70,37 @@ class MatchingController extends Notifier<MatchingState> {
     }
     
     return const MatchingState();
+  }
+
+  Future<void> submitReview({
+    required String vendorId,
+    required double rating,
+    required String comment,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _submitReview(
+        vendorId: vendorId,
+        rating: rating,
+        comment: comment,
+      );
+      
+      // Refresh the vendor in the matches list to show updated reviews/rating
+      final updatedVendor = await _getVendorById(vendorId);
+      if (updatedVendor != null) {
+        final newMatches = state.matches.map((v) {
+          return v.id == vendorId ? updatedVendor : v;
+        }).toList();
+        state = state.copyWith(matches: newMatches);
+      }
+      
+      state = state.copyWith(isLoading: false, error: null);
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to submit review. Please try again.',
+      );
+    }
   }
 
   Future<void> _loadFavorites() async {
@@ -100,15 +133,37 @@ class MatchingController extends Notifier<MatchingState> {
     state = state.copyWith(isLoading: true, request: request, error: null);
     try {
       final rawMatches = await _findMatches(request);
-      
-      // Enhance matches with local scoring
-      final enhancedMatches = rawMatches.map((vendor) {
+
+      // ── STEP 1: STRICT PRE-FILTERING ──────────────────────────────────────
+      // Only keep vendors that match at least one requested service AND
+      // whose location overlaps with the user's location string.
+      final requestedServices = request.services.map((s) => s.toLowerCase()).toSet();
+      final userLocation = request.location.toLowerCase().trim();
+
+      final filtered = rawMatches.where((vendor) {
+        final vendorServices = vendor.services.map((s) => s.toLowerCase()).toSet();
+
+        // Service gate: vendor must offer at least one of the requested services.
+        final serviceMatch = requestedServices.isEmpty ||
+            vendorServices.intersection(requestedServices).isNotEmpty;
+
+        // Location gate: vendor location must share keywords with user location.
+        final vendorLocation = vendor.location.toLowerCase().trim();
+        final locationMatch = userLocation.isEmpty ||
+            vendorLocation.contains(userLocation) ||
+            userLocation.contains(vendorLocation) ||
+            _shareLocationKeyword(userLocation, vendorLocation);
+
+        return serviceMatch && locationMatch;
+      }).toList();
+
+      // ── STEP 2: SCORE & SORT ───────────────────────────────────────────────
+      final enhancedMatches = filtered.map((vendor) {
         final score = _calculateMatchScore(vendor, request);
         final reasons = _getMatchReasons(vendor, request);
         return vendor.copyWith(matchScore: score, matchReasons: reasons);
       }).toList();
 
-      // Sort by score (descending)
       enhancedMatches.sort((a, b) => b.matchScore.compareTo(a.matchScore));
 
       state = state.copyWith(isLoading: false, matches: enhancedMatches, error: null);
@@ -118,6 +173,20 @@ class MatchingController extends Notifier<MatchingState> {
         error: 'Failed to find matches. Please try again.',
       );
     }
+  }
+
+  /// Returns true if the two location strings share at least one meaningful keyword.
+  bool _shareLocationKeyword(String a, String b) {
+    final stopWords = {'the', 'of', 'in', 'at', 'and', 'or', 'to', 'a', 'an'};
+    final aWords = a.split(RegExp(r'[\s,]+'))
+        .map((w) => w.trim())
+        .where((w) => w.length > 2 && !stopWords.contains(w))
+        .toSet();
+    final bWords = b.split(RegExp(r'[\s,]+'))
+        .map((w) => w.trim())
+        .where((w) => w.length > 2 && !stopWords.contains(w))
+        .toSet();
+    return aWords.intersection(bWords).isNotEmpty;
   }
 
   /// Plan tier ranking: higher plan = higher priority
@@ -240,7 +309,11 @@ class MatchingController extends Notifier<MatchingState> {
     for (final vendor in state.matches) {
       if (vendor.id == id) return vendor;
     }
-    return await _getVendorById(id);
+    final fetched = await _getVendorById(id);
+    if (fetched != null && !state.matches.any((v) => v.id == fetched.id)) {
+      state = state.copyWith(matches: [...state.matches, fetched]);
+    }
+    return fetched;
   }
 
   Future<void> sendInquiry({required MatchVendor vendor, EventRequest? request}) async {

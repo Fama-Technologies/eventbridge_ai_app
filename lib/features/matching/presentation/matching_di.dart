@@ -19,3 +19,7 @@ final sendInquiryUseCaseProvider = Provider<SendInquiryUseCase>((ref) {
 final getVendorByIdUseCaseProvider = Provider<GetVendorByIdUseCase>((ref) {
   return GetVendorByIdUseCase(ref.watch(matchingRepositoryContractProvider));
 });
+
+final submitReviewUseCaseProvider = Provider<SubmitReviewUseCase>((ref) {
+  return SubmitReviewUseCase(ref.watch(matchingRepositoryContractProvider));
+});

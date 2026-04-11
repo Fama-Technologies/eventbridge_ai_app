@@ -6,7 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eventbridge/features/matching/presentation/matching_controller.dart';
 import 'package:eventbridge/features/matching/models/match_vendor.dart';
-import 'package:eventbridge/features/shared/widgets/customer_bottom_navbar.dart';
+import 'package:eventbridge/shared/widgets/app_bottom_nav_bar.dart';
 
 /// A premium results screen shown after AI analysis.
 class AiResultsScreen extends ConsumerWidget {
@@ -19,75 +19,67 @@ class AiResultsScreen extends ConsumerWidget {
     final hasResults = matches.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB),
+      backgroundColor: const Color(0xFFF8F9FC),
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
           _buildHeader(context, matches.length, matchingState.request?.eventType, hasResults),
 
-          // Top picks horizontal scroll
+          // Top AI Picks (featured cards)
           if (hasResults) ...[
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  'TOP AI PICKS',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.neutrals07,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 14),
+                child: _SectionLabel(label: 'TOP AI PICKS'),
               ),
             ),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 200,
+                height: 230,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                  separatorBuilder: (_, __) => const SizedBox(width: 16),
                   itemCount: matches.take(3).length,
-                  itemBuilder: (context, i) => _TopPickCard(pick: matches[i]),
+                  itemBuilder: (context, i) =>
+                      _TopPickCard(pick: matches[i]).animate().fadeIn(delay: (80 * i).ms).slideX(begin: 0.08),
                 ),
-              ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.1),
+              ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
 
-          // Section header
+          // All Matches header
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'ALL MATCHES',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.neutrals07,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
+                  _SectionLabel(label: 'ALL MATCHES (${matches.length})'),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.neutrals03),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 8,
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.tune_rounded, size: 14, color: AppColors.neutrals08),
+                        const Icon(Icons.tune_rounded, size: 15, color: AppColors.primary01),
                         const SizedBox(width: 6),
                         Text(
                           'Filter',
                           style: GoogleFonts.outfit(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.neutrals08,
+                            color: const Color(0xFF1A1A24),
                           ),
                         ),
                       ],
@@ -104,11 +96,11 @@ class AiResultsScreen extends ConsumerWidget {
               (context, i) {
                 final v = matches[i];
                 return Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
-                  child: _VendorTile(vendor: v)
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                  child: _VendorTile(vendor: v, rank: i + 1)
                       .animate()
-                      .fadeIn(delay: (200 + (i * 80)).ms)
-                      .slideY(begin: 0.08),
+                      .fadeIn(delay: (100 + (i * 60)).ms)
+                      .slideY(begin: 0.06),
                 );
               },
               childCount: matches.length,
@@ -119,14 +111,50 @@ class AiResultsScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(40),
+                  padding: const EdgeInsets.all(60),
                   child: Column(
                     children: [
-                      Icon(Icons.search_off_rounded, size: 64, color: AppColors.neutrals04),
-                      const SizedBox(height: 16),
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.search_off_rounded, size: 36, color: Color(0xFFCBD5E1)),
+                      ),
+                      const SizedBox(height: 20),
                       Text(
-                        'No matches found for your criteria.',
-                        style: GoogleFonts.outfit(color: AppColors.neutrals07, fontSize: 16),
+                        'No matches found',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1A1A24),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Try adjusting your services, location,\nor increasing the search radius.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          color: const Color(0xFF64748B),
+                          height: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: () => context.pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary01,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: Text(
+                          'Edit Search',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 15),
+                        ),
                       ),
                     ],
                   ),
@@ -137,13 +165,29 @@ class AiResultsScreen extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
-      bottomNavigationBar: const CustomerBottomNavbar(currentRoute: '/ai-results'),
+      bottomNavigationBar: AppBottomNavBar(
+        currentIndex: 2, // Matches/AI Results tab
+        onTap: (index) {
+          final routes = [
+            '/customer-home?tab=0',
+            '/customer-home?tab=1', 
+            '/ai-results',
+            '/customer-chats',
+            '/customer-profile',
+          ];
+          if (index == 2 && context.canPop()) {
+             // Already here/results
+          } else {
+            context.go(routes[index]);
+          }
+        },
+      ),
     );
   }
 
   Widget _buildHeader(BuildContext context, int count, String? eventType, bool hasResults) {
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(24, 56, 24, 20),
+      padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
       sliver: SliverToBoxAdapter(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,71 +203,69 @@ class AiResultsScreen extends ConsumerWidget {
                     }
                   },
                   child: Container(
-                    width: 38,
-                    height: 38,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 12,
+                        )
                       ],
                     ),
-                    child: const Icon(Icons.close_rounded, size: 18, color: AppColors.neutrals08),
+                    child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF1A1A24)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.primary01.withOpacity(0.1),
+                    color: AppColors.primary01.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.auto_awesome, color: AppColors.primary01, size: 12),
+                      const Icon(Icons.auto_awesome, color: AppColors.primary01, size: 13),
                       const SizedBox(width: 5),
                       Text(
                         'AI COMPLETE',
                         style: GoogleFonts.outfit(
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
                           color: AppColors.primary01,
                           letterSpacing: 1,
                         ),
-                      ).animate(onPlay: (controller) => controller.repeat())
-                       .shimmer(duration: 2.seconds, color: Colors.white),
+                      ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 2.seconds, color: Colors.white),
                     ],
                   ),
                 ),
-                const Spacer(),
-                if (hasResults)
-                  GestureDetector(
-                    onTap: () => context.push('/ai-results-map'),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
-                        ],
-                      ),
-                      child: const Icon(Icons.map_outlined, size: 18, color: AppColors.primary01),
-                    ),
-                  ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
-              count > 0 ? 'We found $count matches for your ${eventType ?? 'Event'}' : 'No matches found',
+              count > 0
+                  ? 'Found $count vendor${count == 1 ? '' : 's'}\nfor your ${eventType ?? 'Event'}'
+                  : 'No matches found',
               style: GoogleFonts.outfit(
-                fontSize: 20,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
-                color: AppColors.neutrals08,
+                color: const Color(0xFF1A1A24),
                 height: 1.2,
               ),
             ).animate().fadeIn().slideX(begin: -0.05),
+            if (count > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Sorted by AI match score · Tap a vendor to explore',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: const Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ).animate().fadeIn(delay: 200.ms),
+            ],
           ],
         ),
       ),
@@ -231,10 +273,29 @@ class AiResultsScreen extends ConsumerWidget {
   }
 }
 
-/// Clean vendor list tile
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: GoogleFonts.outfit(
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        color: const Color(0xFF94A3B8),
+        letterSpacing: 1.8,
+      ),
+    );
+  }
+}
+
+/// Full-width vendor list tile with rank badge
 class _VendorTile extends StatelessWidget {
   final MatchVendor vendor;
-  const _VendorTile({required this.vendor});
+  final int rank;
+  const _VendorTile({required this.vendor, required this.rank});
 
   @override
   Widget build(BuildContext context) {
@@ -243,37 +304,76 @@ class _VendorTile extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/vendor-public/${vendor.id}'),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 12,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 16,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
-            // Vendor image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Image.network(
-                vendor.portfolio.isNotEmpty ? vendor.portfolio.first : 'https://via.placeholder.com/150',
-                width: 72,
-                height: 72,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: 72,
-                  height: 72,
-                  color: AppColors.neutrals02,
-                  child: const Icon(Icons.broken_image_rounded, color: AppColors.neutrals06, size: 20),
+            // Image with rank badge
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    vendor.portfolio.isNotEmpty
+                        ? vendor.portfolio.first
+                        : (vendor.avatarUrl ?? 'https://via.placeholder.com/150'),
+                    width: 82,
+                    height: 82,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 82,
+                      height: 82,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.store_rounded,
+                          color: Color(0xFFCBD5E1), size: 28),
+                    ),
+                  ),
                 ),
-              ),
+                if (rank <= 3)
+                  Positioned(
+                    top: -6,
+                    left: -6,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: rank == 1
+                            ? const Color(0xFFFFA500)
+                            : rank == 2
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFFCD7F32),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '#$rank',
+                          style: GoogleFonts.outfit(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
 
             // Details
             Expanded(
@@ -281,6 +381,7 @@ class _VendorTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: Text(
@@ -288,22 +389,23 @@ class _VendorTile extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.outfit(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.neutrals08,
+                            color: const Color(0xFF1A1A24),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppColors.primary01.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.primary01.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           '$matchPercent%',
                           style: GoogleFonts.outfit(
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.w900,
                             color: AppColors.primary01,
                           ),
@@ -311,33 +413,34 @@ class _VendorTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 5),
                   Text(
-                    vendor.services.take(3).join(' • '),
+                    vendor.services.take(3).join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.neutrals07,
+                      color: const Color(0xFF64748B),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, color: AppColors.warningAmber, size: 14),
+                      const Icon(Icons.star_rounded, color: Color(0xFFFAAD14), size: 15),
                       const SizedBox(width: 3),
                       Text(
                         vendor.rating.toStringAsFixed(1),
                         style: GoogleFonts.outfit(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.neutrals08,
+                          color: const Color(0xFF1A1A24),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      const Icon(Icons.location_on_outlined, size: 13, color: AppColors.neutrals06),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 12),
+                      const Icon(Icons.location_on_outlined,
+                          size: 14, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 3),
                       Expanded(
                         child: Text(
                           vendor.location,
@@ -345,34 +448,45 @@ class _VendorTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.outfit(
                             fontSize: 12,
-                            color: AppColors.neutrals07,
+                            color: const Color(0xFF64748B),
                           ),
                         ),
                       ),
-                      if (vendor.minPackagePrice > 0)
-                        Text(
-                          'UGX ${vendor.minPackagePrice.toStringAsFixed(0)}',
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary01,
-                          ),
-                        ),
                     ],
                   ),
+                  if (vendor.minPackagePrice > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'From UGX ${_formatPrice(vendor.minPackagePrice)}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary01,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(width: 6),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.neutrals06, size: 22),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 22),
           ],
         ),
       ),
     );
   }
+
+  String _formatPrice(double price) {
+    if (price >= 1000000) {
+      return '${(price / 1000000).toStringAsFixed(1)}M';
+    } else if (price >= 1000) {
+      return '${(price / 1000).toStringAsFixed(0)}K';
+    }
+    return price.toStringAsFixed(0);
+  }
 }
 
-/// Compact horizontal top pick card
+/// Horizontal top pick featured card
 class _TopPickCard extends StatelessWidget {
   final MatchVendor pick;
   const _TopPickCard({required this.pick});
@@ -384,14 +498,14 @@ class _TopPickCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/vendor-public/${pick.id}'),
       child: Container(
-        width: 160,
+        width: 175,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 14,
               offset: const Offset(0, 4),
             ),
           ],
@@ -402,39 +516,45 @@ class _TopPickCard extends StatelessWidget {
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                   child: Image.network(
-                    pick.portfolio.isNotEmpty ? pick.portfolio.first : 'https://via.placeholder.com/300',
-                    height: 110,
+                    pick.portfolio.isNotEmpty
+                        ? pick.portfolio.first
+                        : (pick.avatarUrl ?? 'https://via.placeholder.com/300'),
+                    height: 120,
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      height: 110,
-                      color: AppColors.neutrals02,
-                      child: const Center(child: Icon(Icons.image_not_supported_rounded, color: AppColors.neutrals06, size: 24)),
+                      height: 120,
+                      color: const Color(0xFFF1F5F9),
+                      child: const Center(
+                        child: Icon(Icons.store_rounded,
+                            color: Color(0xFFCBD5E1), size: 30),
+                      ),
                     ),
                   ),
                 ),
                 Positioned(
-                  top: 8,
-                  left: 8,
+                  top: 10,
+                  left: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.auto_awesome, color: AppColors.primary01, size: 10),
+                        const Icon(Icons.auto_awesome,
+                            color: AppColors.primary01, size: 11),
                         const SizedBox(width: 3),
                         Text(
-                          '$matchPercent%',
+                          '$matchPercent% match',
                           style: GoogleFonts.outfit(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
-                            color: AppColors.neutrals08,
+                            color: const Color(0xFF1A1A24),
                           ),
                         ),
                       ],
@@ -444,7 +564,7 @@ class _TopPickCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -453,29 +573,34 @@ class _TopPickCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.neutrals08,
+                      color: const Color(0xFF1A1A24),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     pick.services.take(2).join(', '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      color: AppColors.neutrals07,
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, color: AppColors.warningAmber, size: 12),
-                      const SizedBox(width: 2),
+                      const Icon(Icons.star_rounded,
+                          color: Color(0xFFFAAD14), size: 13),
+                      const SizedBox(width: 3),
                       Text(
                         pick.rating.toStringAsFixed(1),
-                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.neutrals08),
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1A1A24),
+                        ),
                       ),
                     ],
                   ),

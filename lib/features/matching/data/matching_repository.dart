@@ -156,4 +156,23 @@ class MatchingRepository implements IMatchingRepository {
       return null;
     }
   }
+
+  @override
+  Future<void> submitReview({
+    required String vendorId,
+    required double rating,
+    required String comment,
+  }) async {
+    final storage = StorageService();
+    final customerId = storage.getString('user_id') ?? '';
+    
+    if (customerId.isEmpty) return;
+
+    await ApiService.instance.submitReview(
+      vendorId: vendorId,
+      customerId: customerId,
+      rating: rating,
+      comment: comment,
+    );
+  }
 }

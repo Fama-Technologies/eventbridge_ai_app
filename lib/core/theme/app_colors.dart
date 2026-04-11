@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary Colors
-  static const Color primary01 = Color(0xFFFF3C00);
-  static const Color primary02 = Color(0xFFFF451A);
-  static const Color primary012 = Color(0x66FF7043);
+  // Primary Colors (New Brand Color: #E8430A)
+  static const Color primary01 = Color(0xFFE8430A);
+  static const Color primary02 = Color(0xFFB8340A);
+  static const Color primary012 = Color(0x66E8430A);
+
+  // Accent Colors (Orange for High-Impact Highlights)
+  static const Color accentOrange = Color(0xFFE8430A);
+  static const Color accentOrangeLight = Color(0xFFFFF0EB);
 
   // Neutrals (Light Mode)
   static const Color neutrals01 = Color(0xFFF7F7F7);
@@ -59,7 +63,52 @@ class AppColors {
   static const Color warningAmber = Color(0xFFFFC107); // Warning states
 
   // Legacy aliases (if needed)
-  static const Color primary = primary01;
+  static const Color primary = Color(0xFFE8430A);
+  static const Color accent = accentOrange;
+  static const Color greyIcon = Color(0xFFBDBDBD);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // EventBridge design-system tokens (see claude_prompt/eventbridge_flutter_prompt.md)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Brand variants used by AppHeader / EventBannerCard / AiBadge
+  static const Color primaryDark = Color(0xFFB8340A);
+  static const Color primaryLight = Color(0xFFFF6B35);
+  static const Color primaryTint = Color(0xFFFFF0EB);
+
+  // Floating pill nav background
+  static const Color navBackground = Color(0xFF1A1A1A);
+
+  // Neutral surfaces & text used by the new screens
+  static const Color background = Color(0xFFF5F5F5);
+  static const Color cardBg = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF757575);
+  static const Color textHint = Color(0xFFBDBDBD);
+  static const Color border = Color(0xFFE0E0E0);
+  static const Color white = Color(0xFFFFFFFF);
+
+  // Event category gradients (mapped from EventModel.category)
+  static const List<Color> partyGradient = [
+    Color(0xFFB8340A),
+    Color(0xFFE8430A),
+  ];
+  static const List<Color> corporateGradient = [
+    Color(0xFF1A237E),
+    Color(0xFF3949AB),
+  ];
+  static const List<Color> travelGradient = [
+    Color(0xFF004D40),
+    Color(0xFF00897B),
+  ];
+  static const List<Color> weddingGradient = [
+    Color(0xFF4A148C),
+    Color(0xFF7B1FA2),
+  ];
+  static const List<Color> musicGradient = [
+    Color(0xFF1A237E),
+    Color(0xFF283593),
+  ];
 
   // WhatsApp Theme Colors
   static const waChatBg = Color(0xFFEFEAE2);

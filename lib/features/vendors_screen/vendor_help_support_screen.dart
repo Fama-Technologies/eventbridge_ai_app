@@ -13,24 +13,24 @@ class VendorHelpSupportScreen extends StatefulWidget {
 class _VendorHelpSupportScreenState extends State<VendorHelpSupportScreen> {
   final List<Map<String, String>> _faqs = [
     {
-      'question': 'What is EventBridge?',
-      'answer': 'Event Bridge is an E-services connection platform connecting event service providers to event organizers and planners providing them with tools to connect and manage their events.'
+      'question': 'What is EventBridge AI?',
+      'answer': 'EventBridge AI helps event planners discover vendors, compare options, send inquiries, and manage conversations in one place.'
     },
     {
-      'question': 'Does EventBridge manage payments to the vendors?',
-      'answer': 'No, Event Bridge does not currently process payment to the vendors. Payments are negotiable between the provider and customer but we provide digital invoicing and Receipt generation tools.'
+      'question': 'Does EventBridge AI handle vendor payments?',
+      'answer': 'No. Payments are still agreed on directly between the vendor and the customer. EventBridge AI currently focuses on matching, inquiries, chat, and business management tools.'
     },
     {
-      'question': 'What features does EventBridge currently offer?',
-      'answer': 'We offer Digital invoicing and Receipting generation. Manage Bookings and Calendar management. Event Budget management and checklists, Leads and inquires and direct customer chats.'
+      'question': 'What can vendors do on EventBridge AI?',
+      'answer': 'Vendors can list services, receive leads, chat with customers, manage bookings, track their calendar, and use tools like invoicing and receipts.'
     },
     {
-      'question': 'Is EventBridge free?',
-      'answer': 'Yes, Event Bridge has a free plan that all customers enjoy but we also provide premium features in our pro and pro max versions.'
+      'question': 'Is EventBridge AI free?',
+      'answer': 'Yes. EventBridge AI includes a free plan, with additional features available on paid plans.'
     },
     {
-      'question': 'What businesses can list on EventBridge?',
-      'answer': 'All service providers can create their business profile on event bridge and list their services and packages.'
+      'question': 'Who can join EventBridge AI?',
+      'answer': 'Event service providers can create a business profile, showcase services and packages, and connect with customers looking for the right fit.'
     },
   ];
 
@@ -75,7 +75,7 @@ class _VendorHelpSupportScreenState extends State<VendorHelpSupportScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Everything you need to know about planning your next event with EventBridge.',
+              'Learn how EventBridge AI helps vendors and event planners discover each other, send inquiries, and manage event work with less friction.',
               style: GoogleFonts.outfit(
                 fontSize: 16,
                 color: isDark ? Colors.white60 : const Color(0xFF64748B),
@@ -94,11 +94,10 @@ class _VendorHelpSupportScreenState extends State<VendorHelpSupportScreen> {
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkNeutral02 : Colors.white,
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -109,7 +108,7 @@ class _VendorHelpSupportScreenState extends State<VendorHelpSupportScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppColors.primary01.withOpacity(0.1),
+                      color: AppColors.primary01.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.support_agent_rounded, size: 40, color: AppColors.primary01),
@@ -125,7 +124,7 @@ class _VendorHelpSupportScreenState extends State<VendorHelpSupportScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "Can't find the answer you're looking for? Please chat to our friendly team.",
+                    'Need more help with EventBridge AI? Contact our team for support with setup, matching, leads, or account questions.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
                       fontSize: 15,
@@ -145,7 +144,7 @@ class _VendorHelpSupportScreenState extends State<VendorHelpSupportScreen> {
                         backgroundColor: AppColors.primary01,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.zero,
                         ),
                         elevation: 0,
                       ),
@@ -188,8 +187,7 @@ class _FAQItemState extends State<_FAQItem> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: widget.isDark ? AppColors.darkNeutral02 : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9)),
+        border: Border.all(color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),

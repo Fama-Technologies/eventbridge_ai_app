@@ -6,6 +6,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/shared/widgets/app_header.dart';
 import 'package:eventbridge/features/matching/models/match_vendor.dart';
 import 'package:eventbridge/features/matching/presentation/matching_controller.dart';
 
@@ -19,81 +20,72 @@ class MatchResultsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F8),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A24)),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/customer-home');
-            }
-          },
-        ),
-        title: Text(
-          'Your AI Matches',
-          style: GoogleFonts.roboto(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF1A1A24),
+      body: Column(
+        children: [
+          AppHeader(
+            title: 'Your AI Matches',
+            showBack: true,
           ),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      body: state.isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary01),
-            )
-          : state.matches.isEmpty
-              ? _buildEmptyState()
-              : AnimationLimiter(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    itemCount: state.matches.length + 2, // Header + Results + Suggestions
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return _buildHeader(state.matches.length);
-                      }
-                      if (index == state.matches.length + 1) {
-                        return _buildSuggestions();
-                      }
-
-                      final vendor = state.matches[index - 1];
-                      return AnimationConfiguration.staggeredList(
-                        position: index,
-                        duration: const Duration(milliseconds: 500),
-                        child: SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(
-                            child: _VendorMatchCard(
-                              vendor: vendor,
-                              isSubmitting: state.isLoading,
-                              onViewProfile: () =>
-                                  context.push('/vendor-public/${vendor.id}'),
-                              onInquiry: () async {
-                                await ctrl.sendInquiry(vendor: vendor);
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Inquiry sent successfully to ${vendor.name}!',
-                                    ),
-                                    backgroundColor: const Color(0xFF22C55E),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              },
-                            ),
+          Expanded(
+            child: state.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary01),
+                  )
+                : state.matches.isEmpty
+                    ? _buildEmptyState()
+                    : AnimationLimiter(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
                           ),
+                          itemCount: state.matches.length + 3, // Header + Results + Suggestions + Padding
+                          itemBuilder: (context, index) {
+                            if (index == 0) {
+                              return _buildHeader(state.matches.length);
+                            }
+                            if (index == state.matches.length + 1) {
+                              return _buildSuggestions();
+                            }
+                            if (index == state.matches.length + 2) {
+                              return const SizedBox(height: 120);
+                            }
+
+                            final vendor = state.matches[index - 1];
+                            return AnimationConfiguration.staggeredList(
+                              position: index,
+                              duration: const Duration(milliseconds: 500),
+                              child: SlideAnimation(
+                                verticalOffset: 50.0,
+                                child: FadeInAnimation(
+                                  child: _VendorMatchCard(
+                                    vendor: vendor,
+                                    isSubmitting: state.isLoading,
+                                    onViewProfile: () =>
+                                        context.push('/vendor-public/${vendor.id}'),
+                                    onInquiry: () async {
+                                      await ctrl.sendInquiry(vendor: vendor);
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Inquiry sent successfully to ${vendor.name}!',
+                                          ),
+                                          backgroundColor: const Color(0xFF22C55E),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
+          ),
+        ],
+      ),
     );
   }
 

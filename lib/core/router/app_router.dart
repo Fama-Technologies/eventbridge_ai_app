@@ -39,6 +39,7 @@ import 'package:eventbridge/features/messaging/presentation/screens/chat_detail_
 import 'package:eventbridge/features/matching/presentation/ai_results_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_search_screen.dart';
 import 'package:eventbridge/features/shared/screens/offline_screen.dart';
+import 'package:eventbridge/features/home/presentation/customer_explore.dart';
 
 // Routes that don't require authentication
 const _publicRoutes = [
@@ -79,6 +80,7 @@ const _vendorOnlyRoutes = [
 // Routes reserved for Customers
 const _customerOnlyRoutes = [
   '/customer-home',
+  '/customer-explore',
   '/customer-settings',
   '/customer-profile',
   '/home',
@@ -224,7 +226,17 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/customer-home',
-      builder: (context, state) => const Bottomnavscreen(),
+      builder: (context, state) {
+        final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
+        return Bottomnavscreen(initialIndex: tab);
+      },
+    ),
+    GoRoute(
+      path: '/customer-explore',
+      builder: (context, state) => CustomerExplore(
+        initialQuery: state.uri.queryParameters['q'],
+        initialCategory: state.uri.queryParameters['cat'],
+      ),
     ),
     GoRoute(
       path: '/customer-home-legacy',

@@ -1,4 +1,5 @@
 import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/shared/widgets/app_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -116,7 +117,7 @@ class _CustomerExploreState extends ConsumerState<CustomerExplore> {
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
           builder: (context) => MatchIntakeBottomSheet(
-            categoryName: e,
+            initialEventType: e,
           ),
         );
         return;
@@ -131,7 +132,7 @@ class _CustomerExploreState extends ConsumerState<CustomerExplore> {
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
           builder: (context) => MatchIntakeBottomSheet(
-            categoryName: s,
+            initialService: s,
           ),
         );
         return;
@@ -146,7 +147,7 @@ class _CustomerExploreState extends ConsumerState<CustomerExplore> {
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
           builder: (context) => MatchIntakeBottomSheet(
-            categoryName: p,
+            initialService: p,
           ),
         );
         return;
@@ -168,14 +169,22 @@ class _CustomerExploreState extends ConsumerState<CustomerExplore> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with Back Button & Search Bar
+            // Search Bar Area
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 16, 8, 16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                    onPressed: () => context.pop(),
+                  GestureDetector(
+                    onTap: () => context.pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 20),
+                    ),
                   ),
                   Expanded(
                     child: Container(
@@ -225,31 +234,38 @@ class _CustomerExploreState extends ConsumerState<CustomerExplore> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.map_outlined, color: AppColors.primary01),
-                    tooltip: 'Map View',
-                    onPressed: () async {
-                      double lat = 0.3476;
-                      double lng = 32.5825;
-                      try {
-                        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-                        if (serviceEnabled) {
-                          LocationPermission perm = await Geolocator.checkPermission();
-                          if (perm == LocationPermission.denied) {
-                            perm = await Geolocator.requestPermission();
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.primary01.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.map_outlined, color: AppColors.primary01),
+                      tooltip: 'Map View',
+                      onPressed: () async {
+                        double lat = 0.3476;
+                        double lng = 32.5825;
+                        try {
+                          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                          if (serviceEnabled) {
+                            LocationPermission perm = await Geolocator.checkPermission();
+                            if (perm == LocationPermission.denied) {
+                              perm = await Geolocator.requestPermission();
+                            }
+                            if (perm != LocationPermission.denied &&
+                                perm != LocationPermission.deniedForever) {
+                              final pos = await Geolocator.getCurrentPosition();
+                              lat = pos.latitude;
+                              lng = pos.longitude;
+                            }
                           }
-                          if (perm != LocationPermission.denied &&
-                              perm != LocationPermission.deniedForever) {
-                            final pos = await Geolocator.getCurrentPosition();
-                            lat = pos.latitude;
-                            lng = pos.longitude;
-                          }
+                        } catch (_) {}
+                        if (context.mounted) {
+                          context.push('/vendor-map?lat=$lat&lng=$lng');
                         }
-                      } catch (_) {}
-                      if (context.mounted) {
-                        context.push('/vendor-map?lat=$lat&lng=$lng');
-                      }
-                    },
+                      },
+                    ),
                   ),
                 ],
               ),

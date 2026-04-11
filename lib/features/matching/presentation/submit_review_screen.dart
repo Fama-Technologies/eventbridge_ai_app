@@ -2,19 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/features/matching/presentation/matching_controller.dart';
+import 'package:eventbridge/features/matching/models/match_vendor.dart';
 
-class SubmitReviewScreen extends StatefulWidget {
+class SubmitReviewScreen extends ConsumerStatefulWidget {
   final String vendorId;
   const SubmitReviewScreen({super.key, required this.vendorId});
 
   @override
-  State<SubmitReviewScreen> createState() => _SubmitReviewScreenState();
+  ConsumerState<SubmitReviewScreen> createState() => _SubmitReviewScreenState();
 }
 
-class _SubmitReviewScreenState extends State<SubmitReviewScreen> {
+class _SubmitReviewScreenState extends ConsumerState<SubmitReviewScreen> {
   double _rating = 0;
   final _commentCtrl = TextEditingController();
+  MatchVendor? _vendor;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVendor();
+  }
+
+  Future<void> _loadVendor() async {
+    final v = await ref.read(matchingControllerProvider.notifier).getVendorById(widget.vendorId);
+    if (mounted) {
+      setState(() {
+        _vendor = v;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,27 +63,30 @@ class _SubmitReviewScreenState extends State<SubmitReviewScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 24),
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                image: const DecorationImage(
-                  image: NetworkImage('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=200&auto=format&fit=crop'),
-                  fit: BoxFit.cover,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+            if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: DecorationImage(
+                    image: NetworkImage(_vendor?.avatarUrl ?? (_vendor?.portfolio.isNotEmpty == true ? _vendor!.portfolio.first : 'https://via.placeholder.com/150')),
+                    fit: BoxFit.cover,
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
               ),
-            ),
             const SizedBox(height: 16),
             Text(
-              'Rate Golden Hour Photography',
+              _loading ? 'Loading...' : 'Rate ${_vendor?.name ?? "Business"}',
               style: GoogleFonts.roboto(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
@@ -133,16 +157,37 @@ class _SubmitReviewScreenState extends State<SubmitReviewScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _rating == 0
+                onPressed: (_rating == 0 || ref.watch(matchingControllerProvider).isLoading)
                     ? null
-                    : () {
-                        context.pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Thank you! Your review has been submitted.'),
-                            backgroundColor: AppColors.primary01,
-                          ),
+                    : () async {
+                        final notifier = ref.read(matchingControllerProvider.notifier);
+                        await notifier.submitReview(
+                          vendorId: widget.vendorId,
+                          rating: _rating,
+                          comment: _commentCtrl.text.trim(),
                         );
+                        
+                        final state = ref.read(matchingControllerProvider);
+                        if (state.error != null) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(state.error!),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Thank you! Your review has been submitted.'),
+                                backgroundColor: AppColors.primary01,
+                              ),
+                            );
+                            context.pop();
+                          }
+                        }
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary01,
@@ -154,13 +199,22 @@ class _SubmitReviewScreenState extends State<SubmitReviewScreen> {
                   ),
                   disabledBackgroundColor: const Color(0xFFE5E7EB),
                 ),
-                child: Text(
-                  'Submit Review',
-                  style: GoogleFonts.roboto(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: ref.watch(matchingControllerProvider).isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Submit Review',
+                        style: GoogleFonts.roboto(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
