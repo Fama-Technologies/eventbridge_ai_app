@@ -8,6 +8,7 @@ import 'package:eventbridge/features/matching/presentation/matching_controller.d
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:eventbridge/features/shared/widgets/top_notification.dart';
+import 'package:go_router/go_router.dart';
 
 class InquiryBottomSheet extends ConsumerStatefulWidget {
   final MatchVendor vendor;
@@ -36,6 +37,12 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
   List<String> _selectedServices = [];
   bool _needsVenue = true;
   bool _isSubmitting = false;
+
+  final List<String> _serviceOptions = [
+    'Venue', 'Photographer', 'Videographer', 'Decorator', 'Caterer', 
+    'Makeup Artist', 'Hair Stylist', 'DJ', 'MC', 'Live Band', 
+    'Fashion / Bridal Wear', 'Cake', 'Transport', 'Ushering', 'Other'
+  ];
 
   @override
   void initState() {
@@ -68,7 +75,8 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
 
       // Pre-select services: Prefer those from the request that match the vendor
       final requestServicesLower = lastRequest.services.map((s) => s.toLowerCase()).toSet();
-      final commonServices = widget.vendor.services.where((vendorService) {
+      final combinedOptions = <String>{..._serviceOptions, ...widget.vendor.services}.toList();
+      final commonServices = combinedOptions.where((vendorService) {
         final vsLower = vendorService.toLowerCase();
         return requestServicesLower.any((rs) => vsLower.contains(rs) || rs.contains(vsLower));
       }).toList();
@@ -167,7 +175,7 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
     );
 
     try {
-      await ref.read(matchingControllerProvider.notifier).sendInquiry(
+      final leadId = await ref.read(matchingControllerProvider.notifier).sendInquiry(
         vendor: widget.vendor,
         request: request,
       );
@@ -175,21 +183,24 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
       
       Navigator.pop(context);
       
-      final currentContext = context;
-      TopNotificationOverlay.show(
-        context: currentContext,
-        title: 'Inquiry Sent!',
-        message: 'Your inquiry has been sent to ${widget.vendor.name}. They will be notified immediately.',
-        onTap: () {
-          // Optional: Navigate to the chat if possible, 
-          // but usually it takes a moment to create the chat
-        },
-      );
+      if (leadId != null) {
+        context.push('/customer-chat/$leadId?otherUserId=${widget.vendor.id}&otherUserName=${Uri.encodeComponent(widget.vendor.name)}');
+      } else {
+        final currentContext = context;
+        TopNotificationOverlay.show(
+          context: currentContext,
+          title: 'Match Connected!',
+          message: 'You have successfully connected with ${widget.vendor.name}. You can now start messaging them.',
+          onTap: () {
+            // Fallback if leadId was null but inquiry succeeded
+          },
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to send inquiry. Please try again.')),
+        const SnackBar(content: Text('Failed to connect match. Please try again.')),
       );
     }
   }
@@ -240,7 +251,7 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Match with Business',
+                              'Message Business',
                               style: GoogleFonts.outfit(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -315,50 +326,41 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
                   const SizedBox(height: 24),
                   _buildSectionTitle('Services Required', isDark),
                   const SizedBox(height: 12),
-                  if (widget.vendor.services.isEmpty)
-                    Text(
-                      'No specific services listed by vendor.',
-                      style: GoogleFonts.outfit(
-                        color: const Color(0xFF64748B),
-                        fontStyle: FontStyle.italic,
-                      ),
-                    )
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: widget.vendor.services.map((service) {
-                        final isSelected = _selectedServices.contains(service);
-                        return FilterChip(
-                          selected: isSelected,
-                          label: Text(service),
-                          labelStyle: GoogleFonts.outfit(
-                            color: isSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                          backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
-                          selectedColor: AppColors.primary01,
-                          side: BorderSide(
-                            color: isSelected ? AppColors.primary01 : (isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedServices.add(service);
-                              } else {
-                                if (_selectedServices.length > 1) {
-                                  _selectedServices.remove(service);
-                                }
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <String>{..._serviceOptions, ...widget.vendor.services}.map((service) {
+                      final isSelected = _selectedServices.contains(service);
+                      return FilterChip(
+                        selected: isSelected,
+                        label: Text(service),
+                        labelStyle: GoogleFonts.outfit(
+                          color: isSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                        backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+                        selectedColor: AppColors.primary01,
+                        side: BorderSide(
+                          color: isSelected ? AppColors.primary01 : (isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedServices.add(service);
+                            } else {
+                              if (_selectedServices.length > 1) {
+                                _selectedServices.remove(service);
                               }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
                   
                   const SizedBox(height: 24),
                   _buildSectionTitle('Venue', isDark),
@@ -426,7 +428,7 @@ class _InquiryBottomSheetState extends ConsumerState<InquiryBottomSheet> {
                       child: _isSubmitting 
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(
-                            'Confirm Match',
+                            'Send Message',
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,

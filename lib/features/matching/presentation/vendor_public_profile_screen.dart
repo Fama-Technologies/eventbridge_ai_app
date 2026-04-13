@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:eventbridge/core/theme/design_tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
@@ -8,6 +10,7 @@ import 'package:eventbridge/features/matching/presentation/matching_controller.d
 import 'package:eventbridge/features/home/presentation/providers/vendor_provider.dart';
 import 'package:eventbridge/features/matching/presentation/widgets/inquiry_bottom_sheet.dart';
 import 'package:eventbridge/features/shared/widgets/top_notification.dart';
+import 'package:intl/intl.dart';
 
 class VendorPublicProfileScreen extends ConsumerStatefulWidget {
   const VendorPublicProfileScreen({super.key, required this.vendorId});
@@ -53,6 +56,11 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
 
   @override
   Widget build(BuildContext context) {
+    final stateVendorList = ref.watch(matchingControllerProvider.select(
+      (s) => s.matches.where((v) => v.id == widget.vendorId).toList(),
+    ));
+    final stateVendor = stateVendorList.isNotEmpty ? stateVendorList.first : null;
+
     return FutureBuilder<MatchVendor?>(
       future: _vendorFuture,
       builder: (context, snapshot) {
@@ -102,7 +110,7 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
           );
         }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && stateVendor == null) {
           return Scaffold(
             backgroundColor: Colors.white,
             body: Center(
@@ -131,7 +139,7 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
           );
         }
 
-        final vendor = snapshot.data;
+        final vendor = stateVendor ?? snapshot.data;
         if (vendor == null) {
           return Scaffold(
             backgroundColor: Colors.white,
@@ -871,44 +879,69 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 20,
                 backgroundColor: const Color(0xFFF1F5F9),
-                child: Text(r.customerName.isNotEmpty ? r.customerName[0] : 'U'),
+                backgroundImage: r.userImageUrl != null && r.userImageUrl!.isNotEmpty
+                    ? NetworkImage(r.userImageUrl!)
+                    : null,
+                child: r.userImageUrl == null || r.userImageUrl!.isEmpty
+                    ? Text(r.customerName.isNotEmpty ? r.customerName[0].toUpperCase() : 'U')
+                    : null,
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    r.customerName,
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.customerName,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    'Wedding • October 2023',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF94A3B8),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        ...List.generate(5, (index) {
+                          if (index < r.rating.floor()) {
+                            return const Icon(Icons.star, color: Color(0xFFFFB800), size: 14);
+                          } else if (index < r.rating) {
+                            return const Icon(Icons.star_half, color: Color(0xFFFFB800), size: 14);
+                          } else {
+                            return const Icon(Icons.star_border, color: Color(0xFFFFB800), size: 14);
+                          }
+                        }),
+                        const SizedBox(width: 8),
+                        Text(
+                          r.date != null ? DateFormat('MMMM yyyy').format(r.date!) : 'Recent Review',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      r.comment,
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        color: const Color(0xFF475569),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            r.comment,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: const Color(0xFF475569),
-              height: 1.5,
-            ),
           ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -1397,6 +1430,43 @@ class _PortfolioTabView extends StatefulWidget {
 class _PortfolioTabViewState extends State<_PortfolioTabView> {
   VendorProject? _selectedProject;
 
+  _CategoryStyle _categoryStyle(String category) {
+    switch (category) {
+      case 'Weddings':
+        return const _CategoryStyle(
+          label: 'Weddings',
+          icon: Icons.favorite_rounded,
+          accent: Color(0xFFFF7A51),
+          surface: Color(0xFFFFF1EB),
+          gradient: [Color(0xFFFF7A51), Color(0xFFFF9E7E)],
+        );
+      case 'Corporate':
+        return const _CategoryStyle(
+          label: 'Corporate',
+          icon: Icons.business_center_rounded,
+          accent: Color(0xFF5194FF),
+          surface: Color(0xFFEBF3FF),
+          gradient: [Color(0xFF5194FF), Color(0xFF7EACFF)],
+        );
+      case 'Parties':
+        return const _CategoryStyle(
+          label: 'Parties',
+          icon: Icons.celebration_rounded,
+          accent: Color(0xFFFFB451),
+          surface: Color(0xFFFFF7EB),
+          gradient: [Color(0xFFFFB451), Color(0xFFFFC87E)],
+        );
+      default:
+        return const _CategoryStyle(
+          label: 'Specialty',
+          icon: Icons.auto_awesome_rounded,
+          accent: Color(0xFFB451FF),
+          surface: Color(0xFFF7EBFF),
+          gradient: [Color(0xFFB451FF), Color(0xFFC87EFF)],
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_selectedProject != null) {
@@ -1417,52 +1487,27 @@ class _PortfolioTabViewState extends State<_PortfolioTabView> {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 16,
           mainAxisSpacing: 20,
-          childAspectRatio: 0.85,
+          childAspectRatio: 0.72,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final project = projects[index];
-            return InkWell(
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final category = project.category;
+            final style = _categoryStyle(category);
+
+            return _CustomerPortfolioFolderCard(
+              project: project,
+              projectIndex: index,
+              categoryStyle: style,
+              isDark: isDark,
               onTap: () => setState(() => _selectedProject = project),
-              borderRadius: BorderRadius.circular(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.network(
-                        project.thumbnail,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    project.title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  Text(
-                    '${project.images.length} photos',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
             );
           },
           childCount: projects.length,
@@ -1472,6 +1517,9 @@ class _PortfolioTabViewState extends State<_PortfolioTabView> {
   }
 
   Widget _buildProjectDetailSliver(VendorProject project) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = _categoryStyle(project.category).accent;
+
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 0),
       sliver: SliverList(
@@ -1480,42 +1528,60 @@ class _PortfolioTabViewState extends State<_PortfolioTabView> {
             padding: const EdgeInsets.fromLTRB(10, 10, 20, 0),
             child: TextButton.icon(
               onPressed: () => setState(() => _selectedProject = null),
-              icon: const Icon(Icons.arrow_back, size: 18, color: AppColors.primary01),
+              icon: Icon(Icons.arrow_back_rounded, size: 18, color: accentColor),
               label: Text(
-                'Back to Projects',
+                'Back to Gallery',
                 style: GoogleFonts.outfit(
-                  color: AppColors.primary01,
+                  color: accentColor,
                   fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Text(
-              project.title,
-              style: GoogleFonts.outfit(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF1E293B),
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  project.title,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+                  ),
+                ),
+                if (project.description.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    project.description,
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: GridView.builder(
+              padding: EdgeInsets.zero,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1,
+                childAspectRatio: 1.0,
               ),
               itemCount: project.images.length,
               itemBuilder: (context, index) {
                 return ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(RadiusTokens.xl),
                   child: Image.network(
                     project.images[index],
                     fit: BoxFit.cover,
@@ -1524,8 +1590,291 @@ class _PortfolioTabViewState extends State<_PortfolioTabView> {
               },
             ),
           ),
+          const SizedBox(height: 48),
         ]),
       ),
     );
   }
+}
+
+class _CustomerPortfolioFolderCard extends StatelessWidget {
+  const _CustomerPortfolioFolderCard({
+    required this.project,
+    required this.projectIndex,
+    required this.categoryStyle,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final VendorProject project;
+  final int projectIndex;
+  final _CategoryStyle categoryStyle;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final folderColor = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final accentColor = categoryStyle.accent;
+    final displayTags = project.tags.take(2).toList();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Folder Tab
+          Container(
+            margin: const EdgeInsets.only(left: 14),
+            width: 70,
+            height: 18,
+            decoration: BoxDecoration(
+              color: folderColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(9),
+                topRight: Radius.circular(9),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                  blurRadius: 3,
+                  offset: const Offset(0, -1),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Container(
+                width: 24,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.38),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+          // Folder Body
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: folderColor,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isDark ? Colors.black : accentColor).withValues(
+                      alpha: isDark ? 0.2 : 0.08,
+                    ),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Thumbnail grid
+                    _FolderThumbnailPreviews(
+                      images: project.images,
+                      accentColor: accentColor,
+                    ),
+                    // Gradient overlay
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.7),
+                          ],
+                          stops: const [0.4, 1.0],
+                        ),
+                      ),
+                    ),
+                    // Bottom info layer
+                    Positioned(
+                      left: 10,
+                      right: 10,
+                      bottom: 10,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Tags
+                          if (displayTags.isNotEmpty)
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 3,
+                              children: displayTags.map((tag) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: accentColor.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: accentColor.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    tag.toUpperCase(),
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 7,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.4,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          const SizedBox(height: 4),
+                          // Title
+                          Text(
+                            project.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          // Count + Arrow
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${project.images.length} item${project.images.length == 1 ? '' : 's'}',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 10,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    )
+    .animate(delay: (projectIndex * 50).ms)
+    .fadeIn(duration: 350.ms)
+    .slideY(begin: 0.05, end: 0, curve: Curves.easeOutQuint);
+  }
+}
+
+class _FolderThumbnailPreviews extends StatelessWidget {
+  const _FolderThumbnailPreviews({
+    required this.images,
+    required this.accentColor,
+  });
+
+  final List<String> images;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (images.isEmpty) {
+      return Container(
+        color: accentColor.withValues(alpha: 0.05),
+        child: Center(
+          child: Icon(
+            Icons.photo_library_outlined,
+            size: 32,
+            color: accentColor.withValues(alpha: 0.2),
+          ),
+        ),
+      );
+    }
+
+    if (images.length == 1) {
+      return Image.network(
+        images.first,
+        fit: BoxFit.cover,
+      );
+    }
+
+    // Grid of up to 4 images
+    final displayImages = images.take(4).toList();
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 2,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: displayImages.length,
+      itemBuilder: (context, index) {
+        return Image.network(
+          displayImages[index],
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: accentColor.withValues(alpha: 0.05),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CategoryStyle {
+  const _CategoryStyle({
+    required this.label,
+    required this.icon,
+    required this.accent,
+    required this.surface,
+    required this.gradient,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final Color surface;
+  final List<Color> gradient;
 }

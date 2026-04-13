@@ -4,6 +4,9 @@ class CustomerProfile {
   final String? imageUrl;
   final String? phone;
   final String? location;
+  final int likesCount;
+  final int reviewsCount;
+  final int packagesCount;
 
   CustomerProfile({
     required this.name,
@@ -11,6 +14,9 @@ class CustomerProfile {
     this.imageUrl,
     this.phone,
     this.location,
+    this.likesCount = 0,
+    this.reviewsCount = 0,
+    this.packagesCount = 0,
   });
 
   factory CustomerProfile.fromJson(Map<String, dynamic> json) {
@@ -20,6 +26,9 @@ class CustomerProfile {
       imageUrl: json['imageUrl'] as String?,
       phone: json['phone'] as String?,
       location: json['location'] as String?,
+      likesCount: json['likesCount'] as int? ?? 0,
+      reviewsCount: json['reviewsCount'] as int? ?? 0,
+      packagesCount: json['packagesCount'] as int? ?? 0,
     );
   }
 
@@ -30,6 +39,9 @@ class CustomerProfile {
       'imageUrl': imageUrl,
       'phone': phone,
       'location': location,
+      'likesCount': likesCount,
+      'reviewsCount': reviewsCount,
+      'packagesCount': packagesCount,
     };
   }
 }

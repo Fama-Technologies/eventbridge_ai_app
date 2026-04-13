@@ -12,7 +12,7 @@ class LeadStatusProgressBar extends StatelessWidget {
   const LeadStatusProgressBar({super.key, required this.status});
 
   static const _steps = [
-    (label: 'Inquiry\nSent', icon: Icons.send_rounded),
+    (label: 'Match\nConnected', icon: Icons.send_rounded),
     (label: 'Accepted', icon: Icons.handshake_rounded),
     (label: 'Booked', icon: Icons.event_available_rounded),
     (label: 'Completed', icon: Icons.star_rounded),
@@ -161,7 +161,7 @@ class LeadStatusProgressBar extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          'Vendor declined this inquiry',
+          'Vendor declined this match',
           style: GoogleFonts.outfit(
             fontSize: 13,
             fontWeight: FontWeight.w600,

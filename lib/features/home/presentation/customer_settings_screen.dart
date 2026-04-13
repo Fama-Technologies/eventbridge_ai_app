@@ -172,7 +172,7 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
                           onTap: () => _handleLogout(context),
                           showArrow: false,
                         ),
-                        _buildDivider(isDark),
+                        _buildDivider(isDark, indent: 0),
                         _buildSettingsItem(
                           icon: Icons.delete_forever_rounded,
                           title: 'Delete Account',
@@ -239,36 +239,36 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
           style: GoogleFonts.outfit(
             fontSize: 24,
             fontWeight: FontWeight.w900,
-            color: isDark ? Colors.white : AppColors.primary01,
+            color: AppColors.primary01,
           ),
         ),
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark 
-                    ? [const Color(0xFF1A1A24), AppColors.backgroundDark]
-                    : [AppColors.softPeach, AppColors.warmCream],
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: isDark 
+                ? [AppColors.primary01.withValues(alpha: 0.05), Colors.transparent]
+                : [AppColors.softPeach, AppColors.warmCream],
+            ),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                right: -40,
+                top: -40,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary01.withValues(alpha: isDark ? 0.05 : 0.03),
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              right: -50,
-              top: -50,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primary01.withValues(alpha: isDark ? 0.05 : 0.03),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -538,10 +538,10 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
     );
   }
 
-  Widget _buildDivider(bool isDark) {
+  Widget _buildDivider(bool isDark, {double indent = 72}) {
     return Divider(
       height: 1,
-      indent: 72,
+      indent: indent,
       endIndent: 16,
       color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
     );
@@ -904,67 +904,145 @@ class _CustomerSettingsScreenState extends ConsumerState<CustomerSettingsScreen>
     );
   }
 
-  void _handleLogout(BuildContext context) async {
-    final confirm = await _showConfirmDialog(
-      context,
-      'Sign Out',
-      'Are you sure you want to sign out of EventBridge?',
-      'Sign Out',
-      Colors.orange,
+  void _handleLogout(BuildContext context) {
+    _showConfirmBottomSheet(
+      context: context,
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out of EventBridge?',
+      confirmLabel: 'Sign Out',
+      confirmColor: Colors.orange,
+      icon: Icons.logout_rounded,
+      isDark: Theme.of(context).brightness == Brightness.dark,
+      onConfirm: () async {
+        await AuthRepository().logout();
+        if (context.mounted) context.go('/login');
+      },
     );
-    if (confirm == true) {
-      await AuthRepository().logout();
-      if (context.mounted) context.go('/login');
-    }
   }
 
   Future<void> _handleDeleteAccount(BuildContext context) async {
-    final confirm = await _showConfirmDialog(
-      context,
-      'Delete Account',
-      'This action is permanent and will erase all your data. Proceed with extreme caution.',
-      'Delete Forever',
-      Colors.redAccent,
-    );
-    
-    if (confirm == true && context.mounted) {
-      final userId = StorageService().getString('user_id');
-      if (userId != null) {
-        try {
-          await ApiService.instance.deleteAccount(userId);
-        } catch (e) {
-          if (context.mounted) {
-            TopNotificationOverlay.show(
-              context: context,
-              title: 'Error',
-              message: 'Failed to delete account. Please contact support.',
-              onTap: () {},
-            );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    _showConfirmBottomSheet(
+      context: context,
+      title: 'Delete Account',
+      message: 'This action is permanent and will erase all your data. Proceed with extreme caution.',
+      confirmLabel: 'Delete Forever',
+      confirmColor: Colors.redAccent,
+      icon: Icons.delete_forever_rounded,
+      isDark: isDark,
+      onConfirm: () async {
+        final userId = StorageService().getString('user_id');
+        if (userId != null) {
+          try {
+            await ApiService.instance.deleteAccount(userId);
+          } catch (e) {
+            if (context.mounted) {
+              TopNotificationOverlay.show(
+                context: context,
+                title: 'Error',
+                message: 'Failed to delete account. Please contact support.',
+                onTap: () {},
+              );
+            }
+            return;
           }
-          return;
         }
-      }
-      await AuthRepository().logout();
-      if (context.mounted) context.go('/login');
-    }
+        await AuthRepository().logout();
+        if (context.mounted) context.go('/login');
+      },
+    );
   }
 
-  Future<bool?> _showConfirmDialog(
-      BuildContext context, String title, String content, String confirmLabel, Color confirmColor) {
-    return showDialog<bool>(
+  void _showConfirmBottomSheet({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required Color confirmColor,
+    required IconData icon,
+    required bool isDark,
+    required VoidCallback onConfirm,
+  }) {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.darkNeutral01 : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
-        content: Text(content, style: GoogleFonts.outfit(fontWeight: FontWeight.w500)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey))),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(confirmLabel, style: GoogleFonts.outfit(color: confirmColor, fontWeight: FontWeight.bold)),
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildModalContainer(
+        isDark: isDark,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildModalDragHandle(isDark),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: GoogleFonts.outfit(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: isDark ? Colors.white : const Color(0xFF1A1A24),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: confirmColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: confirmColor, size: 48),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.outfit(
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      onConfirm();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: confirmColor,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      confirmLabel,
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

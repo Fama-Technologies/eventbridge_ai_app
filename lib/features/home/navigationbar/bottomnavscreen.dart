@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:eventbridge/features/home/presentation/customer_home_screen.dart';
 import 'package:eventbridge/features/home/presentation/saved_vendors_screen.dart';
 import 'package:eventbridge/features/home/presentation/customer_profile_screen.dart';
-import 'package:eventbridge/features/matching/presentation/match_results_screen.dart';
+import 'package:eventbridge/features/matching/presentation/matches_list_screen.dart';
 import 'package:eventbridge/features/messaging/presentation/screens/chats_list_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eventbridge/core/network/websocket_service.dart';
@@ -33,7 +33,7 @@ class _BottomnavscreenState extends State<Bottomnavscreen>
   final List<Widget> _pages = const [
     CustomerHomeScreen(),
     SavedVendorsScreen(),
-    MatchResultsScreen(),
+    MatchesListScreen(),
     ChatsListScreen(),
     CustomerProfileScreen(),
   ];

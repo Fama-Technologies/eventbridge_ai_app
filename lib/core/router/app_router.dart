@@ -162,7 +162,10 @@ final appRouter = GoRouter(
   },
   routes: [
     GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-    GoRoute(path: '/offline', builder: (context, state) => const OfflineScreen()),
+    GoRoute(
+      path: '/offline',
+      builder: (context, state) => const OfflineScreen(),
+    ),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(
       path: '/role-selection',

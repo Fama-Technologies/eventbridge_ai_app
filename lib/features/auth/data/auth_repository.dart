@@ -348,6 +348,19 @@ class AuthRepository implements IAuthRepository {
 
   @override
   Future<void> logout() async {
+    // Clear local storage FIRST so Riverpod providers that depend on
+    // user_id will invalidate and tear down Firestore listeners before
+    // we revoke the Firebase Auth session.  This prevents the
+    // PERMISSION_DENIED errors from orphaned Firestore queries.
+    await _storage.deleteToken();
+    await _storage.remove('user_id');
+    await _storage.remove('user_role');
+    await _storage.remove('user_name');
+    await _storage.remove('user_email');
+    await _storage.remove('user_image');
+    await _storage.remove('onboarding_completed');
+    await _storage.remove('verification_status');
+
     try {
       await _firebaseAuth.signOut();
     } catch (e) {
@@ -363,15 +376,6 @@ class AuthRepository implements IAuthRepository {
     } catch (e) {
       debugPrint('Google signout error: $e');
     }
-
-    await _storage.deleteToken();
-    await _storage.remove('user_id');
-    await _storage.remove('user_role');
-    await _storage.remove('user_name');
-    await _storage.remove('user_email');
-    await _storage.remove('user_image');
-    await _storage.remove('onboarding_completed');
-    await _storage.remove('verification_status');
   }
 
   Future<bool> isLoggedIn() async {

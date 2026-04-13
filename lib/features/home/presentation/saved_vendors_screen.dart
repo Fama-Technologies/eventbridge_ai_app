@@ -31,7 +31,7 @@ class SavedVendorsScreen extends ConsumerWidget {
             data: (vendors) => vendors.isEmpty
                 ? SliverToBoxAdapter(child: _buildEmptyState(isDark))
                 : SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) => Padding(

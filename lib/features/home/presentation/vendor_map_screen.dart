@@ -293,7 +293,7 @@ class _NearbyVendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rating = (vendor['rating'] as num?)?.toDouble() ?? 4.5;
+    final rating = (vendor['rating'] as num?)?.toDouble() ?? 0.0;
     final categories = (vendor['serviceCategories'] as List?)?.cast<String>() ?? [];
     final distance = vendor['distanceKm']?.toString();
 

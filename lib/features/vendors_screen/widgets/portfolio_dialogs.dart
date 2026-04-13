@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/core/theme/design_tokens.dart';
+import 'package:eventbridge/features/matching/models/match_vendor.dart';
 
 /// Dialog for creating a new project
 class CreateProjectDialog extends StatefulWidget {
-  final Function(String name, String category, String description)
-      onProjectCreate;
+  final Function(String name, List<String> tags, String description)
+  onProjectCreate;
 
-  const CreateProjectDialog({
-    required this.onProjectCreate,
-  });
+  const CreateProjectDialog({super.key, required this.onProjectCreate});
 
   @override
   State<CreateProjectDialog> createState() => _CreateProjectDialogState();
@@ -19,8 +19,7 @@ class CreateProjectDialog extends StatefulWidget {
 class _CreateProjectDialogState extends State<CreateProjectDialog> {
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
-  String _selectedCategory = 'Weddings';
-  bool _isLoading = false;
+  final Set<String> _selectedTags = {'Weddings'}; // multi-select
 
   final List<Map<String, dynamic>> categories = [
     {
@@ -61,15 +60,21 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
 
   void _submitForm() {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a project name')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Please enter a project name')));
+      return;
+    }
+    if (_selectedTags.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Please select at least one tag')));
       return;
     }
 
     widget.onProjectCreate(
       _nameController.text.trim(),
-      _selectedCategory,
+      _selectedTags.toList(),
       _descriptionController.text.trim(),
     );
     Navigator.pop(context);
@@ -117,8 +122,8 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                           padding: const EdgeInsets.all(SpacingTokens.sm),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.black.withOpacity(0.05),
+                                ? Colors.white.withValues(alpha: 0.1)
+                                : Colors.black.withValues(alpha: 0.05),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -142,13 +147,22 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                   ),
                   Gaps.xl,
 
-                  // Category Selector
+                  // Category / Tag Multi-Selector
                   Text(
-                    'Select Category',
+                    'Select Tags',
                     style: GoogleFonts.outfit(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  Gaps.xs,
+                  Text(
+                    'Pick all that apply — projects can span multiple categories.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white54 : Colors.black45,
                     ),
                   ),
                   Gaps.lg,
@@ -178,13 +192,15 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                             ),
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? Colors.white.withOpacity(0.05)
-                                  : Colors.black.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(RadiusTokens.lg),
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(
+                                RadiusTokens.lg,
+                              ),
                               border: Border.all(
                                 color: isDark
                                     ? Colors.white10
-                                    : Colors.black.withOpacity(0.1),
+                                    : Colors.black.withValues(alpha: 0.1),
                               ),
                             ),
                             child: Center(
@@ -193,7 +209,9 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                                 style: GoogleFonts.outfit(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: isDark ? Colors.white60 : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white60
+                                      : Colors.black54,
                                 ),
                               ),
                             ),
@@ -203,36 +221,27 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                       Gaps.hLg,
                       Expanded(
                         child: GestureDetector(
-                          onTap: _isLoading ? null : _submitForm,
+                          onTap: _submitForm,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               vertical: SpacingTokens.lg,
                             ),
                             decoration: BoxDecoration(
                               color: AppColors.primary01,
-                              borderRadius: BorderRadius.circular(RadiusTokens.lg),
+                              borderRadius: BorderRadius.circular(
+                                RadiusTokens.lg,
+                              ),
                               boxShadow: [ShadowTokens.getShadow(8)],
                             ),
                             child: Center(
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
-                                    )
-                                  : Text(
-                                      'Create Project',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                              child: Text(
+                                'Create Project',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -277,21 +286,17 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
               color: isDark ? Colors.white38 : Colors.black38,
               fontSize: 14,
             ),
-            prefixIcon: Icon(
-              icon,
-              color: AppColors.primary01,
-              size: 20,
-            ),
+            prefixIcon: Icon(icon, color: AppColors.primary01, size: 20),
             filled: true,
             fillColor: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.03),
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.03),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(RadiusTokens.lg),
               borderSide: BorderSide(
                 color: isDark
                     ? Colors.white10
-                    : Colors.black.withOpacity(0.1),
+                    : Colors.black.withValues(alpha: 0.1),
               ),
             ),
             enabledBorder: OutlineInputBorder(
@@ -299,7 +304,7 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
               borderSide: BorderSide(
                 color: isDark
                     ? Colors.white10
-                    : Colors.black.withOpacity(0.1),
+                    : Colors.black.withValues(alpha: 0.1),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -330,52 +335,67 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: SpacingTokens.lg,
       crossAxisSpacing: SpacingTokens.lg,
+      childAspectRatio: 2.2,
       children: categories.map((cat) {
-        final isSelected = _selectedCategory == cat['name'];
+        final isSelected = _selectedTags.contains(cat['name']);
         return GestureDetector(
-          onTap: () => setState(() => _selectedCategory = cat['name']),
-          child: Container(
+          onTap: () => setState(() {
+            if (isSelected) {
+              // Keep at least one tag selected
+              if (_selectedTags.length > 1) {
+                _selectedTags.remove(cat['name']);
+              }
+            } else {
+              _selectedTags.add(cat['name'] as String);
+            }
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
               color: isSelected
-                  ? cat['color'].withOpacity(0.1)
+                  ? (cat['color'] as Color).withValues(alpha: 0.12)
                   : (isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.03)),
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.03)),
               borderRadius: BorderRadius.circular(RadiusTokens.lg),
               border: Border.all(
                 color: isSelected
-                    ? cat['color']
+                    ? (cat['color'] as Color)
                     : (isDark
-                        ? Colors.white10
-                        : Colors.black.withOpacity(0.1)),
+                          ? Colors.white10
+                          : Colors.black.withValues(alpha: 0.1)),
                 width: isSelected ? 2 : 1,
               ),
             ),
-            child: Column(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(SpacingTokens.md),
-                  decoration: BoxDecoration(
-                    color: cat['color'].withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    cat['icon'],
-                    color: cat['color'],
-                    size: 28,
-                  ),
+                Icon(
+                  cat['icon'] as IconData,
+                  color: isSelected
+                      ? (cat['color'] as Color)
+                      : (isDark ? Colors.white54 : Colors.black38),
+                  size: 20,
                 ),
-                Gaps.md,
+                const SizedBox(width: 8),
                 Text(
-                  cat['name'],
-                  textAlign: TextAlign.center,
+                  cat['name'] as String,
                   style: GoogleFonts.outfit(
                     fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                    color: isDark ? Colors.white : Colors.black,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: isSelected
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : (isDark ? Colors.white60 : Colors.black54),
                   ),
                 ),
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 14,
+                    color: cat['color'] as Color,
+                  ),
+                ],
               ],
             ),
           ),
@@ -392,6 +412,7 @@ class ManageProjectImagesDialog extends StatefulWidget {
   final Function(List<String> imagesToAdd) onImagesSelect;
 
   const ManageProjectImagesDialog({
+    super.key,
     required this.projectName,
     required this.existingImages,
     required this.onImagesSelect,
@@ -403,8 +424,6 @@ class ManageProjectImagesDialog extends StatefulWidget {
 }
 
 class _ManageProjectImagesDialogState extends State<ManageProjectImagesDialog> {
-  List<String> _selectedImages = [];
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -456,8 +475,8 @@ class _ManageProjectImagesDialogState extends State<ManageProjectImagesDialog> {
                       padding: const EdgeInsets.all(SpacingTokens.sm),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? Colors.white.withOpacity(0.1)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.05),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -473,8 +492,8 @@ class _ManageProjectImagesDialogState extends State<ManageProjectImagesDialog> {
 
             Divider(
               color: isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.08),
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: 0.08),
               height: 1,
             ),
 
@@ -528,13 +547,13 @@ class _ManageProjectImagesDialogState extends State<ManageProjectImagesDialog> {
         padding: const EdgeInsets.all(SpacingTokens.lg),
         decoration: BoxDecoration(
           color: isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.black.withOpacity(0.03),
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(RadiusTokens.lg),
           border: Border.all(
             color: isDark
                 ? Colors.white10
-                : Colors.black.withOpacity(0.1),
+                : Colors.black.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -542,14 +561,10 @@ class _ManageProjectImagesDialogState extends State<ManageProjectImagesDialog> {
             Container(
               padding: const EdgeInsets.all(SpacingTokens.md),
               decoration: BoxDecoration(
-                color: AppColors.primary01.withOpacity(0.15),
+                color: AppColors.primary01.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(RadiusTokens.md),
               ),
-              child: Icon(
-                icon,
-                color: AppColors.primary01,
-                size: 24,
-              ),
+              child: Icon(icon, color: AppColors.primary01, size: 24),
             ),
             Gaps.hLg,
             Expanded(
@@ -581,6 +596,338 @@ class _ManageProjectImagesDialogState extends State<ManageProjectImagesDialog> {
               size: 16,
               color: isDark ? Colors.white38 : Colors.black38,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dialog for choosing between creating a new project or adding to an existing one
+class PortfolioActionDialog extends StatelessWidget {
+  const PortfolioActionDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.all(SpacingTokens.lg),
+      child: Container(
+        padding: const EdgeInsets.all(SpacingTokens.xxl),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkNeutral01 : Colors.white,
+          borderRadius: BorderRadius.circular(RadiusTokens.round),
+          boxShadow: [ShadowTokens.xlDark],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                      'Add to Portfolio',
+                      style: GoogleFonts.outfit(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : Colors.black,
+                        letterSpacing: -0.5,
+                      ),
+                    )
+                    .animate()
+                    .fadeIn(duration: 400.ms)
+                    .slideX(begin: -0.2, end: 0),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(SpacingTokens.sm),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Gaps.xl,
+            Text(
+              'How would you like to organize your images?',
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
+            Gaps.xxl,
+            _buildActionCard(
+              context: context,
+              icon: Icons.create_new_folder_rounded,
+              title: 'Create New Project',
+              subtitle: 'Start a new collection for a specific event or shoot.',
+              color: AppColors.primary01,
+              isDark: isDark,
+              onTap: () => Navigator.pop(context, 'new_project'),
+            ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
+            Gaps.lg,
+            _buildActionCard(
+              context: context,
+              icon: Icons.folder_open_rounded,
+              title: 'Add to Existing Project',
+              subtitle:
+                  'Select an existing project and upload new images to it.',
+              color: const Color(0xFF3B82F6),
+              isDark: isDark,
+              onTap: () => Navigator.pop(context, 'existing_project'),
+            ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2, end: 0),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(SpacingTokens.xl),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isDark ? 0.08 : 0.04),
+          borderRadius: BorderRadius.circular(RadiusTokens.xxl),
+          border: Border.all(
+            color: color.withValues(alpha: isDark ? 0.2 : 0.1),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(SpacingTokens.lg),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(RadiusTokens.lg),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            Gaps.hLg,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  Gaps.xs,
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Gaps.hMd,
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: color.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dialog for selecting an existing project from the current list
+class SelectProjectDialog extends StatelessWidget {
+  final List<VendorProject> projects;
+
+  const SelectProjectDialog({super.key, required this.projects});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.all(SpacingTokens.lg),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkNeutral01 : Colors.white,
+          borderRadius: BorderRadius.circular(RadiusTokens.round),
+          boxShadow: [ShadowTokens.xlDark],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(SpacingTokens.xxl),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Project',
+                    style: GoogleFonts.outfit(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (projects.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(SpacingTokens.xxl),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.folder_off_rounded,
+                        size: 48,
+                        color: isDark
+                            ? Colors.white24
+                            : Colors.black.withValues(alpha: 0.24),
+                      ),
+                      Gaps.lg,
+                      Text(
+                        'No projects found',
+                        style: GoogleFonts.outfit(
+                          color: isDark ? Colors.white60 : Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(
+                    SpacingTokens.xxl,
+                    0,
+                    SpacingTokens.xxl,
+                    SpacingTokens.xxl,
+                  ),
+                  itemCount: projects.length,
+                  separatorBuilder: (context, index) => Gaps.md,
+                  itemBuilder: (context, index) {
+                    final project = projects[index];
+                    return GestureDetector(
+                      onTap: () => Navigator.pop(context, project),
+                      child: Container(
+                        padding: const EdgeInsets.all(SpacingTokens.md),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.03)
+                              : Colors.black.withValues(alpha: 0.02),
+                          borderRadius: BorderRadius.circular(RadiusTokens.xl),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white10
+                                : Colors.black.withValues(alpha: 0.05),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                RadiusTokens.lg,
+                              ),
+                              child: Container(
+                                width: 60,
+                                height: 60,
+                                color: isDark
+                                    ? Colors.white10
+                                    : Colors.black.withValues(alpha: 0.1),
+                                child: Image.network(
+                                  project.thumbnail,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                        Icons.image_rounded,
+                                        color: Colors.grey,
+                                      ),
+                                ),
+                              ),
+                            ),
+                            Gaps.hLg,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    project.title,
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                  Gaps.xs,
+                                  Text(
+                                    '${project.images.length} images',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.white54
+                                          : Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),

@@ -17,7 +17,7 @@ class SendInquiryUseCase {
 
   final IMatchingRepository _repository;
 
-  Future<void> call({
+  Future<String?> call({
     required EventRequest request,
     required MatchVendor vendor,
   }) {

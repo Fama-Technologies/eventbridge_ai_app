@@ -8,6 +8,7 @@ import 'package:eventbridge/features/messaging/data/datasources/firestore_chat_s
 import 'package:eventbridge/features/shared/providers/shared_lead_state.dart';
 import 'package:eventbridge/features/vendors_screen/models/lead_model.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/features/home/presentation/providers/match_provider.dart';
 
 final matchingRepositoryProvider = Provider<MatchingRepository>((ref) {
   return MatchingRepository(ref);
@@ -40,7 +41,7 @@ class MatchingRepository implements IMatchingRepository {
   }
 
   @override
-  Future<void> sendInquiry({
+  Future<String?> sendInquiry({
     required EventRequest request,
     required MatchVendor vendor,
   }) async {
@@ -114,7 +115,7 @@ class MatchingRepository implements IMatchingRepository {
     final userEmail = storage.getString('user_email') ?? 'customer@example.com';
     final userName = userEmail.split('@').first;
 
-    final lead = Lead(
+    final resultLead = Lead(
       id: leadId ?? chatId,
       customerId: customerId,
       title: request.eventType,
@@ -138,9 +139,14 @@ class MatchingRepository implements IMatchingRepository {
     );
 
     // 3. Add to the shared global lead state
-    ref.read(sharedLeadStateProvider.notifier).addLead(lead);
+    ref.read(sharedLeadStateProvider.notifier).addLead(resultLead);
+
+    // 4. Invalidate the recent matches so the Inquiries tab updates
+    ref.invalidate(recentMatchesProvider);
 
     await Future<void>.delayed(const Duration(milliseconds: 600));
+
+    return leadId ?? chatId;
   }
 
   @override
@@ -174,5 +180,61 @@ class MatchingRepository implements IMatchingRepository {
       rating: rating,
       comment: comment,
     );
+  }
+
+  @override
+  Future<void> saveMatches(String userId, List<MatchVendor> matches) async {
+    try {
+      final List<Map<String, dynamic>> matchesData = matches.map((m) => {
+        'vendorId': m.id,
+        'matchScore': m.matchScore / 100.0, // Normalize to 0-1 range for DB if needed
+      }).toList();
+
+      await ApiService.instance.saveCustomerMatches(
+        userId: userId,
+        matches: matchesData,
+      );
+    } catch (e) {
+      print('Error saving matches: $e');
+    }
+  }
+
+  @override
+  Future<List<MatchVendor>> getPersistedMatches(String userId) async {
+    try {
+      final response = await ApiService.instance.getCustomerMatches(userId);
+      if (response['success'] == true) {
+        final matchesRaw = response['matches'] as List;
+        return matchesRaw.map((v) => MatchVendor.fromJson(v)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error getting persisted matches: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> toggleFavorite(String userId, String vendorId) async {
+    try {
+      final response = await ApiService.instance.toggleFavorite(
+        userId: userId,
+        vendorId: vendorId,
+      );
+      return response['isFavorite'] ?? false;
+    } catch (e) {
+      print('Error toggling favorite: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<List<String>> getFavoriteIds(String userId) async {
+    try {
+      return await ApiService.instance.getCustomerFavorites(userId);
+    } catch (e) {
+      print('Error getting favorites: $e');
+      return [];
+    }
   }
 }

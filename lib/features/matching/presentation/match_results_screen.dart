@@ -63,19 +63,21 @@ class MatchResultsScreen extends ConsumerWidget {
                                     isSubmitting: state.isLoading,
                                     onViewProfile: () =>
                                         context.push('/vendor-public/${vendor.id}'),
-                                    onInquiry: () async {
-                                      await ctrl.sendInquiry(vendor: vendor);
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Inquiry sent successfully to ${vendor.name}!',
-                                          ),
-                                          backgroundColor: const Color(0xFF22C55E),
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    },
+                                      onInquiry: () async {
+                                        final leadId = await ctrl.sendInquiry(vendor: vendor);
+                                        if (!context.mounted) return;
+                                        
+                                        if (leadId != null) {
+                                          context.push('/customer-chat/$leadId?otherUserId=${vendor.id}&otherUserName=${Uri.encodeComponent(vendor.name)}');
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Failed to start chat. Please try again.'),
+                                              backgroundColor: AppColors.errorsMain,
+                                            ),
+                                          );
+                                        }
+                                      },
                                   ),
                                 ),
                               ),
@@ -231,7 +233,7 @@ class MatchResultsScreen extends ConsumerWidget {
   }
 }
 
-class _VendorMatchCard extends StatelessWidget {
+class _VendorMatchCard extends StatefulWidget {
   const _VendorMatchCard({
     required this.vendor,
     required this.onViewProfile,
@@ -245,102 +247,181 @@ class _VendorMatchCard extends StatelessWidget {
   final bool isSubmitting;
 
   @override
+  State<_VendorMatchCard> createState() => _VendorMatchCardState();
+}
+
+class _VendorMatchCardState extends State<_VendorMatchCard> {
+  int _currentIndex = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final vendor = widget.vendor;
+    
+    // Flatten images from portfolio and avatar for the carousel
+    final List<String> images = [
+      if (vendor.avatarUrl != null) vendor.avatarUrl!,
+      ...vendor.portfolio.where((url) => url != vendor.avatarUrl),
+    ];
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPortfolioStrip(),
+          // 1. Image Carousel & Badges
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                child: SizedBox(
+                  height: 220,
+                  width: double.infinity,
+                  child: images.isEmpty
+                      ? Container(
+                          color: const Color(0xFFF1F5F9),
+                          child: const Icon(Icons.storefront_outlined, size: 64, color: Color(0xFF94A3B8)),
+                        )
+                      : PageView.builder(
+                          onPageChanged: (idx) => setState(() => _currentIndex = idx),
+                          itemCount: images.length,
+                          itemBuilder: (context, idx) => Image.network(
+                            images[idx],
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stack) => Container(
+                              color: const Color(0xFFF1F5F9),
+                              child: const Icon(Icons.broken_image_outlined, size: 32, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              // Match Score Badge
+              Positioned(
+                top: 20,
+                left: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary01,
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary01.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${(vendor.matchScore * 100).toInt()}% Match',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Favorite Button
+              Positioned(
+                top: 20,
+                right: 20,
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final isFavorite = ref.watch(matchingControllerProvider.select((s) => s.favoriteIds.contains(vendor.id)));
+                    return GestureDetector(
+                      onTap: () => ref.read(matchingControllerProvider.notifier).toggleFavorite(vendor.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          color: isFavorite ? const Color(0xFFD64545) : AppColors.textPrimary,
+                          size: 20,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Carousel Indicators
+              if (images.length > 1)
+                Positioned(
+                  bottom: 20,
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(images.length.clamp(0, 5), (idx) {
+                      final isActive = idx == _currentIndex;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: isActive ? 14 : 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+            ],
+          ),
+          
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: const Color(0xFFF3F4F6),
-                      backgroundImage: vendor.portfolio.isNotEmpty
-                          ? NetworkImage(vendor.portfolio.first)
-                          : null,
-                      child: vendor.portfolio.isEmpty
-                          ? Text(
-                              vendor.name.substring(0, 1),
-                              style: const TextStyle(color: Color(0xFF9CA3AF)),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  vendor.name,
-                                  style: GoogleFonts.roboto(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF1A1A24),
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (vendor.isVerified) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  color: Colors.blue,
-                                  size: 18,
-                                ),
-                              ],
-                            ],
+                          Text(
+                            vendor.name,
+                            style: GoogleFonts.outfit(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Row(
                             children: [
-                              RatingBarIndicator(
-                                rating: vendor.rating,
-                                itemBuilder: (context, index) => const Icon(
-                                  Icons.star_rounded,
-                                  color: Color(0xFFF59E0B),
-                                ),
-                                itemCount: 5,
-                                itemSize: 14.0,
-                                direction: Axis.horizontal,
-                              ),
-                              const SizedBox(width: 6),
+                              const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF64748B)),
+                              const SizedBox(width: 4),
                               Text(
-                                vendor.rating.toString(),
-                                style: GoogleFonts.roboto(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF4B5563),
-                                ),
-                              ),
-                              Text(
-                                ' (${vendor.reviews.length})',
-                                style: GoogleFonts.roboto(
-                                  fontSize: 12,
-                                  color: const Color(0xFF9CA3AF),
+                                vendor.location,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 14,
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
@@ -348,114 +429,125 @@ class _VendorMatchCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7E8),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star_rounded, color: Color(0xFFE0A100), size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            vendor.rating.toStringAsFixed(1),
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 Text(
                   vendor.businessOverview,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.roboto(
-                    fontSize: 14,
-                    color: const Color(0xFF4B5563),
-                    height: 1.4,
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    color: const Color(0xFF475569),
+                    height: 1.6,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: vendor.services.take(3).map((svc) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        svc.toUpperCase(),
-                        style: GoogleFonts.roboto(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF6B7280),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
                 const SizedBox(height: 20),
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                const SizedBox(height: 16),
+                if (vendor.matchReasons.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: vendor.matchReasons.take(3).map((reason) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          reason,
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF475569),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                const SizedBox(height: 24),
+                const Divider(color: Color(0xFFE2E8F0)),
+                const SizedBox(height: 20),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'STARTING AT',
-                          style: GoogleFonts.roboto(
+                          style: GoogleFonts.outfit(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
-                            color: const Color(0xFF9CA3AF),
-                            letterSpacing: 0.5,
+                            color: const Color(0xFF94A3B8),
+                            letterSpacing: 1.2,
                           ),
                         ),
                         Text(
-                          'Shs ${vendor.minPackagePrice.toStringAsFixed(0)}',
-                          style: GoogleFonts.roboto(
-                            fontSize: 18,
+                          vendor.minPackagePrice > 0 
+                              ? 'Shs ${vendor.minPackagePrice.toStringAsFixed(0)}'
+                              : 'Price on request',
+                          style: GoogleFonts.outfit(
+                            fontSize: 20,
                             fontWeight: FontWeight.w900,
-                            color: const Color(0xFF1A1A24),
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: onViewProfile,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF1E293B),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: widget.onViewProfile,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text(
-                          'View Profile',
-                          style: GoogleFonts.roboto(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                          child: Text(
+                            'Profile',
+                            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: isSubmitting ? null : onInquiry,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary01,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: widget.isSubmitting ? null : widget.onInquiry,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary01,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: widget.isSubmitting
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : Text(
+                                  'Message',
+                                  style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w800),
+                                ),
                         ),
-                        child: Text(
-                          'Inquire',
-                          style: GoogleFonts.roboto(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -463,94 +555,6 @@ class _VendorMatchCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPortfolioStrip() {
-    if (vendor.portfolio.isEmpty) return const SizedBox.shrink();
-
-    // Take up to 3 images, skipping the first one used for avatar
-    final images = vendor.portfolio.skip(1).take(3).toList();
-    if (images.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          height: 120,
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Image.network(
-                  images[0],
-                  fit: BoxFit.cover,
-                  height: double.infinity,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 20),
-                  ),
-                ),
-              ),
-              if (images.length > 1) ...[
-                const SizedBox(width: 4),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Image.network(
-                          images[1],
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: Colors.grey[100],
-                            child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 16),
-                          ),
-                        ),
-                      ),
-                      if (images.length > 2) ...[
-                        const SizedBox(height: 4),
-                        Expanded(
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.network(
-                                images[2],
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  color: Colors.grey[100],
-                                  child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 16),
-                                ),
-                              ),
-                              if (vendor.portfolio.length > 4)
-                                Container(
-                                  color: Colors.black.withValues(alpha: 0.5),
-                                  child: Center(
-                                    child: Text(
-                                      '+${vendor.portfolio.length - 4}',
-                                      style: GoogleFonts.roboto(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }

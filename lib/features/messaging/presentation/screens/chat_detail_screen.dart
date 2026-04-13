@@ -450,7 +450,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         final showLeadBanner =
             widget.isVendor &&
             (widget.leadTitle != null || chat?.leadId != null);
-        final bannerTitle = widget.leadTitle ?? 'Lead Inquiry';
+        final bannerTitle = widget.leadTitle ?? 'Lead Match';
         final bannerDate = widget.leadDate ?? '';
         final bannerPhone = effectivePhone;
 

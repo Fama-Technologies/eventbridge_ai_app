@@ -21,7 +21,7 @@ class VendorMatch {
     this.imageUrl,
     this.images = const [],
     required this.location,
-    this.rating = 4.5,
+    this.rating = 0.0,
     required this.eventType,
     required this.eventDate,
     required this.budget,
@@ -41,7 +41,7 @@ class VendorMatch {
           ? List<String>.from(json['images'])
           : [],
       location: json['location'] ?? 'Kampala',
-      rating: (json['rating'] ?? 4.5).toDouble(),
+      rating: (json['rating'] ?? 0.0).toDouble(),
       eventType: json['eventType'] ?? 'Unknown Event',
       eventDate: json['eventDate'] != null 
           ? DateTime.parse(json['eventDate'])

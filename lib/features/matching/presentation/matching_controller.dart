@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:eventbridge/features/matching/domain/repositories/i_matching_repository.dart';
 import 'package:eventbridge/features/matching/domain/usecases/matching_use_cases.dart';
 import 'package:eventbridge/features/matching/models/event_request.dart';
 import 'package:eventbridge/features/matching/models/match_vendor.dart';
@@ -53,6 +54,7 @@ class MatchingController extends Notifier<MatchingState> {
   late final SendInquiryUseCase _sendInquiry;
   late final GetVendorByIdUseCase _getVendorById;
   late final SubmitReviewUseCase _submitReview;
+  late final IMatchingRepository _repository;
 
   bool _initialized = false;
 
@@ -62,11 +64,12 @@ class MatchingController extends Notifier<MatchingState> {
     _sendInquiry = ref.watch(sendInquiryUseCaseProvider);
     _getVendorById = ref.watch(getVendorByIdUseCaseProvider);
     _submitReview = ref.watch(submitReviewUseCaseProvider);
+    _repository = ref.watch(matchingRepositoryContractProvider);
     
     if (!_initialized) {
       _initialized = true;
-      // Load favorites in a deferred way to avoid rebuild loops
-      Future.microtask(() => _loadFavorites());
+      // Load favorites and matches in a deferred way
+      Future.microtask(() => _initializeState());
     }
     
     return const MatchingState();
@@ -103,29 +106,67 @@ class MatchingController extends Notifier<MatchingState> {
     }
   }
 
-  Future<void> _loadFavorites() async {
+  Future<void> _initializeState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id') ?? '';
+
+    await _loadFavorites(userId);
+    
+    // Also load persisted matches if local state is empty
+    if (state.matches.isEmpty && userId.isNotEmpty) {
+      final persisted = await _repository.getPersistedMatches(userId);
+      if (persisted.isNotEmpty) {
+        state = state.copyWith(matches: persisted);
+      }
+    }
+  }
+
+  Future<void> _loadFavorites(String userId) async {
     try {
+      // 1. Load from local prefs for immediate UI
       final prefs = await SharedPreferences.getInstance();
-      final favorites = prefs.getStringList('favorite_vendor_ids') ?? [];
-      state = state.copyWith(favoriteIds: favorites.toSet());
+      final localFavorites = prefs.getStringList('favorite_vendor_ids') ?? [];
+      
+      if (localFavorites.isNotEmpty) {
+        state = state.copyWith(favoriteIds: localFavorites.toSet());
+      }
+
+      // 2. Sync from remote if userId exists
+      if (userId.isNotEmpty) {
+        final remoteFavorites = await _repository.getFavoriteIds(userId);
+        if (remoteFavorites.isNotEmpty) {
+          state = state.copyWith(favoriteIds: remoteFavorites.toSet());
+          // Update local cache
+          await prefs.setStringList('favorite_vendor_ids', remoteFavorites);
+        }
+      }
     } catch (_) {
-      // Silently fail to avoid crashing the provider
+      // Silently fail
     }
   }
 
   Future<void> toggleFavorite(String vendorId) async {
     final newFavorites = Set<String>.from(state.favoriteIds);
-    if (newFavorites.contains(vendorId)) {
-      newFavorites.remove(vendorId);
-    } else {
+    final isAdding = !newFavorites.contains(vendorId);
+    
+    if (isAdding) {
       newFavorites.add(vendorId);
+    } else {
+      newFavorites.remove(vendorId);
     }
     
     state = state.copyWith(favoriteIds: newFavorites);
     
     try {
+      // 1. Update local
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('favorite_vendor_ids', newFavorites.toList());
+      
+      // 2. Update remote
+      final userId = prefs.getString('user_id') ?? '';
+      if (userId.isNotEmpty) {
+        await _repository.toggleFavorite(userId, vendorId);
+      }
     } catch (_) {}
   }
 
@@ -165,8 +206,16 @@ class MatchingController extends Notifier<MatchingState> {
       }).toList();
 
       enhancedMatches.sort((a, b) => b.matchScore.compareTo(a.matchScore));
-
+      
       state = state.copyWith(isLoading: false, matches: enhancedMatches, error: null);
+
+      // Persistence: Save to backend
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id') ?? '';
+      if (userId.isNotEmpty && enhancedMatches.isNotEmpty) {
+        await _repository.saveMatches(userId, enhancedMatches);
+      }
+
     } catch (_) {
       state = state.copyWith(
         isLoading: false,
@@ -316,16 +365,16 @@ class MatchingController extends Notifier<MatchingState> {
     return fetched;
   }
 
-  Future<void> sendInquiry({required MatchVendor vendor, EventRequest? request}) async {
+  Future<String?> sendInquiry({required MatchVendor vendor, EventRequest? request}) async {
     final effectiveRequest = request ?? state.request;
     if (effectiveRequest == null) {
       state = state.copyWith(error: 'Missing inquiry details.');
-      return;
+      return null;
     }
 
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _sendInquiry(request: effectiveRequest, vendor: vendor);
+      final leadId = await _sendInquiry(request: effectiveRequest, vendor: vendor);
       
       final storage = await SharedPreferences.getInstance();
       final customerId = storage.getString('user_id') ?? '';
@@ -359,11 +408,13 @@ class MatchingController extends Notifier<MatchingState> {
         inquirySentVendorId: vendor.id,
         error: null,
       );
+      return leadId;
     } catch (_) {
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to send inquiry. Please try again.',
       );
+      return null;
     }
   }
 }

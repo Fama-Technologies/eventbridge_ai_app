@@ -1,17 +1,17 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
+import 'package:eventbridge/core/theme/app_theme.dart';
 import 'package:eventbridge/core/network/api_service.dart';
 import 'package:eventbridge/core/storage/storage_service.dart';
-import 'package:eventbridge/core/widgets/app_toast.dart';
-
-import 'package:image_picker/image_picker.dart';
 import 'package:eventbridge/core/services/upload_service.dart';
+import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:eventbridge/features/matching/models/match_vendor.dart';
+import 'package:eventbridge/features/vendors_screen/widgets/portfolio_dialogs.dart';
+import 'package:eventbridge/features/vendors_screen/vendor_portfolio_detail_screen.dart';
 
 class VendorPortfolioScreen extends StatefulWidget {
   const VendorPortfolioScreen({super.key});
@@ -26,7 +26,6 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
   String _businessName = 'My Business';
   List<VendorProject> _projects = [];
   String _activeCategory = 'All';
-  final List<String> _categories = ['All', 'Weddings', 'Corporate', 'Parties', 'Other'];
 
   @override
   void initState() {
@@ -34,196 +33,78 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
     _loadPortfolio();
   }
 
+  // ---------------------------------------------------------------------------
+  // Data
+  // ---------------------------------------------------------------------------
+
+  List<String> get _categories {
+    final detected = _projects.map(_projectCategory).toSet();
+    final ordered =
+        VendorProject.supportedCategories.where(detected.contains).toList();
+    if (ordered.isEmpty) {
+      return ['All', ...VendorProject.supportedCategories];
+    }
+    return ['All', ...ordered];
+  }
+
+  List<VendorProject> get _filteredProjects {
+    if (_activeCategory == 'All') return _projects;
+    return _projects
+        .where((p) =>
+            _projectCategory(p) == _activeCategory ||
+            p.tags.contains(_activeCategory))
+        .toList();
+  }
+
+  String _projectCategory(VendorProject project) {
+    return VendorProject.inferCategory(
+      title: project.title,
+      description: project.description,
+      rawCategory: project.category,
+    );
+  }
+
+  String _displayTitle(VendorProject project) {
+    final cleaned = project.title.trim();
+    final category = _projectCategory(project);
+    if (cleaned.isEmpty || cleaned.toLowerCase() == category.toLowerCase()) {
+      return '$category Highlights';
+    }
+    return cleaned;
+  }
+
+  // ---------------------------------------------------------------------------
+  // API
+  // ---------------------------------------------------------------------------
+
   Future<void> _loadPortfolio() async {
     try {
       final userId = StorageService().getString('user_id');
-      if (userId == null) return;
+      if (userId == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
 
       final result = await ApiService.instance.getVendorProfile(userId);
+      if (!mounted) return;
+
       if (result['success'] == true && result['profile'] != null) {
-        final profile = result['profile'];
-        final matchVendor = MatchVendor.fromJson(profile);
+        final profile = result['profile'] as Map<String, dynamic>;
+        final vendor = MatchVendor.fromJson(profile);
         setState(() {
-          _businessName = matchVendor.name.isNotEmpty ? matchVendor.name : 'My Business';
-          _projects = matchVendor.projects;
+          _businessName =
+              vendor.name.isNotEmpty ? vendor.name : 'My Business';
+          _projects = vendor.projects;
           _isLoading = false;
         });
+        return;
       }
+      setState(() => _isLoading = false);
     } catch (e) {
-      if (mounted) {
-        AppToast.show(context, message: 'Failed to load portfolio', type: ToastType.error);
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _showCategoryDialog(String imageUrl, {int? index}) async {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
-    final Map<String, IconData> categoryIcons = {
-      'Weddings': Icons.favorite_rounded,
-      'Corporate': Icons.business_center_rounded,
-      'Parties': Icons.celebration_rounded,
-      'Other': Icons.more_horiz_rounded,
-    };
-
-    String? selectedCategory;
-    
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              index == null ? 'Categorize New Project' : 'Update Category',
-              style: GoogleFonts.outfit(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Select a category to help clients find your work.',
-              style: GoogleFonts.outfit(
-                color: isDark ? Colors.white38 : Colors.black38,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ..._categories.where((c) => c != 'All').map((cat) {
-              final icon = categoryIcons[cat] ?? Icons.label_rounded;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: () {
-                    selectedCategory = cat;
-                    Navigator.pop(context);
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: theme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(icon, color: theme.primaryColor, size: 24),
-                        ),
-                        const SizedBox(width: 20),
-                        Text(
-                          cat,
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 14,
-                          color: isDark ? Colors.white24 : Colors.black26,
-                        ),
-                      ],
-                    ),
-                  ),
-                ).animate().slideX(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOutQuint),
-              );
-            }).toList(),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-
-    if (selectedCategory != null) {
-      // Prompt for project name or use category as name
-      // For simplicity, we just use the category as the project name, and append the image
-      setState(() {
-        if (index != null) {
-          final p = _projects[index];
-          _projects[index] = VendorProject(id: p.id, title: selectedCategory!, thumbnail: p.thumbnail, images: p.images);
-        } else {
-          final existingIdx = _projects.indexWhere((p) => p.title == selectedCategory);
-          if (existingIdx != -1) {
-             final p = _projects[existingIdx];
-             _projects[existingIdx] = VendorProject(id: p.id, title: p.title, thumbnail: p.thumbnail, images: [...p.images, imageUrl]);
-          } else {
-             _projects.insert(0, VendorProject(id: DateTime.now().millisecondsSinceEpoch.toString(), title: selectedCategory!, thumbnail: imageUrl, images: [imageUrl]));
-          }
-        }
-      });
-      await _saveChanges();
-    }
-  }
-
-  Future<void> _pickAndUploadImage() async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 70,
-    );
-
-    if (image != null) {
-      setState(() => _isUploading = true);
-      try {
-        final bytes = await image.readAsBytes();
-        final fileName = 'portfolio_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        
-        final url = await UploadService.instance.uploadFile(
-          bytes: bytes,
-          fileName: fileName,
-          contentType: 'image/jpeg',
-          folder: 'portfolio',
-        );
-
-        if (mounted) {
-          setState(() => _isUploading = false);
-          await _showCategoryDialog(url);
-        }
-      } catch (e) {
-        if (mounted) {
-          AppToast.show(context, message: 'Upload failed: $e', type: ToastType.error);
-          setState(() => _isUploading = false);
-        }
-      }
+      if (!mounted) return;
+      AppToast.show(context,
+          message: 'Failed to load portfolio', type: ToastType.error);
+      setState(() => _isLoading = false);
     }
   }
 
@@ -239,413 +120,573 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
       );
 
       if (mounted && result['success'] == true) {
-        AppToast.show(context, message: 'Portfolio updated!', type: ToastType.success);
+        AppToast.show(context,
+            message: 'Portfolio updated', type: ToastType.success);
       }
     } catch (e) {
-      debugPrint('Save failed: $e');
+      debugPrint('Portfolio save failed: $e');
     }
   }
 
-  void _deleteImage(int index) async {
-    final confirmed = await showDialog<bool>(
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  Future<void> _showAddPortfolioDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final choice = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: Colors.redAccent.withOpacity(0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 36),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Delete Project?',
-                style: GoogleFonts.outfit(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'This will permanently remove this project from your public portfolio. This action cannot be undone.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.black38,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 40),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                      child: Text(
-                        'CANCEL',
-                        style: GoogleFonts.outfit(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white24 : Colors.black26,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                      child: Text(
-                        'DELETE',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkNeutral02 : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-      ),
-    );
-
-    if (confirmed == true) {
-      setState(() {
-        _projects.removeAt(index);
-      });
-      await _saveChanges();
-    }
-  }
-
-  void _editTag(int index) async {
-    final p = _projects[index];
-    await _showCategoryDialog(p.thumbnail, index: index);
-  }
-
-  void _openProjectDetail(VendorProject project, int index) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false,
-        pageBuilder: (context, animation, _) => FadeTransition(
-          opacity: animation,
-          child: _ImageDetailView(
-            project: project, 
-            index: index, 
-            totalProjects: _projects.length,
-            onDelete: () {
-              Navigator.pop(context);
-              _deleteImage(index);
-            },
-            onEdit: () {
-              Navigator.pop(context);
-              _editTag(index);
-            },
-          ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 16,
+          top: 8,
         ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      floatingActionButton: GestureDetector(
-        onTap: _isUploading ? null : _pickAndUploadImage,
-        child: AnimatedContainer(
-          duration: 300.ms,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [theme.primaryColor, theme.primaryColor.withBlue(255).withGreen(100)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: theme.primaryColor.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _isUploading 
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.add_photo_alternate_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Text(
-                _isUploading ? 'UPLOADING...' : 'ADD PROJECT',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w800, 
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ).animate().scale(delay: 400.ms, curve: Curves.easeOutBack),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: theme.primaryColor))
-          : Stack(
-              children: [
-                CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    _buildSliverAppBar(theme, isDark),
-                    SliverToBoxAdapter(
-                      child: _buildCategoryFilters(theme, isDark),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 100), // extra padding for FAB
-                      sliver: _buildPortfolioGrid(theme, isDark),
-                    ),
-                  ],
-                ),
-                if (_isUploading)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withOpacity(0.3),
-                      child: const Center(
-                        child: CircularProgressIndicator(color: AppColors.primary01),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-    );
-  }
-
-
-  Widget _buildSliverAppBar(ThemeData theme, bool isDark) {
-    return SliverAppBar(
-      expandedHeight: 320,
-      pinned: true,
-      stretch: true,
-      backgroundColor: theme.scaffoldBackgroundColor,
-      elevation: 0,
-      leading: IconButton(
-        icon: Icon(
-          Icons.arrow_back_ios_new_rounded,
-          color: isDark ? Colors.white : Colors.black87,
-          size: 20,
-        ),
-        onPressed: () => context.pop(),
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        stretchModes: const [StretchMode.zoomBackground],
-        background: Stack(
-          fit: StackFit.expand,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Featured Image or Gradient
-            if (_projects.isNotEmpty)
-              Image.network(
-                _projects.first.thumbnail,
-                fit: BoxFit.cover,
-              )
-            else
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isDark 
-                      ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                      : [AppColors.primary01.withOpacity(0.1), AppColors.primary01.withOpacity(0.3)],
-                  ),
-                ),
-              ),
-            // Glass Overlay
+            // Drag handle
             Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.1),
-                    Colors.transparent,
-                    theme.scaffoldBackgroundColor.withOpacity(0.8),
-                    theme.scaffoldBackgroundColor,
-                  ],
-                ),
+                color: isDark ? Colors.white24 : AppColors.neutrals04,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            // Header Content
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 30,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF22C55E),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'OFFICIAL PORTFOLIO',
-                          style: GoogleFonts.outfit(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'Add to Portfolio',
+                    style: GoogleFonts.outfit(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 4),
                   Text(
-                    _businessName,
-                    style: GoogleFonts.workSans(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : Colors.black87,
-                      letterSpacing: -1.5,
-                      height: 1.1,
+                    'How would you like to organize your images?',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: isDark ? Colors.white60 : AppColors.textSecondary,
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildSheetOption(
+                    icon: Icons.create_new_folder_rounded,
+                    title: 'Create New Project',
+                    subtitle: 'Start a new collection for a specific event',
+                    isDark: isDark,
+                    onTap: () => Navigator.pop(context, 'new_project'),
                   ),
                   const SizedBox(height: 12),
-                  _buildHeaderStats(isDark),
+                  _buildSheetOption(
+                    icon: Icons.folder_open_rounded,
+                    title: 'Add to Existing Project',
+                    subtitle: 'Upload new images to an existing project',
+                    isDark: isDark,
+                    onTap: () => Navigator.pop(context, 'existing_project'),
+                  ),
                 ],
-              ).animate().fadeIn(duration: 800.ms).slideY(begin: 0.1, end: 0),
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+
+    if (choice == 'new_project') {
+      _showCreateProjectDialog();
+    } else if (choice == 'existing_project') {
+      await _selectProjectAndAddImages();
+    }
+  }
+
+  Widget _buildSheetOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : AppColors.background,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : AppColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary01.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: AppColors.primary01, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : AppColors.textPrimary,
+                      )),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color:
+                            isDark ? Colors.white54 : AppColors.textSecondary,
+                      )),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: isDark ? Colors.white24 : AppColors.neutrals05),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeaderStats(bool isDark) {
-    return Row(
-      children: [
-        _statBadge(Icons.auto_awesome_rounded, 'PREMIUM VENDOR', const Color(0xFFF59E0B)),
-        const SizedBox(width: 12),
-        _statBadge(Icons.check_circle_rounded, 'VERIFIED', const Color(0xFF3B82F6)),
-      ],
+  void _showCreateProjectDialog() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: CreateProjectDialog(
+          onProjectCreate: (name, tags, description) {
+            _pickAndUploadImage(
+                projectName: name, tags: tags, description: description);
+          },
+        ),
+      ),
     );
   }
 
-  Widget _statBadge(IconData icon, String label, Color color) {
+  Future<void> _selectProjectAndAddImages() async {
+    final selected = await showModalBottomSheet<VendorProject>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => SelectProjectDialog(projects: _projects),
+    );
+    if (!mounted || selected == null) return;
+
+    final idx = _projects.indexWhere((p) => p.id == selected.id);
+    await _pickAndUploadImage(
+      projectName: selected.title,
+      tags: selected.tags.isNotEmpty
+          ? selected.tags
+          : [_projectCategory(selected)],
+      description: selected.description,
+      existingIndex: idx >= 0 ? idx : null,
+    );
+  }
+
+  Future<void> _pickAndUploadImage({
+    required String projectName,
+    required List<String> tags,
+    String description = '',
+    int? existingIndex,
+  }) async {
+    final picker = ImagePicker();
+    final images = await picker.pickMultiImage(imageQuality: 72);
+    if (images.isEmpty) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final urls = <String>[];
+      for (var i = 0; i < images.length; i++) {
+        final bytes = await images[i].readAsBytes();
+        final fileName =
+            'portfolio_${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+        final url = await UploadService.instance.uploadFile(
+          bytes: bytes,
+          fileName: fileName,
+          contentType: 'image/jpeg',
+          folder: 'portfolio',
+        );
+        urls.add(url);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        if (existingIndex != null &&
+            existingIndex >= 0 &&
+            existingIndex < _projects.length) {
+          final existing = _projects[existingIndex];
+          final merged = [
+            ...existing.images,
+            ...urls.where((u) => !existing.images.contains(u)),
+          ];
+          _projects[existingIndex] = VendorProject(
+            id: existing.id,
+            title: existing.title,
+            thumbnail: existing.thumbnail.isNotEmpty
+                ? existing.thumbnail
+                : urls.first,
+            images: merged,
+            category: existing.category,
+            description: existing.description,
+            tags: existing.tags,
+          );
+        } else {
+          final primaryCat = tags.isNotEmpty
+              ? VendorProject.normalizeCategory(tags.first)
+              : 'Other';
+          _projects.insert(
+            0,
+            VendorProject(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              title: projectName,
+              thumbnail: urls.first,
+              images: urls,
+              category: primaryCat,
+              description: description.trim(),
+              tags: tags,
+            ),
+          );
+        }
+        _isUploading = false;
+      });
+
+      await _saveChanges();
+      if (mounted) {
+        AppToast.show(context,
+            message:
+                '${urls.length} photo${urls.length == 1 ? '' : 's'} added',
+            type: ToastType.success);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.show(context,
+          message: 'Upload failed: $e', type: ToastType.error);
+      setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _deleteProject(int index) async {
+    final project = _projects[index];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkNeutral02 : Colors.white,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 8,
+            bottom: MediaQuery.of(ctx).padding.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : AppColors.neutrals04,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.errorsMain.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.delete_outline_rounded,
+                    color: AppColors.errorsMain, size: 28),
+              ),
+              const SizedBox(height: 16),
+              Text('Delete Project',
+                  style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color:
+                          isDark ? Colors.white : AppColors.textPrimary)),
+              const SizedBox(height: 8),
+              Text(
+                'Delete "${_displayTitle(project)}" and all its images? This cannot be undone.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color:
+                        isDark ? Colors.white60 : AppColors.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(
+                            color: isDark
+                                ? Colors.white24
+                                : AppColors.border),
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.button)),
+                      ),
+                      child: Text('Cancel',
+                          style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppColors.textSecondary)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.errorsMain,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.button)),
+                      ),
+                      child: Text('Delete',
+                          style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _projects.removeAt(index);
+      if (_activeCategory != 'All' &&
+          !_projects.any((p) => _projectCategory(p) == _activeCategory)) {
+        _activeCategory = 'All';
+      }
+    });
+    await _saveChanges();
+  }
+
+  void _openProjectDetail(VendorProject project, int sourceIndex) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VendorPortfolioDetailScreen(
+          project: project,
+          title: _displayTitle(project),
+          category: _projectCategory(project),
+          onImagesChanged: (updatedImages) {
+            setState(() {
+              _projects[sourceIndex] = VendorProject(
+                id: project.id,
+                title: project.title,
+                thumbnail:
+                    updatedImages.isNotEmpty ? updatedImages.first : '',
+                images: updatedImages,
+                category: project.category,
+                description: project.description,
+                tags: project.tags,
+              );
+            });
+            _saveChanges();
+          },
+          onDelete: () => _deleteProject(sourceIndex),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
+      body: Column(
+        children: [
+          _buildHeader(isDark),
+          _buildFilterChips(isDark),
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child:
+                        CircularProgressIndicator(color: AppColors.primary01))
+                : _filteredProjects.isEmpty
+                    ? _buildEmptyState(isDark)
+                    : _buildGrid(isDark),
+          ),
+        ],
+      ),
+      floatingActionButton: _isLoading
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 74),
+              child: FloatingActionButton(
+                onPressed: _showAddPortfolioDialog,
+                backgroundColor: AppColors.primary01,
+                elevation: 4,
+                child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+              ),
+            ),
+      // Upload overlay
+      resizeToAvoidBottomInset: false,
+    );
+  }
+
+  // -- Header -----------------------------------------------------------------
+
+  Widget _buildHeader(bool isDark) {
+    final topPadding = MediaQuery.of(context).padding.top;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+      padding: EdgeInsets.only(
+        top: topPadding + 12,
+        left: AppSpacing.lg,
+        right: AppSpacing.lg,
+        bottom: 16,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.primary01,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => context.pop(),
+            child: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
           Text(
-            label,
+            'My Portfolio',
             style: GoogleFonts.outfit(
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              color: color,
-              letterSpacing: 0.5,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
           ),
+          const Spacer(),
+          if (!_isLoading)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha:0.2),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: Text(
+                '${_projects.length} Project${_projects.length == 1 ? '' : 's'}',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryFilters(ThemeData theme, bool isDark) {
-    return Container(
-      height: 90,
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: ListView.builder(
+  // -- Filter chips -----------------------------------------------------------
+
+  Widget _buildFilterChips(bool isDark) {
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding:
+            const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 10),
         itemCount: _categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final cat = _categories[index];
-          final isActive = _activeCategory == cat;
+          final isActive = cat == _activeCategory;
           return GestureDetector(
             onTap: () => setState(() => _activeCategory = cat),
             child: AnimatedContainer(
-              duration: 300.ms,
-              curve: Curves.easeOutQuint,
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              duration: const Duration(milliseconds: 200),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: isActive ? theme.primaryColor : (isDark ? Colors.white.withOpacity(0.02) : Colors.black.withOpacity(0.02)),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: isActive ? theme.primaryColor : (isDark? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08)),
-                  width: 1.5,
-                ),
-                boxShadow: isActive ? [
-                  BoxShadow(
-                    color: theme.primaryColor.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  )
-                ] : null,
+                color: isActive
+                    ? AppColors.primary01
+                    : (isDark ? AppColors.darkNeutral02 : Colors.white),
+                borderRadius: BorderRadius.circular(AppRadius.chip),
+                border: isActive
+                    ? null
+                    : Border.all(color: AppColors.border, width: 1),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary01.withValues(alpha:0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : null,
               ),
-              child: Center(
-                child: Text(
-                  cat,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                    color: isActive ? Colors.white : (isDark ? Colors.white60 : Colors.black54),
-                  ),
+              child: Text(
+                cat,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: isActive
+                      ? Colors.white
+                      : (isDark ? Colors.white70 : AppColors.textSecondary),
                 ),
               ),
             ),
@@ -655,227 +696,306 @@ class _VendorPortfolioScreenState extends State<VendorPortfolioScreen> {
     );
   }
 
-  Widget _buildPortfolioGrid(ThemeData theme, bool isDark) {
-    // Filter projects based on active category (which corresponds to title logic in our implementation)
-    final filteredProjects = _activeCategory == 'All'
-        ? _projects
-        : _projects.where((p) => p.title == _activeCategory).toList();
+  // -- Grid -------------------------------------------------------------------
 
-    if (filteredProjects.isEmpty) {
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.photo_library_outlined,
-                size: 64,
-                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _activeCategory == 'All' 
-                  ? 'No projects to show yet'
-                  : 'No $_activeCategory projects yet',
-                style: GoogleFonts.outfit(
-                  color: isDark ? Colors.white38 : Colors.black38,
-                  fontSize: 16,
-                ),
-              ),
-            ],
+  Widget _buildGrid(bool isDark) {
+    return Stack(
+      children: [
+        GridView.builder(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, 4, AppSpacing.lg, 90),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.85,
           ),
+          itemCount: _filteredProjects.length,
+          itemBuilder: (context, index) {
+            final project = _filteredProjects[index];
+            final sourceIndex =
+                _projects.indexWhere((p) => p.id == project.id);
+            return _ProjectCard(
+              project: project,
+              title: _displayTitle(project),
+              index: index,
+              onTap: () => _openProjectDetail(
+                  project, sourceIndex >= 0 ? sourceIndex : index),
+              onLongPress: () => _deleteProject(
+                  sourceIndex >= 0 ? sourceIndex : index),
+            );
+          },
         ),
-      );
-    }
-
-    return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 20,
-        crossAxisSpacing: 20,
-        childAspectRatio: 0.75,
-      ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final project = filteredProjects[index];
-          
-          return GestureDetector(
-            onTap: () => _openProjectDetail(project, index),
-            child: Hero(
-              tag: 'portfolio_$index',
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.4 : 0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Stack(
-                    fit: StackFit.expand,
+        // Upload overlay
+        if (_isUploading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha:0.5),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkNeutral02 : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Image.network(project.thumbnail, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey.withOpacity(0.1))),
-                      // Dynamic Gradient overlay
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              stops: const [0.3, 1.0],
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.85),
-                              ],
-                            ),
-                          ),
-                        ),
+                      const SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 3, color: AppColors.primary01),
                       ),
-                      Positioned(
-                        left: 16,
-                        bottom: 16,
-                        right: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: theme.primaryColor.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                project.title.toUpperCase(),
-                                style: GoogleFonts.outfit(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${project.images.length} Image(s)',
-                              style: GoogleFonts.outfit(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const SizedBox(height: 16),
+                      Text('Uploading images...',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors.textPrimary,
+                          )),
                     ],
                   ),
                 ),
               ),
             ),
-          ).animate(delay: (index * 80).ms).fadeIn(duration: 400.ms).scale(begin: const Offset(0.95, 0.95));
-        },
-        childCount: filteredProjects.length,
+          ),
+      ],
+    );
+  }
+
+  // -- Empty state ------------------------------------------------------------
+
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.primary01.withValues(alpha:0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.folder_outlined,
+                  size: 40, color: AppColors.primary01),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _activeCategory == 'All'
+                  ? 'No projects yet'
+                  : 'No $_activeCategory projects',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Showcase your work by adding your first project',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: isDark ? Colors.white60 : AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _showAddPortfolioDialog,
+              icon: const Icon(Icons.add_rounded, size: 20),
+              label: Text('Add Project',
+                  style: GoogleFonts.outfit(
+                      fontSize: 15, fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary01,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.button)),
+              ),
+            ),
+          ],
+        ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
       ),
     );
   }
 }
 
-class _ImageDetailView extends StatefulWidget {
-  final VendorProject project;
-  final int index;
-  final int totalProjects;
-  final VoidCallback onDelete;
-  final VoidCallback onEdit;
+// =============================================================================
+// Project Folder Card
+// =============================================================================
 
-  const _ImageDetailView({
-    required this.project, 
-    required this.index, 
-    required this.totalProjects,
-    required this.onDelete,
-    required this.onEdit,
+class _ProjectCard extends StatelessWidget {
+  const _ProjectCard({
+    required this.project,
+    required this.title,
+    required this.index,
+    required this.onTap,
+    required this.onLongPress,
   });
 
-  @override
-  State<_ImageDetailView> createState() => _ImageDetailViewState();
-}
-
-class _ImageDetailViewState extends State<_ImageDetailView> {
-  int _currentImageIndex = 0;
+  final VendorProject project;
+  final String title;
+  final int index;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.9),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Center(
-            child: Hero(
-              tag: 'portfolio_${widget.index}',
-              child: PageView.builder(
-                itemCount: widget.project.images.length,
-                onPageChanged: (idx) => setState(() => _currentImageIndex = idx),
-                itemBuilder: (context, idx) {
-                  return Image.network(widget.project.images[idx], fit: BoxFit.contain);
-                },
-              ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasThumbnail = project.thumbnail.isNotEmpty;
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha:isDark ? 0.3 : 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 20,
-            left: 20,
-            right: 20,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 28),
-                      onPressed: widget.onEdit,
-                      tooltip: 'Edit Category',
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Thumbnail or placeholder
+              if (hasThumbnail)
+                Image.network(
+                  project.thumbnail,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      _buildPlaceholder(isDark),
+                )
+              else
+                _buildPlaceholder(isDark),
+
+              // Gradient scrim
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [0.4, 1.0],
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha:0.75),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 28),
-                      onPressed: widget.onDelete,
-                      tooltip: 'Delete Project',
+                  ),
+                ),
+              ),
+
+              // Image count badge (top-right)
+              if (project.images.isNotEmpty)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary01,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.photo_library_rounded,
+                            color: Colors.white, size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${project.images.length}',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Name + tags (bottom)
+              Positioned(
+                left: 10,
+                right: 10,
+                bottom: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: project.tags.take(2).map((tag) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha:0.2),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.chip),
+                          ),
+                          child: Text(
+                            tag,
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha:0.9),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
-                ),
-                child: Text(
-                  '${widget.project.title} - Image ${_currentImageIndex + 1} of ${widget.project.images.length}',
-                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600),
-                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
+      ).animate().fadeIn(duration: 300.ms, delay: (index * 80).ms).scale(
+          begin: const Offset(0.95, 0.95),
+          end: const Offset(1, 1),
+          duration: 300.ms,
+          delay: (index * 80).ms),
+    );
+  }
+
+  Widget _buildPlaceholder(bool isDark) {
+    return Container(
+      color: isDark ? AppColors.darkNeutral02 : AppColors.neutrals02,
+      child: Center(
+        child: Icon(
+          Icons.folder_rounded,
+          size: 40,
+          color: isDark ? Colors.white24 : AppColors.neutrals05,
+        ),
       ),
     );
   }

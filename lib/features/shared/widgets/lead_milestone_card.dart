@@ -64,7 +64,7 @@ class LeadMilestoneCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Inquiry details confirmed',
+                      'Match details confirmed',
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -77,7 +77,7 @@ class LeadMilestoneCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          _buildInfoRow(Icons.event_available_rounded, 'Event', data['title'] ?? 'Inquiry'),
+          _buildInfoRow(Icons.event_available_rounded, 'Event', data['title'] ?? 'Match'),
           const SizedBox(height: 12),
           _buildInfoRow(Icons.calendar_today_rounded, 'Date', data['date'] ?? 'TBD'),
           const SizedBox(height: 12),

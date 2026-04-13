@@ -49,7 +49,7 @@ class _SearchFilterBottomSheetState extends ConsumerState<SearchFilterBottomShee
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) => MatchIntakeBottomSheet(
-          categoryName: _selectedCategory!,
+          initialService: _selectedCategory!,
         ),
       );
     }

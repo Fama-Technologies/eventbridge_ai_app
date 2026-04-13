@@ -585,6 +585,48 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> saveCustomerMatches({
+    required String userId,
+    required List<Map<String, dynamic>> matches,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/customer/matches',
+        data: {'userId': userId, 'matches': matches},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> toggleFavorite({
+    required String userId,
+    required String vendorId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/customer/favorites/toggle',
+        data: {'userId': userId, 'vendorId': vendorId},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<List<String>> getCustomerFavorites(String userId) async {
+    try {
+      final response = await _dio.get('/api/customer/favorites/$userId');
+      if (response.data['success'] == true) {
+        return List<String>.from(response.data['favoriteIds']);
+      }
+      return [];
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getCustomerMatches(String userId) async {
     try {
       final response = await _dio.get('/api/customer/matches/$userId');

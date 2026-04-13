@@ -19,7 +19,7 @@ class Vendor {
     required this.serviceCategories,
     this.avatarUrl,
     this.images = const [],
-    this.rating = 4.5,
+    this.rating = 0.0,
     this.price,
     this.matchScore = 0.0,
     this.matchReasons = const [],
@@ -102,7 +102,7 @@ class Vendor {
                          (json['services'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       avatarUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
       images: finalImages,
-      rating: (json['rating'] ?? json['averageRating'] ?? 4.5).toDouble(),
+      rating: (json['rating'] ?? json['averageRating'] ?? 0.0).toDouble(),
       price: json['price']?.toString(),
       matchScore: (json['matchScore'] ?? 0.0).toDouble(),
       matchReasons: json['matchReasons'] is List 
