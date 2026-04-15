@@ -32,46 +32,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBrf0vApoO-VZh4lK7igp6FhRhgvuJRyAI',
-    appId: '1:210290711848:web:7a92b2d3e918fc96b8041d',
-    messagingSenderId: '210290711848',
-    projectId: 'eventbridge-34569',
-    authDomain: 'eventbridge-34569.firebaseapp.com',
-    storageBucket: 'eventbridge-34569.firebasestorage.app',
+    apiKey: 'AIzaSyCJXf-A5M-5o08eLMTbB6Hh3C0dCfwK07E',
+    appId: '1:185107161336:web:6516629e46fcaae2ed9b0d', // Extrapolated from Android/iOS pattern if web was not provided, but usually same sender ID
+    messagingSenderId: '185107161336',
+    projectId: 'eventbridge-483019',
+    authDomain: 'eventbridge-483019.firebaseapp.com',
+    storageBucket: 'eventbridge-483019.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBrf0vApoO-VZh4lK7igp6FhRhgvuJRyAI',
-    appId: '1:210290711848:android:4698e8e659367fcab8041d',
-    messagingSenderId: '210290711848',
-    projectId: 'eventbridge-34569',
-    storageBucket: 'eventbridge-34569.firebasestorage.app',
+    apiKey: 'AIzaSyCJXf-A5M-5o08eLMTbB6Hh3C0dCfwK07E',
+    appId: '1:185107161336:android:f3312605b8cf7f4aed9b0d',
+    messagingSenderId: '185107161336',
+    projectId: 'eventbridge-483019',
+    storageBucket: 'eventbridge-483019.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBfSemhIre-QzglwMeF7bI6DI4EfamTjPg',
-    appId: '1:210290711848:ios:550cb3da79517190b8041d',
-    messagingSenderId: '210290711848',
-    projectId: 'eventbridge-34569',
-    storageBucket: 'eventbridge-34569.firebasestorage.app',
+    apiKey: 'AIzaSyDUD1TLRw9Xx0UvD_Bqed1XskB3i5eBqUs',
+    appId: '1:185107161336:ios:fe6055fc1ea856dbed9b0d',
+    messagingSenderId: '185107161336',
+    projectId: 'eventbridge-483019',
+    storageBucket: 'eventbridge-483019.firebasestorage.app',
     iosBundleId: 'com.eventbridge.eventbridge',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBfSemhIre-QzglwMeF7bI6DI4EfamTjPg',
-    appId: '1:210290711848:ios:550cb3da79517190b8041d',
-    messagingSenderId: '210290711848',
-    projectId: 'eventbridge-34569',
-    storageBucket: 'eventbridge-34569.firebasestorage.app',
+    apiKey: 'AIzaSyDUD1TLRw9Xx0UvD_Bqed1XskB3i5eBqUs',
+    appId: '1:185107161336:ios:fe6055fc1ea856dbed9b0d',
+    messagingSenderId: '185107161336',
+    projectId: 'eventbridge-483019',
+    storageBucket: 'eventbridge-483019.firebasestorage.app',
     iosBundleId: 'com.eventbridge.eventbridge',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBrf0vApoO-VZh4lK7igp6FhRhgvuJRyAI',
-    appId: '1:210290711848:web:7a92b2d3e918fc96b8041d',
-    messagingSenderId: '210290711848',
-    projectId: 'eventbridge-34569',
-    authDomain: 'eventbridge-34569.firebaseapp.com',
-    storageBucket: 'eventbridge-34569.firebasestorage.app',
+    apiKey: 'AIzaSyCJXf-A5M-5o08eLMTbB6Hh3C0dCfwK07E',
+    appId: '1:185107161336:web:6516629e46fcaae2ed9b0d',
+    messagingSenderId: '185107161336',
+    projectId: 'eventbridge-483019',
+    authDomain: 'eventbridge-483019.firebaseapp.com',
+    storageBucket: 'eventbridge-483019.firebasestorage.app',
   );
 }

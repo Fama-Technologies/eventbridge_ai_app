@@ -1,49 +1,34 @@
 {
   "project_info": {
-    "project_number": "210290711848",
-    "project_id": "eventbridge-34569",
-    "storage_bucket": "eventbridge-34569.firebasestorage.app"
+    "project_number": "185107161336",
+    "project_id": "eventbridge-483019",
+    "storage_bucket": "eventbridge-483019.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:210290711848:android:4698e8e659367fcab8041d",
+        "mobilesdk_app_id": "1:185107161336:android:f3312605b8cf7f4aed9b0d",
         "android_client_info": {
           "package_name": "com.eventbridge.eventbridge"
         }
       },
       "oauth_client": [
         {
-          "client_id": "210290711848-umjmh6u5gbu57ktlrrn542l086rcq4jb.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.eventbridge.eventbridge",
-            "certificate_hash": "059bb64b5097d22ee410e6f9ac6251bcf9384ce5"
-          }
-        },
-        {
-          "client_id": "210290711848-9vlffn2n1bigsvoi24ieuklj2nmivc6j.apps.googleusercontent.com",
+          "client_id": "185107161336-540qvqk8m94p5384rr6f47c4nmb18gd0.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBrf0vApoO-VZh4lK7igp6FhRhgvuJRyAI"
+          "current_key": "AIzaSyCJXf-A5M-5o08eLMTbB6Hh3C0dCfwK07E"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "210290711848-9vlffn2n1bigsvoi24ieuklj2nmivc6j.apps.googleusercontent.com",
+              "client_id": "185107161336-540qvqk8m94p5384rr6f47c4nmb18gd0.apps.googleusercontent.com",
               "client_type": 3
-            },
-            {
-              "client_id": "210290711848-p3t3rq2v2l48q2gt8hjahdd3vvf3npqv.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.eventbridge.eventbridge"
-              }
             }
           ]
         }

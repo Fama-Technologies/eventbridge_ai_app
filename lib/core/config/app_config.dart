@@ -17,9 +17,8 @@ class AppConfig {
     switch (_environment) {
       case Environment.dev:
       case Environment.staging:
-        return 'eventbridge-34569';
       case Environment.production:
-        return 'eventbridge-34569';
+        return 'eventbridge-483019';
     }
   }
 
