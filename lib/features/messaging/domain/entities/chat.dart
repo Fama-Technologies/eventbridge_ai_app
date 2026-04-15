@@ -1,10 +1,10 @@
 import 'package:eventbridge/features/messaging/domain/entities/chat_status.dart';
 
 /// Represents a chat conversation document in Firestore.
-/// chatId format: "{customerId}_{vendorId}" (deterministic — prevents duplicates)
+/// chatId format: "{clientId}_{vendorId}" (deterministic — prevents duplicates)
 class Chat {
   final String id;
-  final String customerId;
+  final String clientId;
   final String vendorId;
 
   // Denormalized display data (avoids extra reads on chat list)
@@ -28,7 +28,7 @@ class Chat {
   final String lastMessageType; // 'text' | 'image' | 'system'
 
   // Unread counters
-  final int unreadByCustomer;
+  final int unreadByClient;
   final int unreadByVendor;
 
   // Typing map: {userId: DateTime?} — included in chat doc stream (no extra listener)
@@ -39,7 +39,7 @@ class Chat {
 
   const Chat({
     required this.id,
-    required this.customerId,
+    required this.clientId,
     required this.vendorId,
     this.customerName = '',
     this.customerPhotoUrl = '',
@@ -53,7 +53,7 @@ class Chat {
     this.lastMessageAt,
     this.lastMessageSenderId,
     this.lastMessageType = 'text',
-    this.unreadByCustomer = 0,
+    this.unreadByClient = 0,
     this.unreadByVendor = 0,
     this.typing = const {},
     this.createdAt,
@@ -62,7 +62,7 @@ class Chat {
 
   Chat copyWith({
     String? id,
-    String? customerId,
+    String? clientId,
     String? vendorId,
     String? customerName,
     String? customerPhotoUrl,
@@ -76,7 +76,7 @@ class Chat {
     DateTime? lastMessageAt,
     String? lastMessageSenderId,
     String? lastMessageType,
-    int? unreadByCustomer,
+    int? unreadByClient,
     int? unreadByVendor,
     Map<String, DateTime?>? typing,
     DateTime? createdAt,
@@ -84,7 +84,7 @@ class Chat {
   }) {
     return Chat(
       id: id ?? this.id,
-      customerId: customerId ?? this.customerId,
+      clientId: clientId ?? this.clientId,
       vendorId: vendorId ?? this.vendorId,
       customerName: customerName ?? this.customerName,
       customerPhotoUrl: customerPhotoUrl ?? this.customerPhotoUrl,
@@ -98,7 +98,7 @@ class Chat {
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       lastMessageSenderId: lastMessageSenderId ?? this.lastMessageSenderId,
       lastMessageType: lastMessageType ?? this.lastMessageType,
-      unreadByCustomer: unreadByCustomer ?? this.unreadByCustomer,
+      unreadByClient: unreadByClient ?? this.unreadByClient,
       unreadByVendor: unreadByVendor ?? this.unreadByVendor,
       typing: typing ?? this.typing,
       createdAt: createdAt ?? this.createdAt,
@@ -118,7 +118,7 @@ class Chat {
 
   /// Unread count for the current user's role
   int unreadCount({required bool isVendor}) =>
-      isVendor ? unreadByVendor : unreadByCustomer;
+      isVendor ? unreadByVendor : unreadByClient;
 
   /// Whether someone else is currently typing
   bool isOtherTyping({required String myId}) {

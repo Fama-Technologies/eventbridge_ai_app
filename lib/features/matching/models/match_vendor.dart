@@ -178,6 +178,7 @@ class MatchVendor {
     required this.id,
     required this.name,
     required this.businessOverview,
+    required this.categories,
     required this.services,
     required this.location,
     required this.plan,
@@ -195,11 +196,13 @@ class MatchVendor {
     this.matchReasons = const [],
     this.latitude,
     this.longitude,
+    this.hasRecommendedBadge = false,
   });
 
   final String id;
   final String name;
   final String businessOverview;
+  final List<String> categories;
   final List<String> services;
   final String plan;
   final DateTime? planExpiry;
@@ -217,13 +220,14 @@ class MatchVendor {
   final List<String> matchReasons;
   final double? latitude;
   final double? longitude;
+  final bool hasRecommendedBadge;
 
   Vendor toVendor() {
     return Vendor(
       id: id,
       businessName: name,
       location: location,
-      serviceCategories: services,
+      serviceCategories: categories, // Maps categories to the shared Vendor model
       avatarUrl: avatarUrl,
       images: portfolio,
       rating: rating,
@@ -240,6 +244,7 @@ class MatchVendor {
     String? id,
     String? name,
     String? businessOverview,
+    List<String>? categories,
     List<String>? services,
     String? plan,
     DateTime? planExpiry,
@@ -257,11 +262,13 @@ class MatchVendor {
     List<String>? matchReasons,
     double? latitude,
     double? longitude,
+    bool? hasRecommendedBadge,
   }) {
     return MatchVendor(
       id: id ?? this.id,
       name: name ?? this.name,
       businessOverview: businessOverview ?? this.businessOverview,
+      categories: categories ?? this.categories,
       services: services ?? this.services,
       plan: plan ?? this.plan,
       planExpiry: planExpiry ?? this.planExpiry,
@@ -279,6 +286,7 @@ class MatchVendor {
       matchReasons: matchReasons ?? this.matchReasons,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      hasRecommendedBadge: hasRecommendedBadge ?? this.hasRecommendedBadge,
     );
   }
 
@@ -415,14 +423,19 @@ class MatchVendor {
           json['businessOverview'] ??
           json['description'] ??
           '',
-      services:
-          (json['services'] as List<dynamic>?)
+      categories:
+          (json['categories'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           (json['serviceCategories'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          (json['services_list'] as List<dynamic>?)
+          [],
+      services:
+          (json['services'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          (json['eventCategories'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -465,7 +478,12 @@ class MatchVendor {
               ?.map((e) => VendorReview.fromJson(e))
               .toList() ??
           [],
-      socialLinks: Map<String, String>.from(json['social_links'] ?? {}),
+      socialLinks: {
+        'instagram': json['instagram_handle'] ?? json['social_links']?['instagram'] ?? '',
+        'tiktok': json['tiktok_handle'] ?? json['social_links']?['tiktok'] ?? '',
+        'facebook': json['facebook_handle'] ?? json['social_links']?['facebook'] ?? '',
+        'website': json['website_url'] ?? json['website'] ?? json['social_links']?['website'] ?? '',
+      },
       availableDates:
           (json['blockedDates'] as List<dynamic>?)
               ?.map((e) => DateTime.tryParse(e.toString()))
@@ -487,6 +505,7 @@ class MatchVendor {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      hasRecommendedBadge: json['has_recommended_badge'] == true,
     );
   }
 

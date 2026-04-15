@@ -46,34 +46,13 @@ class ChatMessage {
   }
 }
 
-class Lead {
-  final String id;
-  final String title;
-  final String date;
-  final String time;
-  final String location;
-  final int matchScore;
-  final double budget;
-  final int guests;
-  final String responseTime;
-  final String clientName;
-  final String clientMessage;
-  final String venueName;
-  final String venueAddress;
-  final String clientImageUrl;
-  final bool isHighValue;
-  final String lastActive;
-  final bool isAccepted;
-  final String? phoneNumber;
-  final String? vendorResponse;
-  final List<ChatMessage> messages;
-  final DateTime? acceptedAt;
-  final String? customerId;
   final String status;
+  final String? packageId;
+  final String? packageTitle;
 
   Lead({
     required this.id,
-    this.customerId,
+    this.clientId,
     required this.title,
     required this.date,
     required this.time,
@@ -95,11 +74,13 @@ class Lead {
     this.messages = const [],
     this.acceptedAt,
     this.status = 'pending',
+    this.packageId,
+    this.packageTitle,
   });
 
   Lead copyWith({
     String? id,
-    String? customerId,
+    String? clientId,
     String? title,
     String? date,
     String? time,
@@ -121,10 +102,12 @@ class Lead {
     List<ChatMessage>? messages,
     DateTime? acceptedAt,
     String? status,
+    String? packageId,
+    String? packageTitle,
   }) {
     return Lead(
       id: id ?? this.id,
-      customerId: customerId ?? this.customerId,
+      clientId: clientId ?? this.clientId,
       title: title ?? this.title,
       date: date ?? this.date,
       time: time ?? this.time,
@@ -146,6 +129,8 @@ class Lead {
       messages: messages ?? this.messages,
       acceptedAt: acceptedAt ?? this.acceptedAt,
       status: status ?? this.status,
+      packageId: packageId ?? this.packageId,
+      packageTitle: packageTitle ?? this.packageTitle,
     );
   }
 
@@ -162,8 +147,6 @@ class Lead {
       return value['id']?.toString() ??
           value['userId']?.toString() ??
           value['user_id']?.toString() ??
-          value['customerId']?.toString() ??
-          value['customer_id']?.toString() ??
           value['clientId']?.toString() ??
           value['client_id']?.toString() ??
           value['requesterId']?.toString() ??
@@ -182,12 +165,12 @@ class Lead {
         .toList();
 
     final leadId = json['id']?.toString() ?? '';
-    final custId =
-        json['customerId']?.toString() ??
-        json['customer_id']?.toString() ??
-        json['userId']?.toString() ??
-        json['client_id']?.toString() ??
+    final clientId =
         json['clientId']?.toString() ??
+        json['client_id']?.toString() ??
+        json['userId']?.toString() ??
+        json['customer_id']?.toString() ??
+        json['customerId']?.toString() ??
         json['customer_user_id']?.toString() ??
         json['inquiryCustomerId']?.toString() ??
         json['requestCustomerId']?.toString() ??
@@ -204,23 +187,23 @@ class Lead {
         nestedId(request) ??
         nestedId(requester);
 
-    if (custId == null || custId.isEmpty) {
+    if (clientId == null || clientId.isEmpty) {
       // ── DIAGNOSTIC DUMP ────────────────────────────────────────────────────
-      // Log the full raw lead JSON so we can find the correct customerId field.
+      // Log the full raw lead JSON so we can find the correct clientId field.
       // Remove once the field name is identified and added above.
-      debugPrint('⚠️ [Lead.fromJson] No customerId found for lead $leadId');
+      debugPrint('⚠️ [Lead.fromJson] No clientId found for lead $leadId');
       debugPrint('⚠️ [Lead.fromJson] ALL KEYS: ${json.keys.toList()}');
       // Print every top-level key/value pair
       for (final entry in json.entries) {
         debugPrint('⚠️ [Lead.fromJson]   ${entry.key}: ${entry.value}');
       }
     } else {
-      debugPrint('[Lead.fromJson] Lead $leadId → customerId=$custId ✓');
+      debugPrint('[Lead.fromJson] Lead $leadId → clientId=$clientId ✓');
     }
 
     return Lead(
       id: leadId,
-      customerId: custId,
+      clientId: clientId,
       title: json['title'] ?? json['eventType'] ?? 'Lead',
       date:
           json['date'] ??
@@ -272,13 +255,15 @@ class Lead {
         json['acceptedAt']?.toString() ?? json['accepted_at']?.toString() ?? '',
       ),
       status: json['status']?.toString() ?? 'pending',
+      packageId: json['packageId']?.toString() ?? json['package_id']?.toString(),
+      packageTitle: json['packageTitle']?.toString() ?? json['package_title']?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'customerId': customerId,
+      'clientId': clientId,
       'title': title,
       'date': date,
       'time': time,
@@ -300,6 +285,8 @@ class Lead {
       'messages': messages.map((msg) => msg.toJson()).toList(),
       'acceptedAt': acceptedAt?.toIso8601String(),
       'status': status,
+      'packageId': packageId,
+      'packageTitle': packageTitle,
     };
   }
   static Lead empty() {
@@ -319,7 +306,7 @@ class Lead {
       venueAddress: '',
       clientImageUrl: '',
       lastActive: '',
-      customerId: '',
+      clientId: '',
     );
   }
 }

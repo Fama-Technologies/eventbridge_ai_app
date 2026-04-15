@@ -20,11 +20,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _isUpgrading = false;
   String _displayCurrency = 'USD'; // default until loaded
 
-  // Conversion rates from USD
+  // Conversion rates from USD (Professional Sync)
   static const Map<String, double> _conversionRates = {
     'USD': 1.0,
-    'UGX': 3700.0,
-    'KES': 133.0,
+    'UGX': 3650.0,
+    'KES': 130.0,
     'TZS': 2500.0,
     'RWF': 1300.0,
     'GBP': 0.79,
@@ -77,17 +77,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final userId = StorageService().getString('user_id');
       if (userId == null) return;
 
+      // 1. Fetch Profile
       final result = await ApiService.instance.getVendorProfile(userId);
       if (mounted && result['success'] == true) {
         final expiresRaw = result['profile']['subscriptionExpiresAt'];
-        // Sync currency from vendor profile if not yet set by user
         final profileCurrency = result['profile']['currency'];
         if (profileCurrency != null && StorageService().getString('display_currency') == null) {
           await StorageService().setString('display_currency', profileCurrency);
         }
         setState(() {
           _currentPlan = result['profile']['subscriptionStatus'] ?? 'free_trial';
-          _isLoading = false;
           _displayCurrency = StorageService().getString('display_currency') ?? profileCurrency ?? 'USD';
           if (expiresRaw != null) {
             _expiresAt = DateTime.tryParse(expiresRaw.toString());
@@ -95,11 +94,28 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         });
         StorageService().setString('vendor_plan', _currentPlan!);
       }
+
+      // 2. Fetch System Settings (Exchange Rate)
+      final settingsRes = await ApiService.instance.getSystemSettings();
+      if (mounted && settingsRes['success'] == true) {
+        final settings = settingsRes['settings'] as Map;
+        if (settings.containsKey('ugx_to_usd_rate')) {
+          final rate = double.tryParse(settings['ugx_to_usd_rate'].toString());
+          if (rate != null) {
+            setState(() {
+              _conversionRates['UGX'] = rate;
+            });
+          }
+        }
+      }
+
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      debugPrint('Error loading plan: \$e');
+      debugPrint('Error loading plan/settings: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
+ }
 
   Future<void> _handleUpgrade(String plan) async {
     setState(() => _isUpgrading = true);
@@ -241,10 +257,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     price: _formatPrice(15),
                     icon: Icons.business_center_rounded,
                     features: [
-                      '3 Package Listings',
-                      '3 Portfolio Projects (5 images each)',
-                      'Bookings Calendar',
-                      'Messaging',
+                      '3 New Packages each month',
+                      '3 New Portfolio Projects monthly',
+                      'Bookings & Messaging access',
+                      '2 Free Promotional Ads monthly',
+                      'Standard Search Placement',
                     ],
                     buttonLabel: _currentPlan == 'pro' ? 'Current Plan' : 'Upgrade to Basic Vendor',
                     isActive: _currentPlan == 'pro',
@@ -258,12 +275,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     price: _formatPrice(30),
                     icon: Icons.military_tech_rounded,
                     features: [
-                      '6 Package Listings',
-                      '6 Portfolio Projects',
-                      'Bookings Calendar',
-                      'Messaging',
-                      'Priority Search Placement',
-                      'Top Recommended Badge',
+                      '6 New Packages each month',
+                      '6 New Portfolio Projects monthly',
+                      'Bookings & Messaging access',
+                      '4 Free Promotional Ads monthly',
+                      'Top Priority Search Ranking',
+                      'Recommended Badge on Search',
                     ],
                     buttonLabel: _currentPlan == 'business_pro' ? 'Current Plan' : 'Upgrade to Premium Vendor',
                     isActive: _currentPlan == 'business_pro',

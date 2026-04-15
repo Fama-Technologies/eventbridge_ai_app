@@ -23,7 +23,7 @@ class FirestoreChatRepository implements ChatRepository {
   Stream<Chat> getChatDetails(String chatId) {
     return _firestoreChatSource
         .watchChat(chatId)
-        .map((chat) => chat ?? Chat(id: chatId, customerId: '', vendorId: ''));
+        .map((chat) => chat ?? Chat(id: chatId, clientId: '', vendorId: ''));
   }
 
   @override

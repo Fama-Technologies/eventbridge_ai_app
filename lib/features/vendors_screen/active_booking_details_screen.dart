@@ -21,17 +21,17 @@ class ActiveBookingDetailsScreen extends ConsumerStatefulWidget {
 class _ActiveBookingDetailsScreenState
     extends ConsumerState<ActiveBookingDetailsScreen> {
   void _openVendorChat(Lead booking) {
-    final customerId = booking.customerId?.trim() ?? '';
+    final clientId = booking.clientId?.trim() ?? '';
     final vendorId = StorageService().getString('user_id') ?? '';
     if (vendorId.isEmpty) {
       return;
     }
 
-    final lookupKey = customerId.isNotEmpty
-        ? '${customerId}_$vendorId'
+    final lookupKey = clientId.isNotEmpty
+        ? '${clientId}_$vendorId'
         : booking.id;
     context.push(
-      '/vendor-chat/$lookupKey?phone=${Uri.encodeComponent(booking.phoneNumber ?? '')}&leadTitle=${Uri.encodeComponent(booking.title)}&leadDate=${Uri.encodeComponent(booking.date)}&otherUserName=${Uri.encodeComponent(booking.clientName)}&customerId=$customerId',
+      '/vendor-chat/$lookupKey?phone=${Uri.encodeComponent(booking.phoneNumber ?? '')}&leadTitle=${Uri.encodeComponent(booking.title)}&leadDate=${Uri.encodeComponent(booking.date)}&otherUserName=${Uri.encodeComponent(booking.clientName)}&clientId=$clientId',
     );
   }
 

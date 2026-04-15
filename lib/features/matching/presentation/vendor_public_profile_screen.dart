@@ -39,6 +39,16 @@ class _VendorPublicProfileScreenState extends ConsumerState<VendorPublicProfileS
     });
 
     _vendorFuture = _loadVendor();
+    _recordView();
+  }
+
+  void _recordView() {
+    final storage = StorageService();
+    final currentUserId = storage.getString('user_id');
+    ApiService.instance.recordProfileView(
+      vendorProfileId: widget.vendorId,
+      viewerId: currentUserId,
+    ).ignore(); // Fire and forget
   }
 
   Future<MatchVendor?> _loadVendor() async {

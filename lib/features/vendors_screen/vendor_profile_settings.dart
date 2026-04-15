@@ -99,7 +99,10 @@ class _VendorProfileSettingsScreenState
           _expCtrl.text = profile['experience']?.toString() ?? '';
           _currency = profile['currency'] ?? 'UGX';
           _priceUnit = profile['priceUnit'] ?? 'Per Event';
-          _webCtrl.text = profile['website'] ?? '';
+          _webCtrl.text = profile['websiteUrl'] ?? profile['website'] ?? '';
+          _instaCtrl.text = profile['instagramHandle'] ?? '';
+          _tiktokCtrl.text = profile['tiktokHandle'] ?? '';
+          _fbCtrl.text = profile['facebookHandle'] ?? '';
           _travelRadius =
               double.tryParse(profile['travelRadius']?.toString() ?? '50.0') ??
               50.0;
@@ -162,6 +165,15 @@ class _VendorProfileSettingsScreenState
 
       if (userId == null) return;
 
+      if (_priceCtrl.text.trim().isEmpty || _priceCtrl.text.trim() == '0') {
+        AppToast.show(
+          context,
+          message: 'Base price is required for your profile.',
+          type: ToastType.warning,
+        );
+        return;
+      }
+
       final result = await ApiService.instance.submitVendorOnboarding(
         userId: userId,
         businessName: _businessNameCtrl.text,
@@ -169,13 +181,16 @@ class _VendorProfileSettingsScreenState
         experience: _expCtrl.text,
         location: _locationCtrl.text,
         country: _countryCtrl.text,
-        serviceCategories: _serviceCategories.toSet().toList(),
-        eventCategories: _eventCategories.toSet().toList(),
+        categories: _serviceCategories.toSet().toList(),
+        services: _eventCategories.toSet().toList(),
         price: _priceCtrl.text,
         currency: _currency,
         priceUnit: _priceUnit,
         galleryUrls: _portfolioImages.toSet().toList(),
         website: _webCtrl.text,
+        instagram: _instaCtrl.text,
+        tiktok: _tiktokCtrl.text,
+        facebook: _fbCtrl.text,
         travelRadius: _travelRadius.toInt(),
         latitude: _lat,
         longitude: _lng,
@@ -348,11 +363,11 @@ class _VendorProfileSettingsScreenState
                   const SizedBox(height: 32),
                   _ProfileSectionHeader(
                     icon: Icons.auto_awesome_rounded,
-                    title: 'Service Categories',
+                    title: 'Business Categories',
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Select keywords that describe your expertise to match you with the right clients.',
+                    'Select the categories that best describe your business specialization (e.g. Photography, Venues).',
                     style: GoogleFonts.roboto(
                       fontSize: 14,
                       color: const Color(0xFF64748B),
@@ -367,11 +382,11 @@ class _VendorProfileSettingsScreenState
                   const SizedBox(height: 40),
                   _ProfileSectionHeader(
                     icon: Icons.celebration_rounded,
-                    title: 'Event Categories',
+                    title: 'Supported Services',
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Select the types of events you cater to.',
+                    'Select the types of event services you provide (e.g. Weddings, Corporate, Birthdays).',
                     style: GoogleFonts.roboto(
                       fontSize: 14,
                       color: const Color(0xFF64748B),

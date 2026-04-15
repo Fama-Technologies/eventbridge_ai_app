@@ -784,23 +784,23 @@ class _LeadDetailsBottomSheetState extends ConsumerState<LeadDetailsBottomSheet>
             final vendorId = StorageService().getString('user_id') ?? '';
             if (vendorId.isEmpty) return;
 
-            // Prefer the customerId from the Firestore chat (most reliable);
+            // Prefer the clientId from the Firestore chat (most reliable);
             // fall back to what the lead model parsed from the API.
-            final resolvedCustomerId = (chat?.customerId.isNotEmpty == true
-                    ? chat!.customerId
-                    : lead.customerId?.trim() ?? '')
+            final resolvedCustomerId = (chat?.clientId.isNotEmpty == true
+                    ? chat!.clientId
+                    : lead.clientId?.trim() ?? '')
                 .trim();
 
             debugPrint(
               '[BottomSheet] Navigating to chat: resolvedCustomerId='  
-              '"$resolvedCustomerId" (chat.customerId="${chat?.customerId}", '
-              'lead.customerId="${lead.customerId}")',
+              '"$resolvedCustomerId" (chat.clientId="${chat?.clientId}", '
+              'lead.clientId="${lead.clientId}")',
             );
 
             if (resolvedCustomerId.isEmpty) {
               // Can't open chat without a customer ID — the success overlay
               // already showed; just don't navigate to a broken state.
-              debugPrint('[BottomSheet] Skipping chat navigation: no customerId.');
+              debugPrint('[BottomSheet] Skipping chat navigation: no clientId.');
               return;
             }
 
@@ -811,7 +811,7 @@ class _LeadDetailsBottomSheetState extends ConsumerState<LeadDetailsBottomSheet>
               '&leadTitle=${Uri.encodeComponent(lead.title)}'
               '&leadDate=${Uri.encodeComponent(lead.date)}'
               '&otherUserName=${Uri.encodeComponent(lead.clientName)}'
-              '&customerId=$resolvedCustomerId',
+              '&clientId=$resolvedCustomerId',
             );
           }
         });

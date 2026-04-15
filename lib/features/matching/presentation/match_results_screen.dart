@@ -340,6 +340,41 @@ class _VendorMatchCardState extends State<_VendorMatchCard> {
                   ),
                 ),
               ),
+              // Recommended Badge
+              if (vendor.hasRecommendedBadge)
+                Positioned(
+                  top: 60,
+                  left: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD700),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_user_rounded, color: Colors.black, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          'RECOMMENDED',
+                          style: GoogleFonts.outfit(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               // Favorite Button
               Positioned(
                 top: 20,

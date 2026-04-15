@@ -60,14 +60,14 @@ class FirestoreChatSource {
 
   // ─── Chat ID ───────────────────────────────────────────────────────────────
 
-  /// Deterministic chatId prevents duplicate chats: "{customerId}_{vendorId}"
-  static String chatId(String customerId, String vendorId) =>
-      '${customerId}_$vendorId';
+  /// Deterministic chatId prevents duplicate chats: "{clientId}_{vendorId}"
+  static String chatId(String clientId, String vendorId) =>
+      '${clientId}_$vendorId';
 
   // ─── Create or get chat ────────────────────────────────────────────────────
 
   Future<Chat?> createOrGetChat({
-    required String customerId,
+    required String clientId,
     required String vendorId,
     required String customerName,
     required String customerPhotoUrl,
@@ -78,14 +78,14 @@ class FirestoreChatSource {
     String? leadId,
   }) async {
     await _ensureMessagingAuthReady();
-    final id = chatId(customerId, vendorId);
+    final id = chatId(clientId, vendorId);
     final ref = _chatDoc(id);
     final existing = await ref.get();
 
     if (existing.exists) {
       await ref.set({
         'id': id,
-        'customerId': customerId,
+        'clientId': clientId,
         'vendorId': vendorId,
         'customerName': customerName,
         'customerPhotoUrl': customerPhotoUrl,
@@ -99,7 +99,7 @@ class FirestoreChatSource {
     } else {
       await ref.set({
         'id': id,
-        'customerId': customerId,
+        'clientId': clientId,
         'vendorId': vendorId,
         'customerName': customerName,
         'customerPhotoUrl': customerPhotoUrl,
@@ -112,7 +112,7 @@ class FirestoreChatSource {
         'lastMessage': '',
         'lastMessageType': 'text',
         'lastMessageAt': FieldValue.serverTimestamp(),
-        'unreadByCustomer': 0,
+        'unreadByClient': 0,
         'unreadByVendor': 0,
         'typing': <String, dynamic>{},
         'createdAt': FieldValue.serverTimestamp(),
@@ -130,7 +130,7 @@ class FirestoreChatSource {
   /// Used when the customer's Firebase UID is not available from the backend.
   /// The chat is keyed as `lead_{leadId}` and has [leadId] stored in the `leadId`
   /// field so [watchResolvedChat] can discover it via the leadId+vendorId query.
-  /// [customerId] is left empty and can be patched later once the backend
+  /// [clientId] is left empty and can be patched later once the backend
   /// starts returning it.
   Future<Chat?> createOrGetChatByLeadId({
     required String leadId,
@@ -146,14 +146,14 @@ class FirestoreChatSource {
     final chatId = 'lead_$leadId';
     final ref = _chatDoc(chatId);
     
-    // Attempt to resolve customerId from the current session if available
+    // Attempt to resolve clientId from the current session if available
     final storage = StorageService();
     final role = storage.getString('user_role') ?? 'CUSTOMER';
     final currentUserId = storage.getString('user_id') ?? FirebaseAuth.instance.currentUser?.uid ?? '';
     
-    // If we are a customer, we ARE the customerId. 
-    // If we are a vendor, we still don't know the customerId yet (it remains '' until updated/healed).
-    final resolvedCustomerId = role == 'CUSTOMER' ? currentUserId : '';
+    // If we are a customer, we ARE the clientId. 
+    // If we are a vendor, we still don't know the clientId yet (it remains '' until updated/healed).
+    final resolvedClientId = role == 'CUSTOMER' ? currentUserId : '';
 
     final existing = await ref.get();
     if (!existing.exists) {
@@ -161,7 +161,7 @@ class FirestoreChatSource {
         'id': chatId,
         'leadId': leadId,
         'vendorId': vendorId,
-        'customerId': resolvedCustomerId,
+        'clientId': resolvedClientId,
         'vendorName': vendorName,
         'vendorPhotoUrl': vendorPhotoUrl,
         'vendorPhone': vendorPhone,
@@ -172,7 +172,7 @@ class FirestoreChatSource {
         'lastMessage': '',
         'lastMessageType': 'text',
         'lastMessageAt': FieldValue.serverTimestamp(),
-        'unreadByCustomer': 0,
+        'unreadByClient': 0,
         'unreadByVendor': 0,
         'typing': <String, dynamic>{},
         'createdAt': FieldValue.serverTimestamp(),
@@ -180,9 +180,9 @@ class FirestoreChatSource {
       };
       await ref.set(data, SetOptions(merge: true));
     } else {
-      // Healing: If the doc exists but customerId is empty, and we now know who it is, update it.
-      if (resolvedCustomerId.isNotEmpty && (existing.data()?['customerId']?.isEmpty ?? true)) {
-        await ref.update({'customerId': resolvedCustomerId, 'updatedAt': FieldValue.serverTimestamp()});
+      // Healing: If the doc exists but clientId is empty, and we now know who it is, update it.
+      if (resolvedClientId.isNotEmpty && (existing.data()?['clientId']?.isEmpty ?? true)) {
+        await ref.update({'clientId': resolvedClientId, 'updatedAt': FieldValue.serverTimestamp()});
       }
     }
 
@@ -197,8 +197,8 @@ class FirestoreChatSource {
   Stream<List<Chat>> watchChats(String userId) async* {
     await _ensureMessagingAuthReady();
     // Two separate queries merged — safer for indexing
-    final asCustomer = _chats
-        .where('customerId', isEqualTo: userId)
+    final asClient = _chats
+        .where('clientId', isEqualTo: userId)
         .orderBy('lastMessageAt', descending: true)
         .snapshots()
         .map((s) => s.docs.map(_chatFromDoc).toList());
@@ -210,7 +210,7 @@ class FirestoreChatSource {
         .map((s) => s.docs.map(_chatFromDoc).toList());
 
     // Combine both streams
-    yield* _combineLatestChats(asCustomer, asVendor);
+    yield* _combineLatestChats(asClient, asVendor);
   }
 
   Stream<List<Chat>> _combineLatestChats(
@@ -278,7 +278,7 @@ class FirestoreChatSource {
     final role = storage.getString('user_role') ?? 'CUSTOMER';
     final userField = role.toUpperCase() == 'VENDOR'
         ? 'vendorId'
-        : 'customerId';
+        : 'clientId';
 
     yield* _chats
         .where('leadId', isEqualTo: chatIdOrChatLookupKey)
@@ -344,8 +344,8 @@ class FirestoreChatSource {
     try {
       final chatDoc = await _chatDoc(chatId).get();
       if (chatDoc.exists) {
-        final isCustomer = chatDoc.data()?['customerId'] == senderId;
-        final unreadField = isCustomer ? 'unreadByVendor' : 'unreadByCustomer';
+        final isClient = chatDoc.data()?['clientId'] == senderId;
+        final unreadField = isClient ? 'unreadByVendor' : 'unreadByClient';
 
         await _chatDoc(chatId).update({
           'lastMessage': type == 'image' ? '📷 Photo' : text,
@@ -402,7 +402,7 @@ class FirestoreChatSource {
       }
 
       // Reset unread counter for this role
-      final unreadField = isVendor ? 'unreadByVendor' : 'unreadByCustomer';
+      final unreadField = isVendor ? 'unreadByVendor' : 'unreadByClient';
       batch.update(_chatDoc(chatId), {unreadField: 0});
       hasUpdates = true;
 
@@ -461,7 +461,7 @@ class FirestoreChatSource {
     final role = storage.getString('user_role') ?? 'CUSTOMER';
     final userField = role.toUpperCase() == 'VENDOR'
         ? 'vendorId'
-        : 'customerId';
+        : 'clientId';
 
     final snapshot = await _chats
         .where('leadId', isEqualTo: leadId)
@@ -498,7 +498,7 @@ class FirestoreChatSource {
     final d = doc.data()!;
     return Chat(
       id: doc.id,
-      customerId: d['customerId'] ?? '',
+      clientId: d['clientId'] ?? '',
       vendorId: d['vendorId'] ?? '',
       customerName: d['customerName'] ?? '',
       customerPhotoUrl: d['customerPhotoUrl'] ?? '',
@@ -512,7 +512,7 @@ class FirestoreChatSource {
       lastMessageAt: (d['lastMessageAt'] as Timestamp?)?.toDate(),
       lastMessageSenderId: d['lastMessageSenderId'],
       lastMessageType: d['lastMessageType'] ?? 'text',
-      unreadByCustomer: (d['unreadByCustomer'] as int?) ?? 0,
+      unreadByClient: (d['unreadByClient'] as int?) ?? 0,
       unreadByVendor: (d['unreadByVendor'] as int?) ?? 0,
       typing: _parseTypingMap(d['typing']),
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),

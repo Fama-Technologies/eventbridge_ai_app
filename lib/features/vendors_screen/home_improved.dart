@@ -592,6 +592,24 @@ class _VendorHomeScreenImprovedState extends ConsumerState<VendorHomeScreenImpro
             },
             isDark: isDark,
           ),
+          HubActionTile(
+            label: "Promotions",
+            subtitle: "Boost visibility",
+            backgroundColor: const Color(0xFFF0FDF4),
+            icon: Icon(
+              PhosphorIconsFill.megaphoneSimple,
+              size: 32,
+              color: const Color(0xFF16A34A),
+            ),
+            onTap: () {
+              if (_isRestricted()) {
+                _showUpgradeOverlay();
+                return;
+              }
+              context.push('/vendor-promotions');
+            },
+            isDark: isDark,
+          ),
         ],
       ),
     )

@@ -130,14 +130,14 @@ class SharedLeadState extends Notifier<List<Lead>> {
   }
 
   /// Attempt to fetch the full lead from the API to recover a missing
-  /// [customerId]. Patches the lead in state and returns the resolved ID,
+  /// [clientId]. Patches the lead in state and returns the resolved ID,
   /// or null if it still cannot be determined.
   Future<String?> enrichLeadCustomerId(String leadId) async {
     try {
-      // 1. Already in state with a valid customerId?
+      // 1. Already in state with a valid clientId?
       final existing = getById(leadId);
-      if (existing?.customerId?.isNotEmpty == true) {
-        return existing!.customerId;
+      if (existing?.clientId?.isNotEmpty == true) {
+        return existing!.clientId;
       }
 
       // 2. Call the single-lead endpoint
@@ -151,19 +151,19 @@ class SharedLeadState extends Notifier<List<Lead>> {
       debugPrint('[LeadState] Single-lead response keys: ${raw.keys.toList()}');
 
       final enriched = Lead.fromJson(raw);
-      final custId = enriched.customerId;
+      final custId = enriched.clientId;
 
       if (custId != null && custId.isNotEmpty) {
         // Patch in state
         state = state.map((l) {
-          if (l.id == leadId) return l.copyWith(customerId: custId);
+          if (l.id == leadId) return l.copyWith(clientId: custId);
           return l;
         }).toList();
-        debugPrint('[LeadState] Patched customerId=$custId for lead $leadId');
+        debugPrint('[LeadState] Patched clientId=$custId for lead $leadId');
         return custId;
       }
 
-      debugPrint('[LeadState] enrichLeadCustomerId: still no customerId after API call');
+      debugPrint('[LeadState] enrichLeadCustomerId: still no clientId after API call');
       return null;
     } catch (e) {
       debugPrint('[LeadState] enrichLeadCustomerId error: $e');
@@ -183,11 +183,11 @@ class SharedLeadState extends Notifier<List<Lead>> {
       final userId = StorageService().getString('user_id');
       if (userId == null) return false;
 
-      // Find the lead to get customerId
+      // Find the lead to get clientId
       final lead = getById(leadId);
-      final customerId = lead?.customerId;
+      final clientId = lead?.clientId;
 
-      debugPrint('[LeadState] Creating booking for lead $leadId (customer: $customerId)');
+      debugPrint('[LeadState] Creating booking for lead $leadId (customer: $clientId)');
       final result = await ApiService.instance.createVendorBooking(
         userId: userId,
         bookingDate: bookingDate.toIso8601String(),
@@ -196,7 +196,7 @@ class SharedLeadState extends Notifier<List<Lead>> {
         totalPrice: price,
         notes: notes,
         leadId: leadId,
-        clientId: customerId,
+        clientId: clientId,
       );
 
       if (result['success'] == true) {

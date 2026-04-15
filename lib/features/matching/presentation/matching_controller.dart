@@ -377,12 +377,12 @@ class MatchingController extends Notifier<MatchingState> {
       final leadId = await _sendInquiry(request: effectiveRequest, vendor: vendor);
       
       final storage = await SharedPreferences.getInstance();
-      final customerId = storage.getString('user_id') ?? '';
+      final clientId = storage.getString('user_id') ?? '';
 
       // Update local shared state so the vendor sees it immediately
       final newLead = Lead(
         id: 'user_inquiry_${DateTime.now().millisecondsSinceEpoch}',
-        customerId: customerId,
+        clientId: clientId,
         title: effectiveRequest.eventType,
         date: DateFormat('MMM dd, yyyy').format(effectiveRequest.eventDate),
         time: effectiveRequest.eventTime ?? 'TBD',

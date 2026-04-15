@@ -30,7 +30,7 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
   final String? leadTitle;
   final String? leadDate;
   final String? clientPhone;
-  final String? customerId;
+  final String? clientId;
 
   const ChatDetailScreen({
     super.key,
@@ -43,7 +43,7 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
     this.leadTitle,
     this.leadDate,
     this.clientPhone,
-    this.customerId,
+    this.clientId,
   });
 
   @override
@@ -175,14 +175,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         final storage = StorageService();
 
         if (widget.isVendor) {
-          var custId = widget.customerId?.isNotEmpty == true
-              ? widget.customerId!
+          var custId = widget.clientId?.isNotEmpty == true
+              ? widget.clientId!
               : widget.chatLookupKey.contains('_')
               ? widget.chatLookupKey.split('_').first
               : '';
 
           debugPrint('[Chat] custId after initial resolution: "$custId" '
-              '(widget.customerId="${widget.customerId}", '
+              '(widget.clientId="${widget.clientId}", '
               'lookupKey="${widget.chatLookupKey}")');
 
           // Fallback 1: check local lead state
@@ -192,8 +192,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
               (l) => l.id == widget.chatLookupKey,
               orElse: () => Lead.empty(),
             );
-            if (lead.customerId != null && lead.customerId!.isNotEmpty) {
-              custId = lead.customerId!;
+            if (lead.clientId != null && lead.clientId!.isNotEmpty) {
+              custId = lead.clientId!;
               debugPrint('[Chat] Resolved custId from local lead state: $custId');
             }
           }
@@ -205,8 +205,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
                 widget.chatLookupKey,
               );
               if (existingChat != null &&
-                  existingChat.customerId.isNotEmpty) {
-                custId = existingChat.customerId;
+                  existingChat.clientId.isNotEmpty) {
+                custId = existingChat.clientId;
                 debugPrint(
                   '[Chat] Resolved custId from Firestore chat by leadId: $custId',
                 );
@@ -219,7 +219,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           if (custId.isNotEmpty) {
             // Normal path — we have the customer ID
             final chat = await _source.createOrGetChat(
-              customerId: custId,
+              clientId: custId,
               vendorId: widget.currentUserId,
               customerName: widget.initialOtherUserName ?? 'Customer',
               customerPhotoUrl: widget.initialOtherUserPhotoUrl ?? '',
@@ -233,11 +233,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
             );
             actualChatId = chat?.id;
           } else {
-            // Fallback 3: backend doesn't return customerId.
+            // Fallback 3: backend doesn't return clientId.
             // Create a lead-keyed chat (lead_{leadId}) so messaging still works.
             // watchResolvedChat finds this via leadId+vendorId query.
             debugPrint(
-              '[Chat] No customerId available — creating lead-keyed chat '
+              '[Chat] No clientId available — creating lead-keyed chat '
               'for leadId="${widget.chatLookupKey}"',
             );
             final chat = await _source.createOrGetChatByLeadId(
@@ -263,7 +263,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
           }
 
           final chat = await _source.createOrGetChat(
-            customerId: widget.currentUserId,
+            clientId: widget.currentUserId,
             vendorId: vendId,
             customerName: storage.getString('user_name') ?? 'Customer',
             customerPhotoUrl: storage.getString('user_image') ?? '',
@@ -420,7 +420,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen>
         final providerChatId = chat?.id;
         final activeChatId = _effectiveChatId(providerChatId);
         final otherUserId = chat != null
-            ? (widget.isVendor ? chat.customerId : chat.vendorId)
+            ? (widget.isVendor ? chat.clientId : chat.vendorId)
             : (widget.initialOtherUserId ?? '');
         final otherUserName = chat != null
             ? chat.displayName(isVendor: widget.isVendor)

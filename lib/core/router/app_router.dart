@@ -30,6 +30,7 @@ import 'package:eventbridge/features/vendors_screen/vendor_personal_information_
 import 'package:eventbridge/features/vendors_screen/vendor_help_support_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_portfolio_screen.dart';
 import 'package:eventbridge/features/vendors_screen/vendor_notifications_screen.dart';
+import 'package:eventbridge/features/vendors_screen/promotional_ads_screen.dart';
 import 'package:eventbridge/features/vendors_screen/active_booking_details_screen.dart';
 import 'package:eventbridge/features/matching/presentation/submit_review_screen.dart';
 import 'package:eventbridge/features/matching/presentation/match_intake_form_screen.dart';
@@ -75,6 +76,7 @@ const _vendorOnlyRoutes = [
   '/vendor-notifications',
   '/vendor-search',
   '/active-booking-details',
+  '/vendor-promotions',
 ];
 
 // Routes reserved for Customers
@@ -306,7 +308,7 @@ final appRouter = GoRouter(
           leadTitle: q['leadTitle'],
           leadDate: q['leadDate'],
           clientPhone: q['phone'],
-          customerId: q['customerId'],
+          clientId: q['clientId'],
         );
       },
     ),
@@ -352,6 +354,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/vendor-notifications',
       builder: (context, state) => const VendorNotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/vendor-promotions',
+      builder: (context, state) => const PromotionalAdsScreen(),
     ),
     GoRoute(
       path: '/vendor-search',

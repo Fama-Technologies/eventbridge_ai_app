@@ -40,17 +40,17 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
   }
 
   void _openVendorChat(BuildContext context, Lead lead) {
-    final customerId = lead.customerId?.trim() ?? '';
+    final clientId = lead.clientId?.trim() ?? '';
     final vendorId = StorageService().getString('user_id') ?? '';
     if (vendorId.isEmpty) {
       return;
     }
 
-    final lookupKey = customerId.isNotEmpty
-        ? '${customerId}_$vendorId'
+    final lookupKey = clientId.isNotEmpty
+        ? '${clientId}_$vendorId'
         : lead.id;
     context.push(
-      '/vendor-chat/$lookupKey?phone=${Uri.encodeComponent(lead.phoneNumber ?? '')}&leadTitle=${Uri.encodeComponent(lead.title)}&leadDate=${Uri.encodeComponent(lead.date)}&otherUserName=${Uri.encodeComponent(lead.clientName)}&customerId=$customerId',
+      '/vendor-chat/$lookupKey?phone=${Uri.encodeComponent(lead.phoneNumber ?? '')}&leadTitle=${Uri.encodeComponent(lead.title)}&leadDate=${Uri.encodeComponent(lead.date)}&otherUserName=${Uri.encodeComponent(lead.clientName)}&clientId=$clientId',
     );
   }
 

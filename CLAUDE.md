@@ -29,7 +29,7 @@ Category icon set used on banner cards (see the prompt's `EventBannerCard`): `Ic
 
 EventBridge — a Flutter (mobile/web) client for an AI-driven vendor-matching platform for event planning. A user picks a role (`CUSTOMER` or `VENDOR`) and the app renders two essentially separate product experiences inside the same binary.
 
-Backend is the sibling `eventbridge/` project deployed to AWS Lambda. Base URL is hardcoded at `lib/core/network/api_service.dart:13` → `https://3nqhgc5y2l.execute-api.us-east-1.amazonaws.com/dev`. Product rules and user flow live in `docs/eventbridge_user_flow.md`.
+Backend is the sibling `eventbridge/` project deployed to Google Cloud Run. Base URL is managed in `lib/core/network/network_service.dart` (primary domain: `https://api.eventbridge-ai.com`). Product rules and user flow live in `docs/eventbridge_user_flow.md`.
 
 ## Commands
 
@@ -75,7 +75,7 @@ The redirect guard reads the token and role from `StorageService` (backed by `fl
 There are three overlapping HTTP surfaces — this is intentional but easy to misuse:
 
 1. **`lib/core/network/network_service.dart`** — configures the shared `Dio` instance (interceptors, logging, auth header injection). Start here if you're changing headers/interceptors.
-2. **`lib/core/network/api_service.dart`** — a hand-written singleton with methods like `login()`, `signup()`, etc. Hardcodes the Lambda base URL. Used by the older/legacy features.
+2. **`lib/core/network/api_service.dart`** — a hand-written singleton with methods like `login()`, `signup()`, etc. Uses the base URL from `NetworkService`. Used by the older/legacy features.
 3. **`features/<feature>/data/*_api.dart`** — Retrofit-generated clients (`*_api.g.dart`). Used by the clean-architecture features. Add new endpoints here when working inside `auth` or `matching`.
 
 Also: `lib/core/network/websocket_service.dart` for the API Gateway WebSocket channel, and `socket_io_client` for the Socket.IO chat in `features/messaging/`.

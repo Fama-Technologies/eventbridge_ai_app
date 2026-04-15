@@ -2,7 +2,7 @@ import 'package:eventbridge/features/messaging/domain/entities/chat_status.dart'
 
 class ChatDto {
   final String id;
-  final String customerId;
+  final String clientId;
   final String vendorId;
   final String customerName;
   final String customerPhotoUrl;
@@ -16,7 +16,7 @@ class ChatDto {
   final DateTime? lastMessageAt;
   final String? lastMessageSenderId;
   final String lastMessageType;
-  final int unreadByCustomer;
+  final int unreadByClient;
   final int unreadByVendor;
   final Map<String, DateTime?> typing;
   final DateTime? createdAt;
@@ -24,7 +24,7 @@ class ChatDto {
 
   const ChatDto({
     required this.id,
-    required this.customerId,
+    required this.clientId,
     required this.vendorId,
     this.customerName = '',
     this.customerPhotoUrl = '',
@@ -38,7 +38,7 @@ class ChatDto {
     this.lastMessageAt,
     this.lastMessageSenderId,
     this.lastMessageType = 'text',
-    this.unreadByCustomer = 0,
+    this.unreadByClient = 0,
     this.unreadByVendor = 0,
     this.typing = const {},
     this.createdAt,

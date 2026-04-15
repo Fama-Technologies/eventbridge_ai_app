@@ -426,6 +426,16 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         }
       }
 
+      if (_priceCtrl.text.trim().isEmpty || _priceCtrl.text.trim() == '0') {
+        AppToast.show(
+          context,
+          message: 'Base price is required to set up your profile.',
+          type: ToastType.error,
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
       await api.submitVendorOnboarding(
         userId: userId,
         businessName: _bizName.text,
@@ -434,8 +444,8 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         description: _descCtrl.text,
         experience: _expCtrl.text,
         price: _priceCtrl.text,
-        serviceCategories: _selectedSvc.toList(),
-        eventCategories: _selectedEvt.toList(),
+        categories: _selectedSvc.toList(),
+        services: _selectedEvt.toList(),
         avatarUrl: avatarUrl,
         galleryUrls: galleryUrls,
         latitude: _lat,
@@ -517,7 +527,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                 ),
                 const Gap(24),
                 Text(
-                  'Add Custom ${isService ? 'Service' : 'Event'}',
+                  'Add Custom ${isService ? 'Category' : 'Service'}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 20,
@@ -759,7 +769,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CategoryHeader(
-                  title: 'Service Categories',
+                  title: 'Business Categories',
                   isRequired: true,
                   expanded: _moreServices,
                   onToggle: () =>
@@ -791,7 +801,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CategoryHeader(
-                  title: 'Event Categories',
+                  title: 'Supported Services',
                   expanded: _moreEvents,
                   onToggle: () => setState(() => _moreEvents = !_moreEvents),
                 ),

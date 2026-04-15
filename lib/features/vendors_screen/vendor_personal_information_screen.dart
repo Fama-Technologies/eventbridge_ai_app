@@ -87,7 +87,6 @@ class _VendorPersonalInformationScreenState
       await ApiService.instance.submitVendorOnboarding(
         userId: userId,
         businessName: storage.getString('business_name') ?? 'Vendor',
-        serviceCategories: [],
         avatarUrl: avatarUrl,
       );
 

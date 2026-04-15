@@ -1,8 +1,8 @@
 const https = require('https');
 const options = {
-  hostname: '3nqhgc5y2l.execute-api.us-east-1.amazonaws.com',
+  hostname: 'api.eventbridge-ai.com',
   port: 443,
-  path: '/dev/api/vendor/packages/2',
+  path: '/api/vendor/packages/2',
   method: 'GET'
 };
 const req = https.request(options, res => {

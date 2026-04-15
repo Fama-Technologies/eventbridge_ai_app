@@ -592,20 +592,55 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
         ),
         
         // Highlight Badge positioning
-        if (hasBadge)
-          Positioned(
+        if (hasBadge) {
+          final isBest = pkg.highlightBadge == 'best';
+          final isRecommended = pkg.highlightBadge == 'recommended';
+          final isPremium = pkg.highlightBadge == 'premium';
+          
+          Color badgeColor1;
+          Color badgeColor2;
+          IconData badgeIcon;
+          String badgeText;
+
+          if (isBest) {
+            badgeColor1 = const Color(0xFFF97316);
+            badgeColor2 = const Color(0xFFEA580C);
+            badgeIcon = Icons.star_rounded;
+            badgeText = 'BEST CHOICE';
+          } else if (isBestValue) {
+            badgeColor1 = const Color(0xFF10B981);
+            badgeColor2 = const Color(0xFF059669);
+            badgeIcon = Icons.auto_awesome_rounded;
+            badgeText = 'BEST VALUE';
+          } else if (isRecommended) {
+            badgeColor1 = const Color(0xFF3B82F6);
+            badgeColor2 = const Color(0xFF2563EB);
+            badgeIcon = Icons.thumb_up_rounded;
+            badgeText = 'RECOMMENDED';
+          } else if (isPremium) {
+            badgeColor1 = const Color(0xFF8B5CF6);
+            badgeColor2 = const Color(0xFF7C3AED);
+            badgeIcon = Icons.workspace_premium_rounded;
+            badgeText = 'PREMIUM';
+          } else {
+            // Popular
+            badgeColor1 = const Color(0xFFEC4899);
+            badgeColor2 = const Color(0xFFDB2777);
+            badgeIcon = Icons.local_fire_department_rounded;
+            badgeText = 'MOST POPULAR';
+          }
+
+          return Positioned(
             top: 0,
             right: 24,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                gradient: isBestValue 
-                    ? const LinearGradient(colors: [Color(0xFFF97316), Color(0xFFEA580C)])
-                    : const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                gradient: LinearGradient(colors: [badgeColor1, badgeColor2]),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: (isBestValue ? const Color(0xFFF97316) : const Color(0xFF8B5CF6)).withValues(alpha: 0.4),
+                    color: badgeColor1.withValues(alpha: 0.4),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -614,14 +649,10 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    isBestValue ? Icons.star_rounded : Icons.local_fire_department_rounded,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  Icon(badgeIcon, color: Colors.white, size: 16),
                   const SizedBox(width: 6),
                   Text(
-                    isBestValue ? 'BEST VALUE' : 'MOST POPULAR',
+                    badgeText,
                     style: GoogleFonts.outfit(
                       fontSize: 11,
                       fontWeight: FontWeight.w900,
@@ -632,7 +663,8 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
                 ],
               ),
             ),
-          ),
+          );
+        }
           
           if (!pkg.isActive && !hasBadge)
              Positioned(
@@ -946,7 +978,10 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
                             items: const [
                               DropdownMenuItem(value: 'none', child: Text('None')),
                               DropdownMenuItem(value: 'popular', child: Text('Most Popular')),
+                              DropdownMenuItem(value: 'best', child: Text('Best Choice')),
                               DropdownMenuItem(value: 'best_value', child: Text('Best Value')),
+                              DropdownMenuItem(value: 'recommended', child: Text('Recommended')),
+                              DropdownMenuItem(value: 'premium', child: Text('Premium')),
                             ],
                             onChanged: (val) {
                               if (val != null) {

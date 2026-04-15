@@ -21,6 +21,9 @@ class MatchingRepository implements IMatchingRepository {
   @override
   Future<List<MatchVendor>> findMatches(EventRequest request) async {
     try {
+      final storage = StorageService();
+      final country = storage.getString('user_country') ?? 'Uganda';
+      
       final response = await ApiService.instance.findCustomerMatches(
         eventType: request.eventType,
         budget: request.budget,
@@ -28,6 +31,7 @@ class MatchingRepository implements IMatchingRepository {
         services: request.services,
         location: request.location,
         guestCount: request.guestCount,
+        country: country,
       );
 
       if (response['success'] == true) {
@@ -46,9 +50,10 @@ class MatchingRepository implements IMatchingRepository {
     required MatchVendor vendor,
   }) async {
     final storage = StorageService();
-    final customerId = storage.getString('user_id') ?? 'usr_001';
+    final clientId = storage.getString('user_id') ?? 'usr_001';
     final customerName = storage.getString('user_name') ?? 'Customer';
     final customerPhotoUrl = storage.getString('user_image') ?? '';
+    final country = storage.getString('user_country') ?? 'Uganda';
     final initialMessage = request.prompt.isNotEmpty
         ? request.prompt
         : 'I would like to inquire about your services.';
@@ -57,7 +62,7 @@ class MatchingRepository implements IMatchingRepository {
     String customerPhone = '';
     try {
       final customerProfile = await ApiService.instance.getCustomerProfile(
-        customerId,
+        clientId,
       );
       final profile = customerProfile['profile'] as Map<String, dynamic>?;
       customerPhone = profile?['phone']?.toString() ?? '';
@@ -69,7 +74,7 @@ class MatchingRepository implements IMatchingRepository {
     try {
       final leadResponse = await ApiService.instance.createLead(
         vendorId: vendor.id,
-        customerId: customerId,
+        clientId: clientId,
         title: request.eventType,
         eventDate: request.eventDate.toIso8601String().split('T')[0],
         eventTime: request.eventTime ?? 'TBD',
@@ -77,6 +82,7 @@ class MatchingRepository implements IMatchingRepository {
         budget: request.budget,
         guests: request.guestCount ?? 0,
         clientMessage: initialMessage,
+        country: country,
       );
       final lead = leadResponse['lead'];
       leadId =
@@ -90,7 +96,7 @@ class MatchingRepository implements IMatchingRepository {
     // 2. Bootstrap the Firestore chat that powers the unified messaging UI.
     final firestoreChatSource = FirestoreChatSource();
     final chat = await firestoreChatSource.createOrGetChat(
-      customerId: customerId,
+      clientId: clientId,
       vendorId: vendor.id,
       customerName: customerName,
       customerPhotoUrl: customerPhotoUrl,
@@ -101,12 +107,12 @@ class MatchingRepository implements IMatchingRepository {
       leadId: leadId,
     );
     final chatId =
-        chat?.id ?? FirestoreChatSource.chatId(customerId, vendor.id);
+        chat?.id ?? FirestoreChatSource.chatId(clientId, vendor.id);
 
     if (chat != null) {
       await firestoreChatSource.sendMessage(
         chatId: chat.id,
-        senderId: customerId,
+        senderId: clientId,
         text: initialMessage,
       );
     }
@@ -117,7 +123,7 @@ class MatchingRepository implements IMatchingRepository {
 
     final resultLead = Lead(
       id: leadId ?? chatId,
-      customerId: customerId,
+      clientId: clientId,
       title: request.eventType,
       date: request.eventDate.toIso8601String().split('T')[0],
       time: request.eventTime ?? 'TBD',
@@ -170,13 +176,13 @@ class MatchingRepository implements IMatchingRepository {
     required String comment,
   }) async {
     final storage = StorageService();
-    final customerId = storage.getString('user_id') ?? '';
+    final clientId = storage.getString('user_id') ?? '';
     
-    if (customerId.isEmpty) return;
+    if (clientId.isEmpty) return;
 
     await ApiService.instance.submitReview(
       vendorId: vendorId,
-      customerId: customerId,
+      clientId: clientId,
       rating: rating,
       comment: comment,
     );

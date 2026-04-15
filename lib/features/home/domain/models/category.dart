@@ -13,7 +13,7 @@ class Category {
     return Category(
       id: (json['id'] ?? json['userId'] ?? '').toString(),
       name: json['name']?.toString() ?? 'Unknown',
-      iconName: json['iconName']?.toString() ?? 'help_outline',
+      iconName: json['iconName']?.toString() ?? json['icon_name']?.toString() ?? 'help_outline',
     );
   }
 

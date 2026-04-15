@@ -1,5 +1,5 @@
 const axios = require('axios');
-axios.post('https://3nqhgc5y2l.execute-api.us-east-1.amazonaws.com/dev/api/vendor/leads', {
+axios.post('https://api.eventbridge-ai.com/api/vendor/leads', {
   vendorId: "1",
   customerId: "10",
   title: "Test Inquiry",

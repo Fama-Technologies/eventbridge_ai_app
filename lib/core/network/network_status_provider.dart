@@ -85,7 +85,7 @@ class NetworkStatusNotifier extends AsyncNotifier<NetworkStatus> {
     // We specifically check the EventBridge backend. If we can't reach it, 
     // it doesn't matter if Google is reachable.
     try {
-      const backendDomain = '3nqhgc5y2l.execute-api.us-east-1.amazonaws.com';
+      const backendDomain = 'api.eventbridge-ai.com';
       
       // We try a Socket connection to the HTTPS port (443) of the backend.
       // This is the most accurate check for "can the app function?".

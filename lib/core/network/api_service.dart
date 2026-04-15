@@ -11,9 +11,6 @@ class ApiService {
 
   ApiService._internal() {
     _dio = NetworkService().dio;
-    // Override the base URL to our new AWS Lambda endpoint
-    _dio.options.baseUrl =
-        'https://3nqhgc5y2l.execute-api.us-east-1.amazonaws.com/dev';
   }
 
   static ApiService get instance => _instance;
@@ -76,18 +73,21 @@ class ApiService {
 
   Future<Map<String, dynamic>> submitVendorOnboarding({
     required String userId,
-    required String businessName,
+    String? businessName,
     String? country,
     String? location,
     String? description,
     String? experience,
     String? price,
-    List<String>? serviceCategories,
-    List<String>? eventCategories,
+    List<String>? categories,
+    List<String>? services,
     String? avatarUrl,
-    List<dynamic>? galleryUrls,
-    List<dynamic>? projects,
+    List<String>? galleryUrls,
+    List<Map<String, dynamic>>? projects,
     String? website,
+    String? instagram,
+    String? tiktok,
+    String? facebook,
     int? travelRadius,
     double? latitude,
     double? longitude,
@@ -96,25 +96,28 @@ class ApiService {
     bool? isVerified,
     String? plan,
     String? planExpiry,
-    Map<String, String>? workingHours,
+    Map<String, dynamic>? workingHours,
   }) async {
     try {
       final response = await _dio.post(
         '/api/vendor/onboarding',
         data: {
           'userId': userId,
-          'businessName': businessName,
-          'country': country,
-          'location': location,
-          'description': description,
-          'experience': experience,
-          'price': price,
-          'serviceCategories': serviceCategories,
-          'eventCategories': eventCategories,
+          if (businessName != null) 'businessName': businessName,
+          if (country != null) 'country': country,
+          if (location != null) 'location': location,
+          if (description != null) 'description': description,
+          if (experience != null) 'experience': experience,
+          if (price != null) 'price': price,
+          if (categories != null) 'categories': categories,
+          if (services != null) 'services': services,
           if (avatarUrl != null) 'avatarUrl': avatarUrl,
           if (galleryUrls != null) 'galleryUrls': galleryUrls,
           if (projects != null) 'projects': projects,
           if (website != null) 'website': website,
+          if (instagram != null) 'instagram': instagram,
+          if (tiktok != null) 'tiktok': tiktok,
+          if (facebook != null) 'facebook': facebook,
           if (travelRadius != null) 'travelRadius': travelRadius,
           if (latitude != null) 'latitude': latitude,
           if (longitude != null) 'longitude': longitude,
@@ -124,6 +127,24 @@ class ApiService {
           if (plan != null) 'plan': plan,
           if (planExpiry != null) 'planExpiry': planExpiry,
           if (workingHours != null) 'workingHours': workingHours,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> recordProfileView({
+    required String vendorProfileId,
+    String? viewerId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/analytics/view',
+        data: {
+          'vendorProfileId': vendorProfileId,
+          if (viewerId != null) 'viewerId': viewerId,
         },
       );
       return response.data;
@@ -217,11 +238,48 @@ class ApiService {
     }
   }
 
+  // ── Promotional Ads ──────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getVendorAds(String userId) async {
+    try {
+      final response = await _dio.get('/api/vendor/ads/$userId');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> postVendorAd({
+    required String userId,
+    required String title,
+    required String imageUrl,
+    String? tagName,
+    String? place,
+    String? eventDate,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/ads',
+        data: {
+          'userId': userId,
+          'title': title,
+          'imageUrl': imageUrl,
+          'tagName': tagName,
+          'place': place,
+          'eventDate': eventDate,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   // ── Leads ──────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> createLead({
     required String vendorId,
-    required String customerId,
+    required String clientId,
     required String title,
     required String eventDate,
     String? eventTime,
@@ -229,13 +287,16 @@ class ApiService {
     double? budget,
     int? guests,
     String? clientMessage,
+    String? country,
+    String? packageId,
+    String? packageTitle,
   }) async {
     try {
       final response = await _dio.post(
         '/api/vendor/leads',
         data: {
           'vendorId': vendorId,
-          'customerId': customerId,
+          'clientId': clientId,
           'title': title,
           'eventDate': eventDate,
           'eventTime': eventTime,
@@ -243,6 +304,9 @@ class ApiService {
           'budget': budget,
           'guests': guests,
           'clientMessage': clientMessage,
+          if (country != null) 'country': country,
+          if (packageId != null) 'packageId': packageId,
+          if (packageTitle != null) 'packageTitle': packageTitle,
         },
       );
       return response.data;
@@ -482,21 +546,7 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> upgradePlanPesapal(
-    String userId,
-    String plan, {
-    String currency = 'USD',
-  }) async {
-    try {
-      final response = await _dio.post(
-        '/api/vendor/upgrade-pesapal',
-        data: {'userId': userId, 'plan': plan, 'currency': currency},
-      );
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
+  // Legacy Pesapal upgrade removed – billing now managed by external provider profiles.
 
   Future<Map<String, dynamic>> deleteAccount(String userId) async {
     try {
@@ -525,6 +575,7 @@ class ApiService {
     required List<String> services,
     String? location,
     int? guestCount,
+    String? country,
   }) async {
     try {
       final response = await _dio.post(
@@ -536,6 +587,7 @@ class ApiService {
           'services': services,
           if (location != null) 'location': location,
           if (guestCount != null) 'guestCount': guestCount,
+          'country': country ?? 'Uganda',
         },
       );
       return response.data;
@@ -666,7 +718,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> submitReview({
     required String vendorId,
-    required String customerId,
+    required String clientId,
     required double rating,
     required String comment,
   }) async {
@@ -675,11 +727,61 @@ class ApiService {
         '/api/vendor/review',
         data: {
           'vendorId': vendorId,
-          'customerId': customerId,
+          'clientId': clientId,
           'rating': rating,
           'comment': comment,
         },
       );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSystemSettings() async {
+    try {
+      final response = await _dio.get('/api/system-settings');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ── Subscription Sync & History ──────────────────────────────────────────
+
+  /// Call this after a successful payment from Paystack/Stripe/MTN MoMo.
+  /// Sends the external reference to the backend which records the audit
+  /// trail and updates the vendor's active plan — all in one transaction.
+  Future<Map<String, dynamic>> syncSubscription({
+    required String userId,
+    required String planName,
+    String? externalReference,
+    String? paymentProvider,
+    double? amountPaid,
+    String currency = 'USD',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vendor/subscription/sync',
+        data: {
+          'userId': userId,
+          'planName': planName,
+          if (externalReference != null) 'externalReference': externalReference,
+          if (paymentProvider != null) 'paymentProvider': paymentProvider,
+          if (amountPaid != null) 'amountPaid': amountPaid,
+          'currency': currency,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// Returns the full subscription history for a vendor (upgrades, cancellations, etc.)
+  Future<Map<String, dynamic>> getSubscriptionHistory(String userId) async {
+    try {
+      final response = await _dio.get('/api/vendor/subscription/history/$userId');
       return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
