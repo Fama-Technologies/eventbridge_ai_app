@@ -13,11 +13,20 @@ class AuthRepository implements IAuthRepository {
   final _googleSignIn = gsi.GoogleSignIn.instance;
 
   AuthRepository() {
-    _googleSignIn.authenticationEvents.listen((event) {
-      if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
-        _handleGoogleSignInResult(event.user);
-      }
-    });
+    // The authentication-events listener only matters on Web, where
+    // `continueWithGoogle()` delegates to `renderButton` /
+    // `attemptLightweightAuthentication` and the sign-in completion arrives
+    // asynchronously via this stream. On mobile, `continueWithGoogle()`
+    // handles the backend exchange directly — registering the listener on
+    // mobile would double-post /api/auth/google (once manually, once via
+    // the event) and triple-post if the repository is ever re-instantiated.
+    if (kIsWeb) {
+      _googleSignIn.authenticationEvents.listen((event) {
+        if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
+          _handleGoogleSignInResult(event.user);
+        }
+      });
+    }
   }
 
   String get _firebaseCustomTokenUrl =>
