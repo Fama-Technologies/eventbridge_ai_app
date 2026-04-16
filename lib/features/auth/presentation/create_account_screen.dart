@@ -6,6 +6,7 @@ import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
+import 'package:eventbridge/features/auth/presentation/widgets/social_auth_icons.dart';
 import 'package:eventbridge/core/widgets/app_toast.dart';
 
 class CreateAccountScreen extends ConsumerStatefulWidget {
@@ -302,12 +303,11 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
                     ),
                     const gap.Gap(24),
 
-                    // Social Button
+                    // Social Icons (Google + Apple placeholder)
                     _buildAnimated(
-                      _buildSocialButton(
-                        'Continue with Google',
-                        'assets/icons/google.png',
-                        _isGoogleLoading ? null : () async {
+                      SocialAuthIcons(
+                        isLoading: _isGoogleLoading,
+                        onGooglePressed: () async {
                           setState(() => _isGoogleLoading = true);
                           try {
                             await ref
@@ -331,7 +331,6 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
                             }
                           }
                         },
-                        isLoading: _isGoogleLoading,
                       ),
                       delay: 460,
                     ),
@@ -514,55 +513,6 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Colors.red, width: 2),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton(String label, String iconPath, VoidCallback? onTap, {bool isLoading = false}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: BorderSide(
-            color: isDark ? const Color(0xFF333333) : AppColors.neutrals03,
-          ),
-          backgroundColor: isDark
-              ? const Color(0xFF222222)
-              : AppColors.backgroundLight,
-        ),
-        child: isLoading
-            ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(
-                  color: AppColors.primary01,
-                  strokeWidth: 2.5,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (iconPath.endsWith('.svg'))
-                    SvgPicture.asset(iconPath, height: 24)
-                  else
-                    Image.asset(iconPath, height: 24),
-                  const gap.Gap(12),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppColors.darkNeutral01,
-                    ),
-                  ),
-                ],
-              ),
       ),
     );
   }

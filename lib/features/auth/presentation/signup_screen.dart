@@ -6,8 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
-import 'package:eventbridge/features/auth/presentation/widgets/google_sign_in_button.dart';
-import 'package:flutter/foundation.dart';
+import 'package:eventbridge/features/auth/presentation/widgets/social_auth_icons.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -193,95 +192,43 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                 Consumer(
                   builder: (context, ref, child) {
-                    if (kIsWeb) {
-                      return Column(
-                        children: [
-                          _buildEntranceAnimation(
-                            SizedBox(
-                              width: double.infinity,
-                              height: 56,
-                              child: buildGoogleSignInButton(),
-                            ),
-                            delayMs: 700,
-                          ),
-                          const Gap(8),
-                          const Text(
-                            'Use the button above to continue with Google',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      );
-                    }
-
                     final authState = ref.watch(authControllerProvider);
-                    return SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: authState.isLoading
-                            ? () {}
-                            : () async {
-                                await ref
-                                    .read(authControllerProvider.notifier)
-                                    .continueWithGoogle(
-                                      role: _isVendor ? 'VENDOR' : 'CUSTOMER',
-                                    );
-                                if (!context.mounted) return;
+                    return SocialAuthIcons(
+                      isLoading: authState.isLoading,
+                      onGooglePressed: () async {
+                        await ref
+                            .read(authControllerProvider.notifier)
+                            .continueWithGoogle(
+                              role: _isVendor ? 'VENDOR' : 'CUSTOMER',
+                            );
+                        if (!context.mounted) return;
 
-                                if (ref.read(authControllerProvider).hasError) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        ref
-                                            .read(authControllerProvider)
-                                            .error
-                                            .toString()
-                                            .replaceAll('Exception: ', ''),
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                } else {
-                                  if (_isVendor) {
-                                    final repo = ref.read(
-                                      authRepositoryProvider,
-                                    );
-                                    if (repo.isOnboardingCompleted()) {
-                                      context.go('/vendor-home');
-                                    } else {
-                                      context.go('/vendor-onboarding');
-                                    }
-                                  } else {
-                                    context.go('/customer-home');
-                                  }
-                                }
-                              },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          side: BorderSide(color: AppColors.neutrals03),
-                          backgroundColor: Colors.white,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset('assets/icons/google.png', height: 24),
-                            const Gap(12),
-                            Text(
-                              authState.isLoading
-                                  ? 'Connecting...'
-                                  : 'Continue with Google',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.neutrals08,
+                        if (ref.read(authControllerProvider).hasError) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                ref
+                                    .read(authControllerProvider)
+                                    .error
+                                    .toString()
+                                    .replaceAll('Exception: ', ''),
                               ),
+                              backgroundColor: Colors.red,
                             ),
-                          ],
-                        ),
-                      ),
+                          );
+                        } else {
+                          if (_isVendor) {
+                            final repo = ref.read(authRepositoryProvider);
+                            if (repo.isOnboardingCompleted()) {
+                              context.go('/vendor-home');
+                            } else {
+                              context.go('/vendor-onboarding');
+                            }
+                          } else {
+                            context.go('/customer-home');
+                          }
+                        }
+                      },
                     );
                   },
                 ).animate().scale(delay: 700.ms, curve: Curves.elasticOut),
@@ -421,16 +368,4 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     );
   }
 
-  Widget _buildEntranceAnimation(Widget child, {required int delayMs}) {
-    return child
-        .animate()
-        .fadeIn(delay: delayMs.ms)
-        .slideY(
-          begin: 0.1,
-          end: 0,
-          delay: delayMs.ms,
-          duration: 400.ms,
-          curve: Curves.easeOutCubic,
-        );
-  }
 }

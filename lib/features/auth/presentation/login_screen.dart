@@ -8,8 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eventbridge/core/theme/app_colors.dart';
 import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'package:eventbridge/features/auth/presentation/auth_provider.dart';
-import 'package:eventbridge/features/auth/presentation/widgets/google_sign_in_button.dart';
-import 'package:flutter/foundation.dart';
+import 'package:eventbridge/features/auth/presentation/widgets/social_auth_icons.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -320,68 +319,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               const gap.Gap(24),
 
-                              // Social Button
+                              // Social Icons (Google + Apple placeholder)
                               _buildEntranceAnimation(
-                                kIsWeb
-                                    ? Column(
-                                        children: [
-                                          SizedBox(
-                                            height: 56,
-                                            width: double.infinity,
-                                            child: buildGoogleSignInButton(),
-                                          ),
-                                          const gap.Gap(8),
-                                          const Text(
-                                            'Use the button above to continue with Google',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      )
-                                    : _buildSocialButton(
-                                        'Continue with Google',
-                                        'assets/icons/google.png',
-                                        () async {
-                                          try {
-                                            final repo = ref.read(
-                                              authRepositoryProvider,
-                                            );
-                                            await repo.continueWithGoogle(
-                                              role: 'CUSTOMER',
-                                            );
-                                            if (!context.mounted) return;
-                                            final role = repo.getUserRole();
-                                            if (role == 'VENDOR') {
-                                              if (repo
-                                                  .isOnboardingCompleted()) {
-                                                context.go('/vendor-home');
-                                              } else {
-                                                context.go(
-                                                  '/vendor-onboarding',
-                                                );
-                                              }
-                                            } else {
-                                              context.go('/customer-home');
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              AppToast.show(
-                                                context,
-                                                message: e
-                                                    .toString()
-                                                    .replaceAll(
-                                                      'Exception: ',
-                                                      '',
-                                                    ),
-                                                type: ToastType.error,
-                                              );
-                                            }
-                                          }
-                                        },
-                                      ),
+                                SocialAuthIcons(
+                                  onGooglePressed: () async {
+                                    try {
+                                      final repo = ref.read(
+                                        authRepositoryProvider,
+                                      );
+                                      await repo.continueWithGoogle(
+                                        role: 'CUSTOMER',
+                                      );
+                                      if (!context.mounted) return;
+                                      final role = repo.getUserRole();
+                                      if (role == 'VENDOR') {
+                                        if (repo.isOnboardingCompleted()) {
+                                          context.go('/vendor-home');
+                                        } else {
+                                          context.go('/vendor-onboarding');
+                                        }
+                                      } else {
+                                        context.go('/customer-home');
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        AppToast.show(
+                                          context,
+                                          message: e
+                                              .toString()
+                                              .replaceAll('Exception: ', ''),
+                                          type: ToastType.error,
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
                                 delayMs: 600,
                               ),
                               const gap.Gap(32),
@@ -621,43 +593,4 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildSocialButton(String label, String iconPath, VoidCallback onTap) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: BorderSide(
-            color: isDark ? const Color(0xFF333333) : AppColors.neutrals03,
-          ),
-          backgroundColor: isDark
-              ? const Color(0xFF222222)
-              : AppColors.backgroundLight,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (iconPath.endsWith('.svg'))
-              SvgPicture.asset(iconPath, height: 24)
-            else
-              Image.asset(iconPath, height: 24),
-            const gap.Gap(12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : AppColors.darkNeutral01,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
