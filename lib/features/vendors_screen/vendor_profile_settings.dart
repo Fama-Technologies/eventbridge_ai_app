@@ -140,15 +140,18 @@ class _VendorProfileSettingsScreenState
           if (profile['workingHours'] != null) {
             try {
               final wh = profile['workingHours'];
-              if (wh['start'] != null) {
-                final parts = wh['start'].split(':');
+              String? startStr = wh['startTime'] ?? wh['start'];
+              String? endStr = wh['endTime'] ?? wh['end'];
+              
+              if (startStr != null) {
+                final parts = startStr.split(':');
                 _startTime = TimeOfDay(
                   hour: int.parse(parts[0]),
                   minute: int.parse(parts[1]),
                 );
               }
-              if (wh['end'] != null) {
-                final parts = wh['end'].split(':');
+              if (endStr != null) {
+                final parts = endStr.split(':');
                 _endTime = TimeOfDay(
                   hour: int.parse(parts[0]),
                   minute: int.parse(parts[1]),
@@ -214,9 +217,9 @@ class _VendorProfileSettingsScreenState
         latitude: _lat,
         longitude: _lng,
         workingHours: {
-          'start':
+          'startTime':
               '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
-          'end':
+          'endTime':
               '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
         },
       );
