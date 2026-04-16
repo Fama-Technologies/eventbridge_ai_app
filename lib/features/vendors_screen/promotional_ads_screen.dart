@@ -9,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:eventbridge/core/services/upload_service.dart';
 
 class PromotionalAdsScreen extends StatefulWidget {
   const PromotionalAdsScreen({super.key});
@@ -71,7 +72,7 @@ class _PromotionalAdsScreenState extends State<PromotionalAdsScreen> {
       return;
     }
     if (_maxAds == 0) {
-      AppToast.show(context, message: 'Free plan does not support promotions. Please upgrade.', type: ToastType.warning);
+      AppToast.show(context, message: 'Free plan does not support promotions. Please upgrade.', type: ToastType.error);
       return;
     }
 
@@ -348,7 +349,7 @@ class _AddAdBottomSheetState extends State<_AddAdBottomSheet> {
 
   Future<void> _submit() async {
     if (_titleController.text.isEmpty || _imageFile == null) {
-      AppToast.show(context, message: 'Title and Image are required', type: ToastType.warning);
+      AppToast.show(context, message: 'Title and Image are required', type: ToastType.error);
       return;
     }
 
@@ -358,9 +359,14 @@ class _AddAdBottomSheetState extends State<_AddAdBottomSheet> {
       if (userId == null) return;
 
       // 1. Upload Image
-      final uploadRes = await ApiService.instance.uploadImage(_imageFile!);
-      if (uploadRes['success'] != true) throw Exception('Image upload failed');
-      final imageUrl = uploadRes['url'];
+      final bytes = await _imageFile!.readAsBytes();
+      final fileName = 'promo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final imageUrl = await UploadService.instance.uploadFile(
+        bytes: bytes,
+        fileName: fileName,
+        contentType: 'image/jpeg',
+        folder: 'promotions',
+      );
 
       // 2. Submit Ad
       final result = await ApiService.instance.postVendorAd(

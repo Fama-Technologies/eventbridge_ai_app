@@ -592,7 +592,7 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
         ),
         
         // Highlight Badge positioning
-        if (hasBadge) {
+        if (hasBadge) (() {
           final isBest = pkg.highlightBadge == 'best';
           final isRecommended = pkg.highlightBadge == 'recommended';
           final isPremium = pkg.highlightBadge == 'premium';
@@ -664,7 +664,7 @@ class _VendorPackagesScreenState extends State<VendorPackagesScreen> {
               ),
             ),
           );
-        }
+        })(),
           
           if (!pkg.isActive && !hasBadge)
              Positioned(

@@ -35,7 +35,7 @@ class _LeadsScreenImprovedState extends ConsumerState<LeadsScreenImproved> {
   bool _isLoading = true;
 
   Future<void> _openVendorChat(BuildContext context, Lead lead) async {
-    var customerId = lead.customerId?.trim() ?? '';
+    var customerId = lead.clientId?.trim() ?? '';
     final vendorId = StorageService().getString('user_id') ?? '';
     if (vendorId.isEmpty) return;
 

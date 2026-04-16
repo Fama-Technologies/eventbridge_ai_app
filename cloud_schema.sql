@@ -35,6 +35,12 @@ CREATE TABLE categories (
     is_active BOOLEAN DEFAULT TRUE
 );
 
+-- Seed Initial Categories
+INSERT INTO categories (id, name, slug, icon_name, category_type) VALUES
+(1, 'Photography',   'photography',   'camera_alt', 'INDUSTRY'),
+(2, 'Catering',      'catering',      'restaurant', 'INDUSTRY'),
+(3, 'Entertainment', 'entertainment', 'music_note', 'INDUSTRY');
+
 -- Services Taxonomy (Individual Capabilities: what a vendor CAN DO)
 CREATE TABLE services (
     id SERIAL PRIMARY KEY,

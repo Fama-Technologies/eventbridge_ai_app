@@ -13,6 +13,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:gap/gap.dart';
+import 'models/service_taxonomy_model.dart';
 
 const _kMapsApiKey = "AIzaSyBh-GVHVYhZ7irbZ5o8QAyzpZPsXuNUwLM";
 
@@ -51,6 +52,8 @@ class _VendorProfileSettingsScreenState
 
   List<String> _serviceCategories = [];
   List<String> _eventCategories = [];
+  List<ServiceItem> _taxonomy = [];
+  bool _isLoadingTaxonomy = true;
 
   double? _lat;
   double? _lng;
@@ -68,6 +71,22 @@ class _VendorProfileSettingsScreenState
   void initState() {
     super.initState();
     _loadProfileData();
+    _fetchTaxonomy();
+  }
+
+  Future<void> _fetchTaxonomy() async {
+    try {
+      final items = await ApiService.instance.getServicesTaxonomy();
+      if (mounted) {
+        setState(() {
+          _taxonomy = items;
+          _isLoadingTaxonomy = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching taxonomy: $e');
+      if (mounted) setState(() => _isLoadingTaxonomy = false);
+    }
   }
 
   Future<void> _loadProfileData() async {
@@ -169,7 +188,7 @@ class _VendorProfileSettingsScreenState
         AppToast.show(
           context,
           message: 'Base price is required for your profile.',
-          type: ToastType.warning,
+          type: ToastType.error,
         );
         return;
       }
@@ -186,7 +205,7 @@ class _VendorProfileSettingsScreenState
         price: _priceCtrl.text,
         currency: _currency,
         priceUnit: _priceUnit,
-        galleryUrls: _portfolioImages.toSet().toList(),
+        galleryUrls: _portfolioImages.map((e) => e.toString()).toSet().toList(),
         website: _webCtrl.text,
         instagram: _instaCtrl.text,
         tiktok: _tiktokCtrl.text,
@@ -377,16 +396,16 @@ class _VendorProfileSettingsScreenState
                   const SizedBox(height: 20),
                   _TagWrap(
                     tags: _serviceCategories,
-                    onAdd: () => _addCustomCategory(true),
+                    onAdd: () => _showTaxonomyPicker(),
                   ),
                   const SizedBox(height: 40),
                   _ProfileSectionHeader(
                     icon: Icons.celebration_rounded,
-                    title: 'Supported Services',
+                    title: 'Service Capabilities',
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Select the types of event services you provide (e.g. Weddings, Corporate, Birthdays).',
+                    'Select the specific capabilities you offer (e.g. DJ, Sound, Decor).',
                     style: GoogleFonts.roboto(
                       fontSize: 14,
                       color: const Color(0xFF64748B),
@@ -396,7 +415,7 @@ class _VendorProfileSettingsScreenState
                   const SizedBox(height: 20),
                   _TagWrap(
                     tags: _eventCategories,
-                    onAdd: () => _addCustomCategory(false),
+                    onAdd: () => _showTaxonomyPicker(),
                   ),
                   const SizedBox(height: 40),
                   _ProfileSectionHeader(
@@ -736,58 +755,121 @@ class _VendorProfileSettingsScreenState
     );
   }
 
-  Future<void> _addCustomCategory(bool isService) async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<String>(
+  Future<void> _showTaxonomyPicker() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cats = _taxonomy.map((e) => e.categoryName).toSet().toList();
+    String? selectedTopCat;
+
+    await showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Add Custom ${isService ? 'Service' : 'Event'}',
-          style: GoogleFonts.roboto(fontWeight: FontWeight.bold),
-        ),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText:
-                'e.g. ${isService ? 'Drone Photography' : 'Cultural Ceremonies'}',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF97316),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-            child: const Text('Add'),
+              const Gap(24),
+              Text(
+                'Add Specialized Services',
+                style: GoogleFonts.roboto(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Gap(8),
+              Text(
+                'Select a category to see specific services.',
+                style: GoogleFonts.roboto(color: Colors.grey, fontSize: 14),
+              ),
+              const Gap(20),
+              if (selectedTopCat == null)
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: cats.length,
+                    itemBuilder: (ctx, i) => ListTile(
+                      title: Text(cats[i]),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => setModalState(() => selectedTopCat = cats[i]),
+                    ),
+                  ),
+                )
+              else ...[
+                TextButton.icon(
+                  onPressed: () => setModalState(() => selectedTopCat = null),
+                  icon: const Icon(Icons.arrow_back, size: 16),
+                  label: const Text('Back to Categories'),
+                ),
+                const Gap(10),
+                Expanded(
+                  child: ListView(
+                    children: _taxonomy
+                        .where((e) => e.categoryName == selectedTopCat)
+                        .map((svc) {
+                      final isSelected = _serviceCategories.contains(svc.name) || 
+                                         _eventCategories.contains(svc.name);
+                      return CheckboxListTile(
+                        title: Text(svc.name),
+                        value: isSelected,
+                        activeColor: AppColors.primary01,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _serviceCategories.add(svc.name);
+                              if (!_serviceCategories.contains(svc.categoryName)) {
+                                _serviceCategories.add(svc.categoryName);
+                              }
+                            } else {
+                              _serviceCategories.remove(svc.name);
+                            }
+                          });
+                          setModalState(() {});
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+              const Gap(20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _saveChanges();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary01,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Confirm & Save'),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
-
-    if (result != null && result.isNotEmpty && mounted) {
-      setState(() {
-        if (isService) {
-          if (!_serviceCategories.contains(result))
-            _serviceCategories.add(result);
-        } else {
-          if (!_eventCategories.contains(result)) _eventCategories.add(result);
-        }
-      });
-      _saveChanges();
-    }
   }
 
   Future<void> _showLocationPicker() async {

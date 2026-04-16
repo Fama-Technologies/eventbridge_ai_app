@@ -30,7 +30,7 @@ class AuthRepository implements IAuthRepository {
   }
 
   String get _firebaseCustomTokenUrl =>
-      'https://createfirebasecustomtoken-zo3ysx4pmq-uc.a.run.app';
+      'https://us-central1-eventbridge-483019.cloudfunctions.net/createFirebaseCustomToken';
 
   Future<void> _signInToFirebaseMessagingUser({
     required Map<String, dynamic> user,
@@ -68,6 +68,8 @@ class AuthRepository implements IAuthRepository {
         _firebaseCustomTokenUrl,
         data: {'userId': userId, 'email': email, 'name': name, 'role': role},
         options: Options(
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
           headers: {
             if (backendToken != null && backendToken.isNotEmpty)
               'Authorization': 'Bearer $backendToken',
@@ -80,7 +82,9 @@ class AuthRepository implements IAuthRepository {
         throw Exception('[Auth] Firebase custom token missing: ${response.data}');
       }
 
-      await _firebaseAuth.signInWithCustomToken(customToken);
+      await _firebaseAuth
+          .signInWithCustomToken(customToken)
+          .timeout(const Duration(seconds: 10));
       debugPrint('Firebase messaging auth restored for backend user $userId.');
     } on DioException catch (e) {
       final status = e.response?.statusCode;

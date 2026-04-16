@@ -8,7 +8,7 @@ class NetworkService {
 
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'https://api.eventbridge-ai.com',
+      baseUrl: 'https://eventbridge-primary-api-pig5the3wq-uc.a.run.app',
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
       headers: {

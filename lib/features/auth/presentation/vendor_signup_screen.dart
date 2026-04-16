@@ -353,7 +353,12 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                                   .continueWithGoogle(role: 'VENDOR');
                               if (!context.mounted) return;
                               if (!ref.read(authControllerProvider).hasError) {
-                                context.go('/vendor-onboarding');
+                                final repo = ref.read(authRepositoryProvider);
+                                if (repo.isOnboardingCompleted()) {
+                                  context.go('/vendor-home');
+                                } else {
+                                  context.go('/vendor-onboarding');
+                                }
                               } else {
                                 AppToast.show(
                                   context,

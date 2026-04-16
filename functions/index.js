@@ -9,7 +9,6 @@ exports.createFirebaseCustomToken = onRequest(
   {
     cors: true,
     invoker: "public",
-    serviceAccount: `${process.env.GCLOUD_PROJECT}@appspot.gserviceaccount.com`,
   },
   async (req, res) => {
     if (req.method !== "POST") {

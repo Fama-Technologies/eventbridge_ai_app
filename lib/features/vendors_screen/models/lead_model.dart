@@ -46,6 +46,29 @@ class ChatMessage {
   }
 }
 
+class Lead {
+  final String id;
+  final String? clientId;
+  final String title;
+  final String date;
+  final String time;
+  final String location;
+  final int matchScore;
+  final double budget;
+  final int guests;
+  final String responseTime;
+  final String clientName;
+  final String clientMessage;
+  final String venueName;
+  final String venueAddress;
+  final String clientImageUrl;
+  final bool isHighValue;
+  final String lastActive;
+  final bool isAccepted;
+  final String? phoneNumber;
+  final String? vendorResponse;
+  final List<ChatMessage> messages;
+  final DateTime? acceptedAt;
   final String status;
   final String? packageId;
   final String? packageTitle;

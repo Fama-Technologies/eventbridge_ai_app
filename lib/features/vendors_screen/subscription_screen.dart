@@ -115,7 +115,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
- }
 
   Future<void> _handleUpgrade(String plan) async {
     setState(() => _isUpgrading = true);
@@ -123,7 +122,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final userId = StorageService().getString('user_id');
       if (userId == null) return;
 
-      final result = await ApiService.instance.upgradePlanPesapal(userId, plan, currency: _displayCurrency);
+      final result = await ApiService.instance.upgradePlan(userId, plan);
       if (mounted && result['success'] == true) {
         if (result['isFree'] == true) {
           setState(() {

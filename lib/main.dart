@@ -47,9 +47,8 @@ void main() async {
   NotificationService.firebaseAuthRestoreHook =
       () => AuthRepository().restoreFirebaseMessagingAuthIfNeeded();
 
-  try {
-    await AuthRepository().restoreFirebaseMessagingAuthIfNeeded();
-  } catch (e, stack) {
+  // Run restoration in the background so it doesn't block the UI splash screen
+  AuthRepository().restoreFirebaseMessagingAuthIfNeeded().catchError((e, stack) {
     // Startup must stay resilient, but NEVER silently swallow this —
     // a failure here means Firebase Auth uid != backend user_id, which
     // makes every Firestore message write fail the security rule
@@ -60,7 +59,8 @@ void main() async {
     debugPrint(
       '🚨 [main] restoreFirebaseMessagingAuthIfNeeded FAILED: $e\n$stack',
     );
-  }
+  });
+
   await NotificationService().init();
 
   runApp(const ProviderScope(child: EventBridgeApp()));

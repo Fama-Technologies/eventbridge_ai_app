@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../features/vendors_screen/models/service_taxonomy_model.dart';
 import 'network_exceptions.dart';
 import 'network_service.dart';
 import 'network_status_provider.dart';
@@ -109,8 +110,8 @@ class ApiService {
           if (description != null) 'description': description,
           if (experience != null) 'experience': experience,
           if (price != null) 'price': price,
-          if (categories != null) 'categories': categories,
-          if (services != null) 'services': services,
+          if (categories != null) 'serviceCategories': categories,
+          if (services != null) 'eventCategories': services,
           if (avatarUrl != null) 'avatarUrl': avatarUrl,
           if (galleryUrls != null) 'galleryUrls': galleryUrls,
           if (projects != null) 'projects': projects,
@@ -695,6 +696,18 @@ class ApiService {
         return List<Map<String, dynamic>>.from(response.data);
       }
       throw Exception('Invalid response format for categories');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<List<ServiceItem>> getServicesTaxonomy() async {
+    try {
+      final response = await _dio.get('/api/taxonomy');
+      if (response.data is List) {
+        return (response.data as List).map((e) => ServiceItem.fromJson(e)).toList();
+      }
+      return [];
     } on DioException catch (e) {
       throw _handleError(e);
     }

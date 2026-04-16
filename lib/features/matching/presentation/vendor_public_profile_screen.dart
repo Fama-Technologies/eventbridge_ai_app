@@ -11,6 +11,8 @@ import 'package:eventbridge/features/home/presentation/providers/vendor_provider
 import 'package:eventbridge/features/matching/presentation/widgets/inquiry_bottom_sheet.dart';
 import 'package:eventbridge/features/shared/widgets/top_notification.dart';
 import 'package:intl/intl.dart';
+import 'package:eventbridge/core/storage/storage_service.dart';
+import 'package:eventbridge/core/network/api_service.dart';
 
 class VendorPublicProfileScreen extends ConsumerStatefulWidget {
   const VendorPublicProfileScreen({super.key, required this.vendorId});
@@ -1202,6 +1204,7 @@ class _SimilarServicesSection extends ConsumerWidget {
             id: v.id,
             name: v.businessName,
             businessOverview: '',
+            categories: v.serviceCategories,
             services: v.serviceCategories,
             location: v.location,
             plan: 'pro',

@@ -14,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../vendors_screen/models/service_taxonomy_model.dart';
 import 'package:eventbridge/core/widgets/app_toast.dart';
 import 'dart:async';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -72,21 +73,15 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   List<Map<String, String>> _placeSuggestions = [];
   bool _isLoadingPlaces = false;
   String? _selectedPlaceDescription;
+  bool _moreCategories = false;
   bool _moreServices = false;
   bool _moreEvents = false;
-  final _serviceCats = [
-    'DJ & Music',
-    'Photographer',
-    'Catering',
-    'Florist',
-    'Event Planner',
-    'Venue',
-    'Decorator',
-    'Lighting',
-    'Videographer',
-    'MC / Host',
-  ];
-  final _selectedSvc = <String>{'DJ & Music'};
+  bool _isLocating = false;
+  List<ServiceItem> _taxonomy = [];
+  bool _isLoadingTaxonomy = true;
+  final _serviceCats = <String>[];
+  final _selectedSvc = <String>{}; // Now stores selected service names/IDs
+  int? _selectedCategoryId; // Tracks the currently active category for service selection
   final _eventCats = [
     'Weddings',
     'Corporate Galas',
@@ -102,8 +97,16 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   // Step 2
   final _descCtrl = TextEditingController();
   final _expCtrl = TextEditingController();
+  final _instaCtrl = TextEditingController();
+  final _tiktokCtrl = TextEditingController();
+  final _fbCtrl = TextEditingController();
+  final _webCtrl = TextEditingController();
+  final _projTitle = TextEditingController();
+  final _projCategory = TextEditingController();
+
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 22, minute: 0);
+  File? _projImage;
   final _gallery = <File>[];
   final _priceCtrl = TextEditingController();
   String _selectedCurrency = 'UGX';
@@ -150,6 +153,14 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
     if (p != null && mounted) setState(() => _gallery.add(File(p.path)));
   }
 
+  Future<void> _pickProjectImage() async {
+    final p = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (p != null && mounted) setState(() => _projImage = File(p.path));
+  }
+
   Future<void> _pickTime(bool start) async {
     final p = await showTimePicker(
       context: context,
@@ -173,7 +184,27 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
   void initState() {
     super.initState();
     _loadDraft();
+    _fetchTaxonomy();
     _location.addListener(_onLocationChanged); // Added listener
+  }
+
+  Future<void> _fetchTaxonomy() async {
+    try {
+      final items = await ApiService.instance.getServicesTaxonomy();
+      if (mounted) {
+        setState(() {
+          _taxonomy = items;
+          // Extract unique category names
+          final cats = items.map((e) => e.categoryName).toSet().toList();
+          _serviceCats.clear();
+          _serviceCats.addAll(cats);
+          _isLoadingTaxonomy = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching taxonomy: $e');
+      if (mounted) setState(() => _isLoadingTaxonomy = false);
+    }
   }
 
   @override
@@ -231,6 +262,56 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
       setState(() => _placeSuggestions.clear());
     } finally {
       if (mounted) setState(() => _isLoadingPlaces = false);
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Location services are disabled.');
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions are denied.');
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions are permanently denied.');
+      }
+
+      final pos = await Geolocator.getCurrentPosition();
+      setState(() {
+        _lat = pos.latitude;
+        _lng = pos.longitude;
+      });
+
+      final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        setState(() {
+          if (p.country != null) _country.text = p.country!;
+          _location.text = [p.locality, p.subAdministrativeArea, p.administrativeArea]
+              .where((e) => e != null && e.isNotEmpty)
+              .join(', ');
+          _selectedPlaceDescription = _location.text;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(
+          context,
+          message: e.toString().contains('Exception') ? e.toString().substring(11) : 'Could not get location.',
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
@@ -318,6 +399,15 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
             _selectedEvt.clear();
             _selectedEvt.addAll(List<String>.from(draft['selectedEvt']));
           }
+          _instaCtrl.text = draft['insta'] ?? '';
+          _tiktokCtrl.text = draft['tiktok'] ?? '';
+          _fbCtrl.text = draft['fb'] ?? '';
+          _webCtrl.text = draft['web'] ?? '';
+          _projTitle.text = draft['projTitle'] ?? '';
+          _projCategory.text = draft['projCategory'] ?? '';
+          if (draft['projImagePath'] != null) {
+            _projImage = File(draft['projImagePath']);
+          }
           // Resume from saved step
           final savedStep = draft['step'] ?? 0;
           if (savedStep > 0 && savedStep <= 2) {
@@ -349,6 +439,13 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         'selectedEvt': _selectedEvt.toList(),
         'currency': _selectedCurrency,
         'priceUnit': _selectedPriceUnit,
+        'insta': _instaCtrl.text,
+        'tiktok': _tiktokCtrl.text,
+        'fb': _fbCtrl.text,
+        'web': _webCtrl.text,
+        'projTitle': _projTitle.text,
+        'projCategory': _projCategory.text,
+        'projImagePath': _projImage?.path,
         'step': _step,
       };
       final jsonStr = jsonEncode(draft);
@@ -393,6 +490,31 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
       final upload = UploadService.instance;
       final userId = StorageService().getString('user_id') ?? '';
 
+      // Validate mandatory project
+      if (_projImage == null ||
+          _projTitle.text.trim().isEmpty ||
+          _projCategory.text.trim().isEmpty) {
+        AppToast.show(
+          context,
+          message: 'Featured project (photo, title, category) is required.',
+          type: ToastType.error,
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      // Upload project image
+      String? projImageUrl;
+      final projBytes = kIsWeb
+          ? await _readWebFileBytes(_projImage!)
+          : await _projImage!.readAsBytes();
+      projImageUrl = await upload.uploadFile(
+        bytes: projBytes,
+        fileName: 'proj_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: 'image/jpeg',
+        folder: 'projects/$userId',
+      );
+
       // Upload avatar to S3
       String? avatarUrl;
       if (_avatar != null) {
@@ -436,6 +558,13 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         return;
       }
 
+      // Prepare final categories list (Category name + Specific Services)
+      final List<String> combinedCategories = [];
+      if (_selectedCategoryId != null) {
+        combinedCategories.add(_taxonomy.firstWhere((e) => e.categoryId == _selectedCategoryId).categoryName);
+      }
+      combinedCategories.addAll(_selectedSvc);
+
       await api.submitVendorOnboarding(
         userId: userId,
         businessName: _bizName.text,
@@ -444,7 +573,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         description: _descCtrl.text,
         experience: _expCtrl.text,
         price: _priceCtrl.text,
-        categories: _selectedSvc.toList(),
+        categories: combinedCategories,
         services: _selectedEvt.toList(),
         avatarUrl: avatarUrl,
         galleryUrls: galleryUrls,
@@ -454,6 +583,24 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         currency: _selectedCurrency,
         priceUnit: _selectedPriceUnit,
         isVerified: false,
+        website: _webCtrl.text.trim().isNotEmpty ? _webCtrl.text.trim() : null,
+        instagram:
+            _instaCtrl.text.trim().isNotEmpty ? _instaCtrl.text.trim() : null,
+        tiktok: _tiktokCtrl.text.trim().isNotEmpty ? _tiktokCtrl.text.trim() : null,
+        facebook: _fbCtrl.text.trim().isNotEmpty ? _fbCtrl.text.trim() : null,
+        workingHours: {
+          'startTime':
+              '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+          'endTime':
+              '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
+        },
+        projects: [
+          {
+            'image_url': projImageUrl,
+            'title': _projTitle.text.trim(),
+            'category': _projCategory.text.trim(),
+          }
+        ],
       );
 
       await StorageService().remove('vendor_onboarding_draft');
@@ -629,7 +776,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
         if (isService) {
           if (!_serviceCats.contains(result)) _serviceCats.add(result);
           _selectedSvc.add(result);
-          _moreServices = true; // Ensure newly added is visible
+          _moreCategories = true; // Ensure newly added category is visible
         } else {
           if (!_eventCats.contains(result)) _eventCats.add(result);
           _selectedEvt.add(result);
@@ -769,24 +916,52 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CategoryHeader(
-                  title: 'Business Categories',
+                  title: 'Select Business Category',
                   isRequired: true,
-                  expanded: _moreServices,
-                  onToggle: () =>
-                      setState(() => _moreServices = !_moreServices),
+                  expanded: _moreCategories,
+                  onToggle: () => setState(() => _moreCategories = !_moreCategories),
                 ),
                 const Gap(12),
-                _ChipGrid(
-                  items: _moreServices
-                      ? _serviceCats
-                      : _serviceCats.take(5).toList(),
-                  selected: _selectedSvc,
-                  onToggle: (v) => setState(
-                    () => _selectedSvc.contains(v)
-                        ? _selectedSvc.remove(v)
-                        : _selectedSvc.add(v),
+                if (_isLoadingTaxonomy)
+                  const Center(child: CircularProgressIndicator(color: _kOrange))
+                else
+                  _ChipGrid(
+                    items: _moreCategories ? _serviceCats : _serviceCats.take(8).toList(),
+                    selected: _selectedCategoryId != null 
+                        ? {_taxonomy.firstWhere((e) => e.categoryId == _selectedCategoryId).categoryName} 
+                        : {},
+                    onToggle: (catName) {
+                      final catId = _taxonomy.firstWhere((e) => e.categoryName == catName).categoryId;
+                      setState(() {
+                        if (_selectedCategoryId == catId) {
+                          _selectedCategoryId = null;
+                        } else {
+                          _selectedCategoryId = catId;
+                        }
+                      });
+                    },
                   ),
-                ),
+                if (_selectedCategoryId != null) ...[
+                  const Gap(24),
+                  _CategoryHeader(
+                    title: 'Specialized Services',
+                    isRequired: true,
+                    expanded: _moreServices,
+                    onToggle: () => setState(() => _moreServices = !_moreServices),
+                  ),
+                  const Gap(10),
+                  _ChipGrid(
+                    items: _moreServices 
+                        ? _taxonomy.where((e) => e.categoryId == _selectedCategoryId).map((e) => e.name).toList()
+                        : _taxonomy.where((e) => e.categoryId == _selectedCategoryId).map((e) => e.name).take(8).toList(),
+                    selected: _selectedSvc,
+                    onToggle: (v) => setState(
+                      () => _selectedSvc.contains(v)
+                          ? _selectedSvc.remove(v)
+                          : _selectedSvc.add(v),
+                    ),
+                  ),
+                ],
                 const Gap(8),
                 _AddCustomButton(onTap: () => _addCustomCategory(true)),
               ],
@@ -843,6 +1018,26 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
                         Icons.location_on_rounded,
                         size: 18,
                         color: _kOrange,
+                      ),
+                      suffix: GestureDetector(
+                        onTap: _isLocating ? null : _getCurrentLocation,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          child: _isLocating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: _kOrange,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.my_location_rounded,
+                                  size: 20,
+                                  color: _kOrange,
+                                ),
+                        ),
                       ),
                     ),
                     if (_isLoadingPlaces)
@@ -1084,6 +1279,109 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen>
               ),
             ],
           ).animate(delay: 130.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
+
+          const Gap(16),
+
+          // Featured Project (Mandatory)
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _CategoryHeader(
+                  title: 'Featured Project',
+                  isRequired: true,
+                  expanded: true,
+                  onToggle: null,
+                ),
+                const Gap(8),
+                const Text(
+                  'Add one standout project to showcase your work.',
+                  style: TextStyle(fontSize: 12, color: _kMuted),
+                ),
+                const Gap(16),
+                GestureDetector(
+                  onTap: _pickProjectImage,
+                  child: Container(
+                    height: 160,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkNeutral03 : const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _projImage == null ? _kBorder : _kOrange.withValues(alpha: 0.5),
+                        width: _projImage == null ? 1 : 2,
+                      ),
+                    ),
+                    child: _projImage != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: _pickedImageWidget(_projImage!, fit: BoxFit.cover),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_a_photo_outlined, size: 32, color: Colors.grey.shade400),
+                              const Gap(8),
+                              Text('Upload Project Photo', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                            ],
+                          ),
+                  ),
+                ),
+                const Gap(16),
+                const _FieldLabel('Project Title', isRequired: true),
+                const Gap(8),
+                _Input(ctrl: _projTitle, hint: 'e.g. Royal Wedding in Kampala'),
+                const Gap(16),
+                const _FieldLabel('Project Category', isRequired: true),
+                const Gap(8),
+                _Input(ctrl: _projCategory, hint: 'e.g. Weddings'),
+              ],
+            ),
+          ).animate(delay: 180.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
+
+          const Gap(16),
+
+          // Social Presence (Optional but recommended)
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SectionTitle(label: 'Social Presence', sub: 'Connect your professional profiles'),
+                const Gap(16),
+                const _FieldLabel('Website'),
+                const Gap(8),
+                _Input(
+                  ctrl: _webCtrl,
+                  hint: 'https://...',
+                  prefix: const Icon(Icons.language_rounded, size: 18, color: _kOrange),
+                ),
+                const Gap(16),
+                const _FieldLabel('Instagram'),
+                const Gap(8),
+                _Input(
+                  ctrl: _instaCtrl,
+                  hint: '@handle',
+                  prefix: const Icon(Icons.camera_alt_outlined, size: 18, color: _kOrange),
+                ),
+                const Gap(16),
+                const _FieldLabel('TikTok'),
+                const Gap(8),
+                _Input(
+                  ctrl: _tiktokCtrl,
+                  hint: '@handle',
+                  prefix: const Icon(Icons.video_library_outlined, size: 18, color: _kOrange),
+                ),
+                const Gap(16),
+                const _FieldLabel('Facebook'),
+                const Gap(8),
+                _Input(
+                  ctrl: _fbCtrl,
+                  hint: 'facebook.com/page',
+                  prefix: const Icon(Icons.facebook_outlined, size: 18, color: _kOrange),
+                ),
+              ],
+            ),
+          ).animate(delay: 240.ms).fadeIn(duration: 350.ms).slideY(begin: 0.12),
 
           const Gap(16),
 
@@ -1670,11 +1968,13 @@ class _Input extends StatelessWidget {
   final TextEditingController ctrl;
   final String hint;
   final Widget? prefix;
+  final Widget? suffix;
   final TextInputType? keyboardType;
   const _Input({
     required this.ctrl,
     required this.hint,
     this.prefix,
+    this.suffix,
     this.keyboardType,
   });
 
@@ -1697,6 +1997,7 @@ class _Input extends StatelessWidget {
         hintText: hint,
         hintStyle: TextStyle(fontSize: 14, color: muted),
         prefixIcon: prefix,
+        suffixIcon: suffix,
         filled: true,
         fillColor: fill,
         contentPadding: const EdgeInsets.symmetric(
